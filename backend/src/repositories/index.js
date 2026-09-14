@@ -1,0 +1,13 @@
+export { roleRepository } from './role.repository.js';
+export { accountRepository } from './account.repository.js';
+export { supplierRepository } from './supplier.repository.js';
+export { productRepository } from './product.repository.js';
+export { customerRepository } from './customer.repository.js';
+export { customerPreferenceRepository } from './customerPreference.repository.js';
+export { feedbackRepository } from './feedback.repository.js';
+export { surveyRepository } from './survey.repository.js';
+export { surveyQuestionRepository } from './surveyQuestion.repository.js';
+export { surveyQuestionOptionRepository } from './surveyQuestionOption.repository.js';
+export { surveyTargetRepository } from './surveyTarget.repository.js';
+export { surveyResponseRepository } from './surveyResponse.repository.js';
+export { surveyAnswerRepository } from './surveyAnswer.repository.js';

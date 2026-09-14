@@ -1,0 +1,202 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Role {
+  roleId      Int       @id @default(autoincrement()) @map("role_id")
+  roleName    String    @unique @db.VarChar(50) @map("role_name")
+  description String?   @db.VarChar(255)
+  accounts    Account[]
+
+  @@map("roles")
+}
+
+model Account {
+  accountId    Int       @id @default(autoincrement()) @map("account_id")
+  username     String    @unique @db.VarChar(50)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  roleId       Int       @map("role_id")
+  isLocked     Boolean   @default(false) @map("is_locked")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  role         Role      @relation(fields: [roleId], references: [roleId])
+  customer     Customer?
+
+  @@map("accounts")
+}
+
+model Supplier {
+  supplierId   Int       @id @default(autoincrement()) @map("supplier_id")
+  supplierName String    @map("supplier_name") @db.VarChar(150)
+  phone        String?   @db.VarChar(20)
+  email        String?   @db.VarChar(100)
+  address      String?   @db.VarChar(255)
+  products     Product[]
+
+  @@map("suppliers")
+}
+
+model Product {
+  productId     Int        @id @default(autoincrement()) @map("product_id")
+  supplierId    Int        @map("supplier_id")
+  productName   String     @map("product_name") @db.VarChar(150)
+  category      String?    @db.VarChar(50)
+  brand         String?    @db.VarChar(50)
+  size          String?    @db.VarChar(10)
+  color         String?    @db.VarChar(30)
+  material      String?    @db.VarChar(50)
+  price         Decimal    @db.Decimal(18, 2)
+  stockQuantity Int        @default(0) @map("stock_quantity")
+  isActive      Boolean    @default(true) @map("is_active")
+  imageUrl      String?    @map("image_url") @db.VarChar(500)
+  supplier      Supplier   @relation(fields: [supplierId], references: [supplierId])
+  feedbacks     Feedback[]
+
+  @@index([supplierId])
+  @@index([category])
+  @@index([isActive])
+  @@map("products")
+}
+
+model Customer {
+  customerId          Int                  @id @map("customer_id")
+  fullName            String               @map("full_name") @db.VarChar(100)
+  dateOfBirth         DateTime             @map("date_of_birth") @db.Date
+  gender              String?              @db.VarChar(10)
+  phone               String?              @db.VarChar(20)
+  address             String?              @db.VarChar(255)
+  // Soft delete cho nghiệp vụ "Xóa khách hàng" (4.1.2) - TÁCH BIỆT với Account.isLocked (4.1.3 "Khóa tài khoản").
+  // isDeleted=true  -> khách hàng biến mất khỏi danh sách hoạt động, KHÔNG xóa Feedback/SurveyResponse liên quan.
+  // Account.isLocked=true -> khách hàng không đăng nhập được, dữ liệu và Customer vẫn nguyên vẹn.
+  isDeleted           Boolean              @default(false) @map("is_deleted")
+  deletedAt           DateTime?            @map("deleted_at")
+  account             Account              @relation(fields: [customerId], references: [accountId], onDelete: Cascade)
+  customerPreferences CustomerPreference[]
+  feedbacks           Feedback[]
+  surveyTargets       SurveyTarget[]
+  surveyResponses     SurveyResponse[]
+
+  @@index([isDeleted])
+  @@map("customers")
+}
+
+model CustomerPreference {
+  preferenceId  Int      @id @default(autoincrement()) @map("preference_id")
+  customerId    Int      @map("customer_id")
+  preferenceTag String   @map("preference_tag") @db.VarChar(100)
+  customer      Customer @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
+
+  @@map("customer_preferences")
+}
+
+model Feedback {
+  feedbackId Int      @id @default(autoincrement()) @map("feedback_id")
+  customerId Int      @map("customer_id")
+  productId  Int      @map("product_id")
+  title      String   @db.VarChar(150)
+  content    String   @db.Text
+  // rating phải trong khoảng 1-5. Ràng buộc CHECK(rating BETWEEN 1 AND 5) được thêm bằng raw SQL trong migration
+  // (Prisma Client không tự sinh CHECK constraint), kèm validate ở tầng API/service.
+  rating     Int
+  imageUrl   String?  @map("image_url") @db.VarChar(500)
+  status     String   @default("Pending") @db.VarChar(20)
+  createdAt  DateTime @default(now()) @map("created_at")
+  // Giữ nguyên quan hệ mặc định (RESTRICT) tới Customer: vì "Xóa khách hàng" giờ là soft delete
+  // (Customer.isDeleted), app KHÔNG bao giờ chạy DELETE thật trên customers nữa nên RESTRICT không
+  // còn cản trở nghiệp vụ, đồng thời vẫn bảo vệ toàn vẹn dữ liệu nếu ai đó lỡ xóa cứng bằng tay.
+  customer   Customer @relation(fields: [customerId], references: [customerId])
+  product    Product  @relation(fields: [productId], references: [productId])
+
+  @@index([customerId])
+  @@index([productId])
+  @@index([status])
+  @@map("feedbacks")
+}
+
+model Survey {
+  surveyId        Int              @id @default(autoincrement()) @map("survey_id")
+  title           String           @db.VarChar(200)
+  description     String?          @db.Text
+  createdAt       DateTime         @default(now()) @map("created_at")
+  isActive        Boolean          @default(true) @map("is_active")
+  questions       SurveyQuestion[]
+  surveyTargets   SurveyTarget[]
+  surveyResponses SurveyResponse[]
+
+  @@map("surveys")
+}
+
+model SurveyQuestion {
+  questionId      Int                    @id @default(autoincrement()) @map("question_id")
+  surveyId        Int                    @map("survey_id")
+  questionContent String                 @map("question_content") @db.Text
+  questionType    String                 @map("question_type") @db.VarChar(20)
+  survey          Survey                 @relation(fields: [surveyId], references: [surveyId], onDelete: Cascade)
+  options         SurveyQuestionOption[]
+  surveyAnswers   SurveyAnswer[]
+
+  @@index([surveyId])
+  @@map("survey_questions")
+}
+
+// Danh sách lựa chọn hợp lệ cho câu hỏi SINGLE_CHOICE / MULTIPLE_CHOICE.
+// Câu hỏi loại TEXT không dùng bảng này (options rỗng).
+model SurveyQuestionOption {
+  optionId   Int            @id @default(autoincrement()) @map("option_id")
+  questionId Int            @map("question_id")
+  optionText String         @map("option_text") @db.VarChar(255)
+  sortOrder  Int            @default(0) @map("sort_order")
+  question   SurveyQuestion @relation(fields: [questionId], references: [questionId], onDelete: Cascade)
+  answers    SurveyAnswer[]
+
+  @@index([questionId])
+  @@map("survey_question_options")
+}
+
+model SurveyTarget {
+  surveyId    Int      @map("survey_id")
+  customerId  Int      @map("customer_id")
+  isCompleted Boolean  @default(false) @map("is_completed")
+  survey      Survey   @relation(fields: [surveyId], references: [surveyId], onDelete: Cascade)
+  customer    Customer @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
+
+  @@id([surveyId, customerId])
+  @@map("survey_targets")
+}
+
+model SurveyResponse {
+  responseId    Int            @id @default(autoincrement()) @map("response_id")
+  surveyId      Int            @map("survey_id")
+  customerId    Int            @map("customer_id")
+  submittedAt   DateTime       @default(now()) @map("submitted_at")
+  survey        Survey         @relation(fields: [surveyId], references: [surveyId])
+  customer      Customer       @relation(fields: [customerId], references: [customerId])
+  surveyAnswers SurveyAnswer[]
+
+  // Một khách hàng chỉ được nộp 1 lần cho mỗi khảo sát (yêu cầu VI).
+  @@unique([surveyId, customerId], name: "uq_survey_response_customer")
+  @@index([customerId])
+  @@map("survey_responses")
+}
+
+model SurveyAnswer {
+  answerId       Int                   @id @default(autoincrement()) @map("answer_id")
+  responseId     Int                   @map("response_id")
+  questionId     Int                   @map("question_id")
+  // Giữ nguyên answerValue (không breaking change): dùng cho câu TEXT, và với SINGLE_CHOICE
+  // vẫn lưu text của lựa chọn (denormalized) để không phải sửa code đọc dữ liệu hiện tại.
+  answerValue    String                @map("answer_value") @db.Text
+  // Thêm mới: với câu SINGLE_CHOICE/MULTIPLE_CHOICE, optionId trỏ về lựa chọn hợp lệ để thống kê
+  // chính xác bằng group-by id thay vì so khớp chuỗi text. Nullable vì câu TEXT không có option.
+  optionId       Int?                  @map("option_id")
+  surveyResponse SurveyResponse        @relation(fields: [responseId], references: [responseId], onDelete: Cascade)
+  surveyQuestion SurveyQuestion        @relation(fields: [questionId], references: [questionId])
+  option         SurveyQuestionOption? @relation(fields: [optionId], references: [optionId])
+
+  @@index([questionId])
+  @@index([optionId])
+  @@map("survey_answers")
+}
