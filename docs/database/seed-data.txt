@@ -1,0 +1,51 @@
+# Seed Data
+
+Nguồn: `backend/prisma/seed.js`. Chạy bằng `npx prisma db seed`. Script dùng `upsert` cho tài khoản/vai trò nên chạy lại nhiều lần trên cùng một DB không tạo dữ liệu trùng (riêng `customer_preferences` được kiểm tra tồn tại trước khi tạo vì không có unique key tự nhiên).
+
+## Tài khoản
+
+| Loại | Username | Mật khẩu | Ghi chú |
+|---|---|---|---|
+| Admin | `admin` | `123456` | Tài khoản quản trị duy nhất |
+| Customer | 15 tài khoản, ví dụ `nguyenvana`, `tranthib`... | `123456` | Xem chi tiết bên dưới |
+
+Mật khẩu mẫu được hash bằng bcrypt trước khi lưu — không lưu plaintext trong DB dù ở môi trường seed.
+
+## Khách hàng (15 bản ghi) — mục đích test từng trạng thái
+
+| Nhóm | Số lượng | Trạng thái | Dùng để test |
+|---|---|---|---|
+| Hoạt động bình thường | 10 | `is_locked=false`, `is_deleted=false` | Luồng nghiệp vụ thông thường |
+| Bị khóa | 2 (`hoangvane`, `ngophii`) | `is_locked=true` | Chức năng "Khóa tài khoản" (4.1.3) — không đăng nhập được nhưng dữ liệu nguyên vẹn |
+| Đã xóa mềm | 3 (`phanvann`, `huynhthio`, `vuvanp`) | `is_deleted=true` | Chức năng "Xóa khách hàng" (4.1.2) — biến mất khỏi danh sách hoạt động nhưng vẫn giữ feedback/response lịch sử |
+
+Mỗi khách hàng có 1 `customer_preferences` gắn theo (đa dạng độ tuổi, giới tính, sở thích giày).
+
+## Sản phẩm
+
+5 sản phẩm thuộc 1 nhà cung cấp (`Tổng Công Ty Phân Phối Giày Thể Thao Việt Nam`), đủ các category: Sneaker, Running, Basketball, Heels, Sandal. Mỗi sản phẩm có `image_url` placeholder ổn định (picsum.photos) để frontend luôn hiển thị được ảnh khi dev.
+
+## Feedback (8 bản ghi) — cố tình đa dạng để test đủ nhánh xử lý
+
+| Trường hợp | Mục đích |
+|---|---|
+| Rating trải đều 1–5 | Test hiển thị/thống kê rating |
+| Status `Pending`, `Approved`, `Rejected` | Test luồng duyệt/từ chối của Admin |
+| 1 feedback thuộc khách hàng đã soft-delete | Chứng minh lịch sử feedback không bị xóa theo |
+| 1 feedback nội dung spam, status `Rejected` | Test case Admin xử lý nội dung không phù hợp |
+| 5 khách hàng chủ động không có feedback nào | Test case "khách hàng chưa từng feedback" |
+
+## Khảo sát (3 survey)
+
+| Survey | Trạng thái | Số câu hỏi | Đặc điểm |
+|---|---|---|---|
+| Khảo sát Nhu cầu Khách hàng 2026 | `is_active=true` | nhiều câu, có SINGLE_CHOICE + TEXT | 8/13 khách hàng đã trả lời, còn lại nhận nhưng chưa làm — test cả 2 trạng thái |
+| Khảo sát thăm dò sản phẩm mới | `is_active=true` | 3 câu (2 SINGLE_CHOICE + 1 TEXT) | Chỉ gửi cho 6 khách hàng, 4 người đã phản hồi |
+| Khảo sát Trải nghiệm Mua sắm | `is_active=false` | 2 câu | Khảo sát đã đóng — test hiển thị/thống kê khảo sát cũ không còn nhận phản hồi mới |
+
+Ngoài ra có 1 `survey_response` lịch sử của khách hàng đã bị soft-delete, gán vào Survey 1 — chứng minh dữ liệu khảo sát không mất khi "xóa" khách hàng.
+
+## Khi thêm seed data mới
+
+- Giữ nguyên tinh thần "mỗi loại trạng thái nghiệp vụ đều có ít nhất 1 bản ghi mẫu" — đừng chỉ seed toàn dữ liệu "đẹp", vì sẽ không test được các nhánh lỗi/trạng thái đặc biệt (locked, deleted, rejected, chưa hoàn thành...).
+- Nếu thêm loại dữ liệu mẫu mới mang tính minh họa cho một nghiệp vụ cụ thể, cập nhật bảng tương ứng ở file này kèm mục đích test.

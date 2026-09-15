@@ -1,0 +1,40 @@
+# Migration Log
+
+Tóm tắt các lần migrate schema. File chi tiết gốc nằm ở `backend/prisma/migrations/<timestamp>_<name>/migration.sql`. Không sửa lại các migration đã chạy — mọi thay đổi tiếp theo phải là migration mới.
+
+## 1. Khởi tạo schema (init)
+
+Tạo 12 bảng nền tảng của hệ thống:
+
+- `roles`, `accounts` — quản lý tài khoản và phân quyền
+- `suppliers`, `products` — quản lý sản phẩm và nhà cung cấp
+- `customers`, `customer_preferences` — hồ sơ khách hàng và sở thích
+- `feedbacks` — đánh giá sản phẩm
+- `surveys`, `survey_questions`, `survey_targets`, `survey_responses`, `survey_answers` — hệ thống khảo sát
+
+Ràng buộc chính: `roles.role_name` và `accounts.username` là UNIQUE; toàn bộ khóa ngoại giữa các bảng khảo sát dùng `ON DELETE CASCADE` (xóa survey thì xóa luôn câu hỏi/lượt nộp liên quan), riêng `feedbacks` và `survey_responses` dùng `ON DELETE RESTRICT` với `customers` để bảo vệ lịch sử.
+
+## 2. Bổ sung soft-delete, option cho khảo sát, và index
+
+- **`customers`**: thêm `is_deleted` (BOOLEAN, default false) và `deleted_at` (TIMESTAMP) — chuyển nghiệp vụ "xóa khách hàng" từ xóa cứng sang soft-delete để giữ lại lịch sử feedback/khảo sát.
+- **`products`**: thêm `image_url` — phục vụ hiển thị ảnh sản phẩm ở frontend.
+- **Bảng mới `survey_question_options`**: cho phép câu hỏi loại `SINGLE_CHOICE` có danh sách lựa chọn cố định thay vì chỉ nhận text tự do.
+- **`survey_answers`**: thêm cột `option_id` (nullable, FK tới `survey_question_options`, `ON DELETE SET NULL`) — giữ nguyên `answer_value` để không phá code cũ, đồng thời cho phép thống kê chính xác bằng group-by id thay vì so khớp chuỗi.
+- **Unique constraint mới**: `survey_responses (survey_id, customer_id)` — đảm bảo một khách hàng chỉ nộp một lần cho mỗi khảo sát. *Lưu ý: nếu dữ liệu cũ đã có bản ghi trùng, migration này sẽ fail — cần dọn dữ liệu trùng trước khi chạy.*
+- **Index mới** (phục vụ các truy vấn lọc/thống kê thường dùng):
+  - `customers(is_deleted)`
+  - `feedbacks(customer_id)`, `feedbacks(product_id)`, `feedbacks(status)`
+  - `products(supplier_id)`, `products(category)`, `products(is_active)`
+  - `survey_answers(question_id)`, `survey_answers(option_id)`
+  - `survey_questions(survey_id)`
+  - `survey_responses(customer_id)`
+  - `survey_question_options(question_id)`
+
+## 3. Thêm ràng buộc CHECK cho rating
+
+```sql
+ALTER TABLE "feedbacks" ADD CONSTRAINT "feedbacks_rating_check" CHECK ("rating" BETWEEN 1 AND 5);
+```
+
+Prisma Client không tự sinh CHECK constraint nên phải thêm bằng raw SQL. Ràng buộc này bảo vệ ở tầng database; tầng API/service vẫn nên validate `rating` trước khi ghi để trả lỗi rõ ràng cho người dùng thay vì để database từ chối.
+

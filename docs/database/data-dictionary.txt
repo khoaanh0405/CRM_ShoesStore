@@ -1,0 +1,203 @@
+# Data Dictionary
+
+Mô tả chi tiết từng bảng và từng cột. Tên bảng/cột theo đúng tên vật lý trong PostgreSQL (snake_case). Xem [erd.md](./erd.md) để biết quan hệ tổng thể.
+
+---
+
+## roles
+
+Danh sách vai trò trong hệ thống (`Admin`, `Customer`).
+
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| role_id | SERIAL | PK | |
+| role_name | VARCHAR(50) | UNIQUE, NOT NULL | Tên vai trò, ví dụ `Admin`, `Customer` |
+| description | VARCHAR(255) | nullable | Mô tả vai trò |
+
+---
+
+## accounts
+
+Tài khoản đăng nhập, dùng chung cho cả Admin và Customer.
+
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| account_id | SERIAL | PK | |
+| username | VARCHAR(50) | UNIQUE, NOT NULL | |
+| password_hash | VARCHAR(255) | NOT NULL | Hash bằng bcrypt |
+| role_id | INTEGER | FK -> roles.role_id, NOT NULL | |
+| is_locked | BOOLEAN | DEFAULT false | Khóa đăng nhập (nghiệp vụ "Khóa tài khoản"). **Khác** với `customers.is_deleted` — xem ghi chú bên dưới |
+| created_at | TIMESTAMP | DEFAULT now() | |
+
+**Ghi chú nghiệp vụ**: `is_locked = true` → không đăng nhập được nhưng dữ liệu và bản ghi `customers` vẫn nguyên vẹn. Đây là hành động của Admin, tách biệt hoàn toàn với soft-delete ở bảng `customers`.
+
+---
+
+## customers
+
+Thông tin khách hàng, mở rộng 1-1 từ `accounts`.
+
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| customer_id | INTEGER | PK, FK -> accounts.account_id, ON DELETE CASCADE | |
+| full_name | VARCHAR(100) | NOT NULL | |
+| date_of_birth | DATE | NOT NULL | |
+| gender | VARCHAR(10) | nullable | |
+| phone | VARCHAR(20) | nullable | |
+| address | VARCHAR(255) | nullable | |
+| is_deleted | BOOLEAN | DEFAULT false, indexed | Soft delete — nghiệp vụ "Xóa khách hàng" |
+| deleted_at | TIMESTAMP | nullable | Thời điểm soft-delete |
+
+**Ghi chú nghiệp vụ**: `is_deleted = true` → khách hàng biến mất khỏi danh sách hoạt động nhưng **không** xóa `feedbacks`/`survey_responses` liên quan — lịch sử vẫn được giữ nguyên để tra cứu/thống kê.
+
+---
+
+## customer_preferences
+
+Sở thích của khách hàng (nhiều-1 với customer, không có unique key tự nhiên).
+
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| preference_id | SERIAL | PK | |
+| customer_id | INTEGER | FK -> customers.customer_id, ON DELETE CASCADE | |
+| preference_tag | VARCHAR(100) | NOT NULL | Ví dụ: "Giày Chạy Bộ" |
+
+---
+
+## suppliers
+
+Nhà cung cấp sản phẩm.
+
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| supplier_id | SERIAL | PK | |
+| supplier_name | VARCHAR(150) | NOT NULL | |
+| phone | VARCHAR(20) | nullable | |
+| email | VARCHAR(100) | nullable | |
+| address | VARCHAR(255) | nullable | |
+
+---
+
+## products
+
+Sản phẩm (giày).
+
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| product_id | SERIAL | PK | |
+| supplier_id | INTEGER | FK -> suppliers.supplier_id, indexed | |
+| product_name | VARCHAR(150) | NOT NULL | |
+| category | VARCHAR(50) | nullable, indexed | Ví dụ: Sneaker, Running, Basketball |
+| brand | VARCHAR(50) | nullable | |
+| size | VARCHAR(10) | nullable | |
+| color | VARCHAR(30) | nullable | |
+| material | VARCHAR(50) | nullable | |
+| price | DECIMAL(18,2) | NOT NULL | |
+| stock_quantity | INTEGER | DEFAULT 0 | |
+| is_active | BOOLEAN | DEFAULT true, indexed | Ẩn/hiện sản phẩm |
+| image_url | VARCHAR(500) | nullable | Thêm ở migration thứ 2 |
+
+---
+
+## feedbacks
+
+Đánh giá/phản hồi của khách hàng cho sản phẩm.
+
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| feedback_id | SERIAL | PK | |
+| customer_id | INTEGER | FK -> customers.customer_id, ON DELETE RESTRICT, indexed | |
+| product_id | INTEGER | FK -> products.product_id, ON DELETE RESTRICT, indexed | |
+| title | VARCHAR(150) | NOT NULL | |
+| content | TEXT | NOT NULL | |
+| rating | INTEGER | CHECK (rating BETWEEN 1 AND 5) | Ràng buộc thêm bằng raw SQL ở migration thứ 3 |
+| image_url | VARCHAR(500) | nullable | |
+| status | VARCHAR(20) | DEFAULT 'Pending', indexed | `Pending` / `Approved` / `Rejected` |
+| created_at | TIMESTAMP | DEFAULT now() | |
+
+**Ghi chú**: FK dùng `ON DELETE RESTRICT` tới `customers` — vì "xóa khách hàng" là soft-delete nên app không bao giờ chạy DELETE thật, ràng buộc này chỉ để bảo vệ toàn vẹn dữ liệu nếu có ai xóa cứng bằng tay.
+
+---
+
+## surveys
+
+Khảo sát do Admin tạo.
+
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| survey_id | SERIAL | PK | |
+| title | VARCHAR(200) | NOT NULL | |
+| description | TEXT | nullable | |
+| created_at | TIMESTAMP | DEFAULT now() | |
+| is_active | BOOLEAN | DEFAULT true | Khảo sát đã đóng thì set false, không nhận thêm phản hồi |
+
+---
+
+## survey_questions
+
+Câu hỏi trong khảo sát.
+
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| question_id | SERIAL | PK | |
+| survey_id | INTEGER | FK -> surveys.survey_id, ON DELETE CASCADE, indexed | |
+| question_content | TEXT | NOT NULL | |
+| question_type | VARCHAR(20) | NOT NULL | `TEXT` hoặc `SINGLE_CHOICE` |
+
+---
+
+## survey_question_options
+
+Lựa chọn cho câu hỏi loại `SINGLE_CHOICE`/`MULTIPLE_CHOICE`. Câu `TEXT` không dùng bảng này.
+
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| option_id | SERIAL | PK | |
+| question_id | INTEGER | FK -> survey_questions.question_id, ON DELETE CASCADE, indexed | |
+| option_text | VARCHAR(255) | NOT NULL | |
+| sort_order | INTEGER | DEFAULT 0 | Thứ tự hiển thị |
+
+Thêm ở migration thứ 2.
+
+---
+
+## survey_targets
+
+Danh sách khách hàng được gán nhận một khảo sát cụ thể.
+
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| survey_id | INTEGER | PK (kép), FK -> surveys.survey_id, ON DELETE CASCADE | |
+| customer_id | INTEGER | PK (kép), FK -> customers.customer_id, ON DELETE CASCADE | |
+| is_completed | BOOLEAN | DEFAULT false | Đã làm khảo sát hay chưa |
+
+---
+
+## survey_responses
+
+Một lượt nộp khảo sát của khách hàng.
+
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| response_id | SERIAL | PK | |
+| survey_id | INTEGER | FK -> surveys.survey_id, ON DELETE RESTRICT, indexed | |
+| customer_id | INTEGER | FK -> customers.customer_id, ON DELETE RESTRICT, indexed | UNIQUE cùng survey_id |
+| submitted_at | TIMESTAMP | DEFAULT now() | |
+
+**Ràng buộc bổ sung**: `UNIQUE (survey_id, customer_id)` — thêm ở migration thứ 2 để đảm bảo một khách hàng chỉ nộp một lần cho mỗi khảo sát.
+
+---
+
+## survey_answers
+
+Câu trả lời cho từng câu hỏi trong một lượt nộp.
+
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| answer_id | SERIAL | PK | |
+| response_id | INTEGER | FK -> survey_responses.response_id, ON DELETE CASCADE | |
+| question_id | INTEGER | FK -> survey_questions.question_id, ON DELETE RESTRICT, indexed | |
+| answer_value | TEXT | NOT NULL | Dùng cho câu TEXT; với SINGLE_CHOICE vẫn lưu text lựa chọn (denormalized) |
+| option_id | INTEGER | FK -> survey_question_options.option_id, ON DELETE SET NULL, nullable, indexed | Trỏ về lựa chọn hợp lệ để thống kê chính xác bằng group-by id |
+
+Cột `option_id` thêm ở migration thứ 2.
