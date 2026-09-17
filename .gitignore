@@ -63,6 +63,8 @@ Thumbs.db
 !.vscode/tasks.json
 !.vscode/launch.json
 .idea/
+.markdown-collab/
+.gemini/
 
 # ==========================================
 # 7. PACKAGE MANAGER LOGS
