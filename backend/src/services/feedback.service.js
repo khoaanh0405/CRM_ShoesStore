@@ -6,13 +6,12 @@
  */
 import { feedbackRepository, customerRepository, productRepository } from '../repositories/index.js';
 import { NotFoundError, ValidationError } from '../errors/AppError.js';
-
-const VALID_STATUSES = ['Pending', 'Approved', 'Rejected'];
+import { FEEDBACK_STATUS_LIST, FEEDBACK_RATING, MESSAGES } from '../constants/index.js';
 
 function assertValidRating(rating) {
   const ratingNum = Number(rating);
-  if (!Number.isInteger(ratingNum) || ratingNum < 1 || ratingNum > 5) {
-    throw new ValidationError('Đánh giá (rating) phải là số nguyên từ 1 đến 5.');
+  if (!Number.isInteger(ratingNum) || ratingNum < FEEDBACK_RATING.MIN || ratingNum > FEEDBACK_RATING.MAX) {
+    throw new ValidationError(`Đánh giá (rating) phải là số nguyên từ ${FEEDBACK_RATING.MIN} đến ${FEEDBACK_RATING.MAX}.`);
   }
   return ratingNum;
 }
@@ -24,7 +23,7 @@ export const feedbackService = {
 
   async getById(feedbackId) {
     const feedback = await feedbackRepository.findById(feedbackId);
-    if (!feedback) throw new NotFoundError('Không tìm thấy phản hồi.');
+    if (!feedback) throw new NotFoundError(MESSAGES.NOT_FOUND.FEEDBACK);
     return feedback;
   },
 
@@ -48,10 +47,10 @@ export const feedbackService = {
     const ratingNum = assertValidRating(rating);
 
     const customer = await customerRepository.findById(customerId);
-    if (!customer) throw new NotFoundError('Không tìm thấy khách hàng.');
+    if (!customer) throw new NotFoundError(MESSAGES.NOT_FOUND.CUSTOMER);
 
     const product = await productRepository.findById(productId);
-    if (!product) throw new NotFoundError('Không tìm thấy sản phẩm.');
+    if (!product) throw new NotFoundError(MESSAGES.NOT_FOUND.PRODUCT);
 
     return feedbackRepository.create({
       customerId,
@@ -82,8 +81,8 @@ export const feedbackService = {
 
   /** Admin tiếp nhận/xử lý phản hồi (mục 4.1.4). */
   async updateStatus(feedbackId, status) {
-    if (!VALID_STATUSES.includes(status)) {
-      throw new ValidationError(`Trạng thái không hợp lệ. Chỉ chấp nhận: ${VALID_STATUSES.join(', ')}.`);
+    if (!FEEDBACK_STATUS_LIST.includes(status)) {
+      throw new ValidationError(`Trạng thái không hợp lệ. Chỉ chấp nhận: ${FEEDBACK_STATUS_LIST.join(', ')}.`);
     }
     await this.getById(feedbackId);
     return feedbackRepository.updateStatus(feedbackId, status);

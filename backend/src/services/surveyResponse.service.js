@@ -13,11 +13,12 @@ import {
   customerRepository,
 } from '../repositories/index.js';
 import { NotFoundError, ValidationError, ConflictError, ForbiddenError } from '../errors/AppError.js';
+import { MESSAGES } from '../constants/index.js';
 
 export const surveyResponseService = {
   async getById(responseId) {
     const response = await surveyResponseRepository.findById(responseId);
-    if (!response) throw new NotFoundError('Không tìm thấy phiếu trả lời khảo sát.');
+    if (!response) throw new NotFoundError(MESSAGES.NOT_FOUND.RESPONSE);
     return response;
   },
 
@@ -31,7 +32,7 @@ export const surveyResponseService = {
 
   async getWithAnswers(responseId) {
     const response = await surveyResponseRepository.findWithAnswers(responseId);
-    if (!response) throw new NotFoundError('Không tìm thấy phiếu trả lời khảo sát.');
+    if (!response) throw new NotFoundError(MESSAGES.NOT_FOUND.RESPONSE);
     return response;
   },
 
@@ -45,18 +46,18 @@ export const surveyResponseService = {
    */
   async submit({ surveyId, customerId, answers = [] }) {
     const survey = await surveyRepository.findById(surveyId);
-    if (!survey) throw new NotFoundError('Không tìm thấy khảo sát.');
+    if (!survey) throw new NotFoundError(MESSAGES.NOT_FOUND.SURVEY);
     if (!survey.isActive) throw new ValidationError('Khảo sát này đã đóng, không nhận thêm phản hồi.');
 
     const customer = await customerRepository.findById(customerId);
-    if (!customer) throw new NotFoundError('Không tìm thấy khách hàng.');
+    if (!customer) throw new NotFoundError(MESSAGES.NOT_FOUND.CUSTOMER);
 
     const target = await surveyTargetRepository.findBySurveyAndCustomer(surveyId, customerId);
-    if (!target) throw new ForbiddenError('Khách hàng không nằm trong danh sách nhận khảo sát này.');
-    if (target.isCompleted) throw new ConflictError('Khách hàng đã nộp khảo sát này rồi.');
+    if (!target) throw new ForbiddenError(MESSAGES.SURVEY.NOT_TARGETED);
+    if (target.isCompleted) throw new ConflictError(MESSAGES.SURVEY.ALREADY_SUBMITTED);
 
     const existedResponse = await surveyResponseRepository.findBySurveyAndCustomer(surveyId, customerId);
-    if (existedResponse) throw new ConflictError('Khách hàng đã nộp khảo sát này rồi.');
+    if (existedResponse) throw new ConflictError(MESSAGES.SURVEY.ALREADY_SUBMITTED);
 
     const questions = await surveyQuestionRepository.findBySurvey(surveyId);
     const questionIds = new Set(questions.map((q) => q.questionId));

@@ -1,6 +1,7 @@
-import { Prisma } from '@prisma/client';
 import { productRepository, supplierRepository } from '../repositories/index.js';
 import { NotFoundError, ValidationError, ConflictError } from '../errors/AppError.js';
+import { MESSAGES } from '../constants/index.js';
+import { isForeignKeyError } from '../utils/index.js';
 
 export const productService = {
   list({ includeInactive = false } = {}) {
@@ -9,7 +10,7 @@ export const productService = {
 
   async getById(productId) {
     const product = await productRepository.findById(productId);
-    if (!product) throw new NotFoundError('Không tìm thấy sản phẩm.');
+    if (!product) throw new NotFoundError(MESSAGES.NOT_FOUND.PRODUCT);
     return product;
   },
 
@@ -34,7 +35,7 @@ export const productService = {
     }
 
     const supplier = await supplierRepository.findById(supplierId);
-    if (!supplier) throw new NotFoundError('Không tìm thấy nhà cung cấp.');
+    if (!supplier) throw new NotFoundError(MESSAGES.NOT_FOUND.SUPPLIER);
 
     return productRepository.create({
       supplierId,
@@ -61,7 +62,7 @@ export const productService = {
     }
     if (data.supplierId !== undefined) {
       const supplier = await supplierRepository.findById(data.supplierId);
-      if (!supplier) throw new NotFoundError('Không tìm thấy nhà cung cấp.');
+      if (!supplier) throw new NotFoundError(MESSAGES.NOT_FOUND.SUPPLIER);
     }
 
     return productRepository.update(productId, data);
@@ -79,7 +80,7 @@ export const productService = {
     try {
       return await productRepository.remove(productId);
     } catch (err) {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') {
+      if (isForeignKeyError(err)) {
         throw new ConflictError('Không thể xóa sản phẩm vì đã có phản hồi liên quan. Hãy ẩn sản phẩm (setActive) thay vì xóa.');
       }
       throw err;

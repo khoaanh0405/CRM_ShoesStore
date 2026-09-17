@@ -8,7 +8,6 @@
  * ("dùng prisma.account.create({ data: { ..., customer: { create: {...} } } })")
  * vì Repository layer không hỗ trợ nested-write/transaction giữa 2 bảng.
  */
-import bcrypt from 'bcrypt';
 import prisma from '../config/database.js';
 import { accountRepository, roleRepository } from '../repositories/index.js';
 import {
@@ -17,9 +16,8 @@ import {
   ConflictError,
   UnauthorizedError,
 } from '../errors/AppError.js';
-
-const SALT_ROUNDS = 10;
-const MIN_PASSWORD_LENGTH = 6;
+import { ROLE_NAMES, MESSAGES, MIN_PASSWORD_LENGTH } from '../constants/index.js';
+import { hashPassword, comparePassword } from '../utils/index.js';
 
 /** Không bao giờ trả passwordHash ra ngoài Service/Controller. */
 function sanitize(account) {
@@ -36,7 +34,7 @@ export const accountService = {
 
   async getById(accountId) {
     const account = await accountRepository.findById(accountId);
-    if (!account) throw new NotFoundError('Không tìm thấy tài khoản.');
+    if (!account) throw new NotFoundError(MESSAGES.NOT_FOUND.ACCOUNT);
     return sanitize(account);
   },
 
@@ -52,10 +50,10 @@ export const accountService = {
     const existed = await accountRepository.findByUsername(username.trim());
     if (existed) throw new ConflictError(`Tên đăng nhập "${username}" đã tồn tại.`);
 
-    const customerRole = await roleRepository.findByName('Customer');
-    if (!customerRole) throw new NotFoundError('Hệ thống chưa cấu hình vai trò "Customer".');
+    const customerRole = await roleRepository.findByName(ROLE_NAMES.CUSTOMER);
+    if (!customerRole) throw new NotFoundError(`Hệ thống chưa cấu hình vai trò "${ROLE_NAMES.CUSTOMER}".`);
 
-    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+    const passwordHash = await hashPassword(password);
 
     const account = await prisma.account.create({
       data: {
@@ -92,7 +90,7 @@ export const accountService = {
     const account = await accountRepository.findByUsernameWithRelations(username.trim());
     if (!account) throw new UnauthorizedError();
 
-    const isMatch = await bcrypt.compare(password, account.passwordHash);
+    const isMatch = await comparePassword(password, account.passwordHash);
     if (!isMatch) throw new UnauthorizedError();
 
     if (account.isLocked) {
@@ -109,16 +107,16 @@ export const accountService = {
   /** Khách hàng/Admin tự đổi mật khẩu — luôn yêu cầu đúng mật khẩu cũ. */
   async changePassword(accountId, { oldPassword, newPassword }) {
     const account = await prisma.account.findUnique({ where: { accountId } });
-    if (!account) throw new NotFoundError('Không tìm thấy tài khoản.');
+    if (!account) throw new NotFoundError(MESSAGES.NOT_FOUND.ACCOUNT);
 
-    const isMatch = await bcrypt.compare(oldPassword ?? '', account.passwordHash);
+    const isMatch = await comparePassword(oldPassword ?? '', account.passwordHash);
     if (!isMatch) throw new UnauthorizedError('Mật khẩu cũ không đúng.');
 
     if (!newPassword || newPassword.length < MIN_PASSWORD_LENGTH) {
       throw new ValidationError(`Mật khẩu mới phải có ít nhất ${MIN_PASSWORD_LENGTH} ký tự.`);
     }
 
-    const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    const passwordHash = await hashPassword(newPassword);
     return sanitize(await accountRepository.update(accountId, { passwordHash }));
   },
 
@@ -137,7 +135,7 @@ export const accountService = {
   async updateRole(accountId, roleId) {
     await this.getById(accountId);
     const role = await roleRepository.findById(roleId);
-    if (!role) throw new NotFoundError('Không tìm thấy vai trò.');
+    if (!role) throw new NotFoundError(MESSAGES.NOT_FOUND.ROLE);
     return sanitize(await accountRepository.updateRole(accountId, roleId));
   },
 };

@@ -1,5 +1,6 @@
 import { surveyQuestionOptionRepository, surveyQuestionRepository } from '../repositories/index.js';
 import { NotFoundError, ValidationError } from '../errors/AppError.js';
+import { QUESTION_TYPES, MESSAGES } from '../constants/index.js';
 
 export const surveyQuestionOptionService = {
   listByQuestion(questionId) {
@@ -8,8 +9,8 @@ export const surveyQuestionOptionService = {
 
   async create({ questionId, optionText, sortOrder }) {
     const question = await surveyQuestionRepository.findById(questionId);
-    if (!question) throw new NotFoundError('Không tìm thấy câu hỏi.');
-    if (question.questionType !== 'SINGLE_CHOICE') {
+    if (!question) throw new NotFoundError(MESSAGES.NOT_FOUND.QUESTION);
+    if (question.questionType !== QUESTION_TYPES.SINGLE_CHOICE) {
       throw new ValidationError('Chỉ câu hỏi trắc nghiệm (SINGLE_CHOICE) mới có lựa chọn.');
     }
     if (!optionText?.trim()) throw new ValidationError('Nội dung lựa chọn không được để trống.');
@@ -23,7 +24,7 @@ export const surveyQuestionOptionService = {
 
   async update(optionId, { optionText, sortOrder }) {
     const existed = await surveyQuestionOptionRepository.findById(optionId);
-    if (!existed) throw new NotFoundError('Không tìm thấy lựa chọn.');
+    if (!existed) throw new NotFoundError(MESSAGES.NOT_FOUND.OPTION);
     if (optionText !== undefined && !optionText.trim()) {
       throw new ValidationError('Nội dung lựa chọn không được để trống.');
     }
@@ -33,7 +34,7 @@ export const surveyQuestionOptionService = {
   /** An toàn để xóa: survey_answers.option_id là SET NULL, không bị FK chặn. */
   async remove(optionId) {
     const existed = await surveyQuestionOptionRepository.findById(optionId);
-    if (!existed) throw new NotFoundError('Không tìm thấy lựa chọn.');
+    if (!existed) throw new NotFoundError(MESSAGES.NOT_FOUND.OPTION);
     return surveyQuestionOptionRepository.remove(optionId);
   },
 };

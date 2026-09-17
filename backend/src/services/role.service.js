@@ -3,9 +3,10 @@
  * chuyển lỗi FK (P2003) khi xóa Role còn Account tham chiếu thành lỗi nghiệp
  * vụ dễ hiểu (xem ghi chú role.repository.js).
  */
-import { Prisma } from '@prisma/client';
 import { roleRepository } from '../repositories/index.js';
 import { NotFoundError, ValidationError, ConflictError } from '../errors/AppError.js';
+import { MESSAGES } from '../constants/index.js';
+import { isForeignKeyError } from '../utils/index.js';
 
 export const roleService = {
   list() {
@@ -14,7 +15,7 @@ export const roleService = {
 
   async getById(roleId) {
     const role = await roleRepository.findById(roleId);
-    if (!role) throw new NotFoundError('Không tìm thấy vai trò.');
+    if (!role) throw new NotFoundError(MESSAGES.NOT_FOUND.ROLE);
     return role;
   },
 
@@ -46,7 +47,7 @@ export const roleService = {
     try {
       return await roleRepository.remove(roleId);
     } catch (err) {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') {
+      if (isForeignKeyError(err)) {
         throw new ConflictError('Không thể xóa vai trò vì vẫn còn tài khoản đang sử dụng.');
       }
       throw err;

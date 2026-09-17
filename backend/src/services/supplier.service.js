@@ -1,6 +1,7 @@
-import { Prisma } from '@prisma/client';
 import { supplierRepository } from '../repositories/index.js';
 import { NotFoundError, ValidationError, ConflictError } from '../errors/AppError.js';
+import { MESSAGES } from '../constants/index.js';
+import { isForeignKeyError } from '../utils/index.js';
 
 export const supplierService = {
   list() {
@@ -9,7 +10,7 @@ export const supplierService = {
 
   async getById(supplierId) {
     const supplier = await supplierRepository.findById(supplierId);
-    if (!supplier) throw new NotFoundError('Không tìm thấy nhà cung cấp.');
+    if (!supplier) throw new NotFoundError(MESSAGES.NOT_FOUND.SUPPLIER);
     return supplier;
   },
 
@@ -47,7 +48,7 @@ export const supplierService = {
     try {
       return await supplierRepository.remove(supplierId);
     } catch (err) {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') {
+      if (isForeignKeyError(err)) {
         throw new ConflictError('Không thể xóa nhà cung cấp vì vẫn còn sản phẩm liên kết.');
       }
       throw err;

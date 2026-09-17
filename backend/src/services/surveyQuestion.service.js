@@ -1,12 +1,11 @@
-import { Prisma } from '@prisma/client';
 import {
   surveyQuestionRepository,
   surveyRepository,
   surveyQuestionOptionRepository,
 } from '../repositories/index.js';
 import { NotFoundError, ValidationError, ConflictError } from '../errors/AppError.js';
-
-const VALID_QUESTION_TYPES = ['TEXT', 'SINGLE_CHOICE'];
+import { QUESTION_TYPE_LIST, MESSAGES } from '../constants/index.js';
+import { isForeignKeyError } from '../utils/index.js';
 
 export const surveyQuestionService = {
   listBySurvey(surveyId) {
@@ -15,17 +14,17 @@ export const surveyQuestionService = {
 
   async getById(questionId) {
     const question = await surveyQuestionRepository.findById(questionId);
-    if (!question) throw new NotFoundError('Không tìm thấy câu hỏi.');
+    if (!question) throw new NotFoundError(MESSAGES.NOT_FOUND.QUESTION);
     return question;
   },
 
   /** Thêm 1 câu hỏi (kèm lựa chọn nếu là SINGLE_CHOICE) vào khảo sát đã tồn tại. */
   async create({ surveyId, questionContent, questionType, options = [] }) {
     const survey = await surveyRepository.findById(surveyId);
-    if (!survey) throw new NotFoundError('Không tìm thấy khảo sát.');
+    if (!survey) throw new NotFoundError(MESSAGES.NOT_FOUND.SURVEY);
 
     if (!questionContent?.trim()) throw new ValidationError('Nội dung câu hỏi không được để trống.');
-    if (!VALID_QUESTION_TYPES.includes(questionType)) {
+    if (!QUESTION_TYPE_LIST.includes(questionType)) {
       throw new ValidationError(`Loại câu hỏi không hợp lệ: "${questionType}".`);
     }
     if (questionType === 'SINGLE_CHOICE' && (!Array.isArray(options) || options.length < 2)) {
@@ -58,7 +57,7 @@ export const surveyQuestionService = {
     if (questionContent !== undefined && !questionContent.trim()) {
       throw new ValidationError('Nội dung câu hỏi không được để trống.');
     }
-    if (questionType !== undefined && !VALID_QUESTION_TYPES.includes(questionType)) {
+    if (questionType !== undefined && !QUESTION_TYPE_LIST.includes(questionType)) {
       throw new ValidationError(`Loại câu hỏi không hợp lệ: "${questionType}".`);
     }
     return surveyQuestionRepository.update(questionId, {
@@ -73,7 +72,7 @@ export const surveyQuestionService = {
     try {
       return await surveyQuestionRepository.remove(questionId);
     } catch (err) {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') {
+      if (isForeignKeyError(err)) {
         throw new ConflictError('Không thể xóa câu hỏi vì đã có khách hàng trả lời.');
       }
       throw err;

@@ -11,6 +11,7 @@ import {
   surveyQuestionOptionRepository,
 } from '../repositories/index.js';
 import { NotFoundError } from '../errors/AppError.js';
+import { QUESTION_TYPES, MESSAGES } from '../constants/index.js';
 
 export const surveyAnswerService = {
   listByResponse(responseId) {
@@ -23,14 +24,14 @@ export const surveyAnswerService = {
 
   async statsByQuestion(questionId) {
     const question = await surveyQuestionRepository.findById(questionId);
-    if (!question) throw new NotFoundError('Không tìm thấy câu hỏi.');
+    if (!question) throw new NotFoundError(MESSAGES.NOT_FOUND.QUESTION);
 
-    if (question.questionType === 'TEXT') {
+    if (question.questionType === QUESTION_TYPES.TEXT) {
       const answers = await surveyAnswerRepository.findByQuestion(questionId);
       return {
         questionId,
         questionContent: question.questionContent,
-        questionType: 'TEXT',
+        questionType: QUESTION_TYPES.TEXT,
         totalAnswers: answers.length,
         answers: answers.map((a) => a.answerValue),
       };

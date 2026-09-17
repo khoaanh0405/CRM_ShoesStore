@@ -1,5 +1,6 @@
 import { surveyTargetRepository, surveyRepository, customerRepository } from '../repositories/index.js';
 import { NotFoundError, ConflictError } from '../errors/AppError.js';
+import { MESSAGES } from '../constants/index.js';
 
 export const surveyTargetService = {
   listBySurvey(surveyId) {
@@ -14,13 +15,13 @@ export const surveyTargetService = {
   /** Gán 1 khách hàng vào danh sách nhận khảo sát (mục 4.1.6). */
   async assign(surveyId, customerId) {
     const survey = await surveyRepository.findById(surveyId);
-    if (!survey) throw new NotFoundError('Không tìm thấy khảo sát.');
+    if (!survey) throw new NotFoundError(MESSAGES.NOT_FOUND.SURVEY);
 
     const customer = await customerRepository.findById(customerId);
-    if (!customer) throw new NotFoundError('Không tìm thấy khách hàng.');
+    if (!customer) throw new NotFoundError(MESSAGES.NOT_FOUND.CUSTOMER);
 
     const existed = await surveyTargetRepository.findBySurveyAndCustomer(surveyId, customerId);
-    if (existed) throw new ConflictError('Khách hàng đã nằm trong danh sách nhận khảo sát này.');
+    if (existed) throw new ConflictError(MESSAGES.SURVEY.ALREADY_TARGETED);
 
     return surveyTargetRepository.create({ surveyId, customerId });
   },
@@ -28,7 +29,7 @@ export const surveyTargetService = {
   /** Gán hàng loạt — dùng chung logic với surveyService.assignToCustomers(). */
   async assignMany(surveyId, customerIds = []) {
     const survey = await surveyRepository.findById(surveyId);
-    if (!survey) throw new NotFoundError('Không tìm thấy khảo sát.');
+    if (!survey) throw new NotFoundError(MESSAGES.NOT_FOUND.SURVEY);
 
     const targets = [...new Set(customerIds)].map((customerId) => ({ surveyId, customerId }));
     return surveyTargetRepository.createMany(targets);
@@ -36,7 +37,7 @@ export const surveyTargetService = {
 
   async remove(surveyId, customerId) {
     const existed = await surveyTargetRepository.findBySurveyAndCustomer(surveyId, customerId);
-    if (!existed) throw new NotFoundError('Khách hàng không nằm trong danh sách nhận khảo sát này.');
+    if (!existed) throw new NotFoundError(MESSAGES.SURVEY.NOT_TARGETED);
     return surveyTargetRepository.remove(surveyId, customerId);
   },
 };

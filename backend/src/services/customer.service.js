@@ -5,25 +5,12 @@
  */
 import { customerRepository, customerPreferenceRepository } from '../repositories/index.js';
 import { NotFoundError, ValidationError, ForbiddenError } from '../errors/AppError.js';
-
-function calcAge(dateOfBirth) {
-  const today = new Date();
-  const dob = new Date(dateOfBirth);
-  let age = today.getFullYear() - dob.getFullYear();
-  const beforeBirthdayThisYear =
-    today.getMonth() < dob.getMonth() ||
-    (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate());
-  if (beforeBirthdayThisYear) age -= 1;
-  return age;
-}
+import { AGE_BUCKETS, MESSAGES } from '../constants/index.js';
+import { calculateAge } from '../utils/index.js';
 
 function ageBucketOf(age) {
-  if (age < 18) return 'Dưới 18';
-  if (age <= 24) return '18-24';
-  if (age <= 34) return '25-34';
-  if (age <= 44) return '35-44';
-  if (age <= 54) return '45-54';
-  return '55+';
+  const bucket = AGE_BUCKETS.find((b) => age >= b.min && age <= b.max);
+  return bucket ? bucket.label : 'Không rõ';
 }
 
 export const customerService = {
@@ -33,14 +20,14 @@ export const customerService = {
 
   async getById(customerId, options = {}) {
     const customer = await customerRepository.findById(customerId, options);
-    if (!customer) throw new NotFoundError('Không tìm thấy khách hàng.');
+    if (!customer) throw new NotFoundError(MESSAGES.NOT_FOUND.CUSTOMER);
     return customer;
   },
 
   /** Hồ sơ đầy đủ (kèm username/isLocked) — dùng cho trang chi tiết Admin hoặc trang cá nhân Customer. */
   async getProfile(customerId) {
     const customer = await customerRepository.findByIdWithAccount(customerId);
-    if (!customer) throw new NotFoundError('Không tìm thấy khách hàng.');
+    if (!customer) throw new NotFoundError(MESSAGES.NOT_FOUND.CUSTOMER);
     const { account, ...rest } = customer;
     return { ...rest, username: account.username, isLocked: account.isLocked };
   },
@@ -93,7 +80,7 @@ export const customerService = {
 
     const ageBuckets = {};
     for (const c of customers) {
-      const bucket = ageBucketOf(calcAge(c.dateOfBirth));
+      const bucket = ageBucketOf(calculateAge(c.dateOfBirth));
       ageBuckets[bucket] = (ageBuckets[bucket] || 0) + 1;
     }
 

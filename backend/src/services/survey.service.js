@@ -11,9 +11,7 @@
 import prisma from '../config/database.js';
 import { surveyRepository, surveyTargetRepository, customerRepository } from '../repositories/index.js';
 import { NotFoundError, ValidationError } from '../errors/AppError.js';
-
-const VALID_QUESTION_TYPES = ['TEXT', 'SINGLE_CHOICE'];
-const MIN_QUESTIONS = 15; // Yêu cầu đồ án: bảng khảo sát phải có ít nhất 15 câu hỏi.
+import { QUESTION_TYPE_LIST, MIN_SURVEY_QUESTIONS, MESSAGES } from '../constants/index.js';
 
 export const surveyService = {
   list({ isActive } = {}) {
@@ -22,13 +20,13 @@ export const surveyService = {
 
   async getById(surveyId) {
     const survey = await surveyRepository.findById(surveyId);
-    if (!survey) throw new NotFoundError('Không tìm thấy khảo sát.');
+    if (!survey) throw new NotFoundError(MESSAGES.NOT_FOUND.SURVEY);
     return survey;
   },
 
   async getWithQuestions(surveyId) {
     const survey = await surveyRepository.findByIdWithQuestions(surveyId);
-    if (!survey) throw new NotFoundError('Không tìm thấy khảo sát.');
+    if (!survey) throw new NotFoundError(MESSAGES.NOT_FOUND.SURVEY);
     return survey;
   },
 
@@ -39,12 +37,12 @@ export const surveyService = {
    */
   async createWithQuestions({ title, description, questions = [] }) {
     if (!title?.trim()) throw new ValidationError('Tiêu đề khảo sát không được để trống.');
-    if (!Array.isArray(questions) || questions.length < MIN_QUESTIONS) {
-      throw new ValidationError(`Khảo sát phải có ít nhất ${MIN_QUESTIONS} câu hỏi.`);
+    if (!Array.isArray(questions) || questions.length < MIN_SURVEY_QUESTIONS) {
+      throw new ValidationError(`Khảo sát phải có ít nhất ${MIN_SURVEY_QUESTIONS} câu hỏi.`);
     }
     for (const q of questions) {
       if (!q.questionContent?.trim()) throw new ValidationError('Nội dung câu hỏi không được để trống.');
-      if (!VALID_QUESTION_TYPES.includes(q.questionType)) {
+      if (!QUESTION_TYPE_LIST.includes(q.questionType)) {
         throw new ValidationError(`Loại câu hỏi không hợp lệ: "${q.questionType}".`);
       }
       if (q.questionType === 'SINGLE_CHOICE' && (!Array.isArray(q.options) || q.options.length < 2)) {
