@@ -1,0 +1,326 @@
+### ===================================================================
+### 🧪 BỘ TEST CASE TOÀN DIỆN CHO TẤT CẢ API (CRM_SHOESSTORE)
+### ===================================================================
+### Hướng dẫn sử dụng:
+### 1. Bật Backend Server: cd backend -> npm start (Chạy tại port 5001).
+### 2. Thực hiện BƯỚC 1 & BƯỚC 2 dưới đây để tự động lấy Admin Token và Customer Token.
+### 3. Nhấp "Send Request" trên bất kỳ Test Case nào để kiểm thử.
+
+@baseUrl = http://localhost:5001
+
+
+### ===================================================================
+### 0. PHẦN KHỞI TẠO TOKEN XÁC THỰC (BẮT BUỘC CHẠY TRƯỚC)
+### ===================================================================
+
+### 0.1 Đăng nhập tài khoản Khách Hàng (Customer)
+# @name customerLogin
+POST {{baseUrl}}/api/accounts/login
+Content-Type: application/json
+
+{
+  "username": "nguyenvana",
+  "password": "123456"
+}
+
+### Lưu Customer Token
+@customerToken = {{customerLogin.response.body.token}}
+
+
+### 0.2 Đăng nhập tài khoản Quản Trị Viên (Admin)
+# @name adminLogin
+POST {{baseUrl}}/api/accounts/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "123456"
+}
+
+### Lưu Admin Token
+@adminToken = {{adminLogin.response.body.token}}
+
+
+### 0.3 Test kiểm tra Server sống (Health Check)
+GET {{baseUrl}}/health
+
+
+### ===================================================================
+### 1. MODULE TÀI KHOẢN & PHÂN QUYỀN (ACCOUNTS & ROLES)
+### ===================================================================
+
+### 1.1 Đăng ký tài khoản Khách hàng mới (Public)
+POST {{baseUrl}}/api/accounts/register
+Content-Type: application/json
+
+{
+  "username": "testuser_2026",
+  "password": "password123",
+  "fullName": "Người Dùng Test Mới",
+  "dateOfBirth": "2000-01-01",
+  "gender": "Nam",
+  "phone": "0988777666",
+  "address": "123 Nguyễn Trãi, Q.5, TP.HCM"
+}
+
+### 1.2 Xem danh sách tất cả tài khoản (Chỉ Admin)
+GET {{baseUrl}}/api/accounts
+Authorization: Bearer {{adminToken}}
+
+### 1.3 Xem chi tiết 1 tài khoản theo ID (Chỉ Admin)
+GET {{baseUrl}}/api/accounts/1
+Authorization: Bearer {{adminToken}}
+
+### 1.4 Khóa tài khoản Khách hàng (Chỉ Admin)
+PATCH {{baseUrl}}/api/accounts/2/lock
+Authorization: Bearer {{adminToken}}
+
+### 1.5 Mở khóa tài khoản Khách hàng (Chỉ Admin)
+PATCH {{baseUrl}}/api/accounts/2/unlock
+Authorization: Bearer {{adminToken}}
+
+### 1.6 Xem danh sách Vai trò (Roles)
+GET {{baseUrl}}/api/roles
+Authorization: Bearer {{adminToken}}
+
+
+### ===================================================================
+### 2. MODULE SẢN PHẨM (PRODUCTS)
+### ===================================================================
+
+### 2.1 Xem danh sách sản phẩm (Public)
+GET {{baseUrl}}/api/products
+
+### 2.2 Tìm kiếm & lọc sản phẩm (Public)
+GET {{baseUrl}}/api/products/search?brand=Nike&category=Sneaker
+
+### 2.3 Xem chi tiết sản phẩm theo ID (Public)
+GET {{baseUrl}}/api/products/1
+
+### 2.4 Xem danh sách phản hồi của 1 sản phẩm
+GET {{baseUrl}}/api/products/1/feedbacks
+
+### 2.5 Thêm sản phẩm mới (Chỉ Admin)
+POST {{baseUrl}}/api/products
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "supplierId": 1,
+  "productName": "Giày Chạy Bộ Ultra Boost 2026",
+  "category": "Running",
+  "brand": "Adidas",
+  "size": "42",
+  "color": "Trắng/Xám",
+  "material": "Vải dệt cao cấp",
+  "price": 1850000,
+  "stockQuantity": 50,
+  "imageUrl": "https://picsum.photos/seed/ultraboost/600/600"
+}
+
+### 2.6 Cập nhật thông tin sản phẩm (Chỉ Admin)
+PUT {{baseUrl}}/api/products/1
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "supplierId": 1,
+  "productName": "Giày Sneaker Classic V2",
+  "category": "Sneaker",
+  "brand": "Nike",
+  "size": "42",
+  "color": "Đen",
+  "material": "Da tổng hợp cao cấp",
+  "price": 950000,
+  "stockQuantity": 80,
+  "imageUrl": "https://picsum.photos/seed/sneaker-classic/600/600"
+}
+
+### 2.7 Bật/Tắt trạng thái kinh doanh sản phẩm (Chỉ Admin)
+PATCH {{baseUrl}}/api/products/1/active
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "isActive": true
+}
+
+
+### ===================================================================
+### 3. MODULE NHÀ CUNG CẤP (SUPPLIERS)
+### ===================================================================
+
+### 3.1 Xem danh sách Nhà cung cấp (Chỉ Admin)
+GET {{baseUrl}}/api/suppliers
+Authorization: Bearer {{adminToken}}
+
+### 3.2 Thêm Nhà cung cấp mới (Chỉ Admin)
+POST {{baseUrl}}/api/suppliers
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "supplierName": "Công ty TNHH Nhập Khẩu Giày Buôn Lậu",
+  "phone": "0283777888",
+  "email": "contact123@shoeeurope.com",
+  "address": "456 Võ Văn Kiệt, Q.1, Cần Thơ"
+}
+
+### 3.3 Xem chi tiết Nhà cung cấp theo ID
+GET {{baseUrl}}/api/suppliers/1
+Authorization: Bearer {{adminToken}}
+
+
+### ===================================================================
+### 4. MODULE KHÁCH HÀNG & SỞ THÍCH (CUSTOMERS & PREFERENCES)
+### ===================================================================
+
+### 4.1 Xem danh sách Khách hàng (Chỉ Admin)
+GET {{baseUrl}}/api/customers
+Authorization: Bearer {{adminToken}}
+
+### 4.2 Báo cáo thống kê Khách hàng theo Độ tuổi & Sở thích (Chỉ Admin)
+GET {{baseUrl}}/api/customers/report
+Authorization: Bearer {{adminToken}}
+
+### 4.3 Tìm kiếm Khách hàng theo từ khóa (Chỉ Admin)
+GET {{baseUrl}}/api/customers/search?keyword=Nguyễn
+
+### 4.4 Xem chi tiết thông tin Khách hàng theo ID
+GET {{baseUrl}}/api/customers/1
+Authorization: Bearer {{customerToken}}
+
+### 4.5 Cập nhật Hồ sơ cá nhân Khách hàng
+PUT {{baseUrl}}/api/customers/1
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "fullName": "Nguyễn Văn A (Đã Cập Nhật)",
+  "dateOfBirth": "1998-05-15",
+  "gender": "Nam",
+  "phone": "0901234567",
+  "address": "123 Nguyễn Trãi, Q.1, TP.HCM"
+}
+
+### 4.6 Thêm Nhãn sở thích cho Khách hàng (`CustomerPreference`)
+POST {{baseUrl}}/api/customers/1/preferences
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "preferenceTag": "Giày Sneaker Cổ Cao"
+}
+
+### 4.7 Xem danh sách Nhãn sở thích của Khách hàng
+GET {{baseUrl}}/api/customers/1/preferences
+Authorization: Bearer {{customerToken}}
+
+### 4.8 Xóa Khách hàng - Soft Delete (Chỉ Admin)
+DELETE {{baseUrl}}/api/customers/12
+Authorization: Bearer {{adminToken}}
+
+
+### ===================================================================
+### 5. MODULE ĐÁNH GIÁ & PHẢN HỒI (FEEDBACKS)
+### ===================================================================
+
+### 5.1 Xem tất cả Phản hồi (Chỉ Admin duyệt)
+GET {{baseUrl}}/api/feedbacks
+Authorization: Bearer {{adminToken}}
+
+### 5.2 Khách hàng gửi bài Đánh giá / Phản hồi mới cho Sản phẩm
+POST {{baseUrl}}/api/feedbacks
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "customerId": 1,
+  "productId": 1,
+  "title": "Giày đi rất êm và bền",
+  "content": "Đi bộ cả ngày không bị đau gót chân, mẫu mã đúng hình.",
+  "rating": 5,
+  "imageUrl": "https://picsum.photos/seed/feedback1/600/600"
+}
+
+### 5.3 Admin phê duyệt / từ chối Phản hồi (Duyệt Pending -> Approved / Rejected)
+PATCH {{baseUrl}}/api/feedbacks/2/status
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "status": "Approved"
+}
+
+### 5.4 Xem phản hồi của chính mình (Khách hàng)
+GET {{baseUrl}}/api/customers/1/feedbacks
+Authorization: Bearer {{customerToken}}
+
+
+### ===================================================================
+### 6. MODULE KHẢO SÁT & BÁO CÁO CRM (SURVEYS SYSTEM)
+### ===================================================================
+
+### 6.1 Xem danh sách bài Khảo sát
+GET {{baseUrl}}/api/surveys
+Authorization: Bearer {{customerToken}}
+
+### 6.2 Admin tạo bài Khảo sát thị trường mới
+POST {{baseUrl}}/api/surveys
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "title": "Khảo sát Xu hướng Mẫu Giày Thu Đông 2026",
+  "description": "Thăm dò ý kiến đóng góp của khách hàng cho bộ sưu tập sắp ra mắt",
+  "isActive": true
+}
+
+### 6.3 Xem bài Khảo sát đầy đủ kèm danh sách Câu hỏi & Lựa chọn (Khi khách hàng làm bài)
+GET {{baseUrl}}/api/surveys/1/full
+Authorization: Bearer {{customerToken}}
+
+### 6.4 Admin gán bài Khảo sát cho danh sách Khách hàng mục tiêu (`SurveyTarget`)
+POST {{baseUrl}}/api/surveys/1/assign
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "customerIds": [1, 2, 3]
+}
+
+### 6.5 Khách hàng xem bài Khảo sát được gán riêng cho mình
+GET {{baseUrl}}/api/surveys/target/me
+Authorization: Bearer {{customerToken}}
+
+### 6.6 Khách hàng Nộp bài làm Khảo sát (`Submit Survey Response`)
+POST {{baseUrl}}/api/surveys/1/submit
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{
+  "answers": [
+    {
+      "questionId": 1,
+      "answerValue": "Rất tốt",
+      "optionId": 1
+    },
+    {
+      "questionId": 2,
+      "answerValue": "Mong muốn shop làm thêm nhiều màu sáng."
+    }
+  ]
+}
+
+### 6.7 Admin xem Thống kê & Báo cáo số liệu kết quả Khảo sát (`Survey Statistics`)
+GET {{baseUrl}}/api/surveys/1/stats
+Authorization: Bearer {{adminToken}}
+
+### 6.8 Admin Đóng / Tắt bài Khảo sát (`isActive = false`)
+PATCH {{baseUrl}}/api/surveys/1/active
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "isActive": false
+}
