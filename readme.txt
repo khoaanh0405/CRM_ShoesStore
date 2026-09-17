@@ -4,7 +4,9 @@ npx prisma generate
 
 ĐỂ CHẠY SERVER
 npm start
-npm run
 
 NẾU MUỐN COI BẢNG DATA
 npx prisma studio
+
+DOWLOADS EXTENSION VSCODE
+REST client

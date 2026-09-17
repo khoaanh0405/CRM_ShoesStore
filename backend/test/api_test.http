@@ -19,8 +19,8 @@ POST {{baseUrl}}/api/accounts/login
 Content-Type: application/json
 
 {
-  "username": "nguyenvana",
-  "password": "123456"
+  "username": "{{customerUsername}}",
+  "password": "{{customerPassword}}"
 }
 
 ### Lưu Customer Token
@@ -33,8 +33,8 @@ POST {{baseUrl}}/api/accounts/login
 Content-Type: application/json
 
 {
-  "username": "admin",
-  "password": "123456"
+  "username": "{{adminUsername}}",
+  "password": "{{adminPassword}}"
 }
 
 ### Lưu Admin Token

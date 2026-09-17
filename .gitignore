@@ -10,11 +10,13 @@ out/
 
 # ==========================================
 # 2. ENVIRONMENT & SECRETS
-# Chặn toàn bộ file chứa biến môi trường (.env)
+# Chặn toàn bộ file chứa biến môi trường (.env) và credential test
 # ==========================================
 .env
 .env.*
 !.env.example
+http-client.env.json
+*.local.http
 
 # ==========================================
 # 3. BACKEND & PRISMA SPECIFIC
