@@ -3,11 +3,14 @@
  * => URL cuối cùng = '/api' + prefix bên dưới + path trong từng file route.
  *    Ví dụ: '/api' + '/surveys' + '/:surveyId/submit'
  *           = POST /api/surveys/3/submit
+ *    '/api' + '/admin' + '/customers' = POST /api/admin/customers
+ *    (endpoint riêng cho Admin thêm khách hàng — xem admin.routes.js)
  */
 import { Router } from 'express';
 
 import roleRoutes from './role.routes.js';
 import accountRoutes from './account.routes.js';
+import adminRoutes from './admin.routes.js';
 import supplierRoutes from './supplier.routes.js';
 import productRoutes from './product.routes.js';
 import customerRoutes from './customer.routes.js';
@@ -22,6 +25,7 @@ const router = Router();
 
 router.use('/roles', roleRoutes);
 router.use('/accounts', accountRoutes);
+router.use('/admin', adminRoutes);
 router.use('/suppliers', supplierRoutes);
 router.use('/products', productRoutes);
 router.use('/customers', customerRoutes);
