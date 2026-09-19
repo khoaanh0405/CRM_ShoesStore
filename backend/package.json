@@ -5,12 +5,12 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "node --watch src/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "db:backup": "dotenv -e .env -- pg_dump \"%DATABASE_URL%\" -F c -b -v -f ./backup/backup.dump",
-    "db:restore": "dotenv -e .env -- pg_restore --clean --no-owner -d \"%DATABASE_URL%\" ./backup/backup.dump"
-  },
+  "start": "node src/server.js",
+  "dev": "node --watch src/server.js",
+  "test": "echo \"Error: no test specified\" && exit 1",
+  "backup": "powershell -ExecutionPolicy Bypass -File ./backup/backup.ps1",
+  "restore": "powershell -ExecutionPolicy Bypass -File ./backup/restore.ps1"
+ },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -24,10 +24,10 @@
     "pg": "^8.23.0"
   },
   "devDependencies": {
-    "@types/bcrypt": "^6.0.0",
-    "@types/node": "^26.6.2",
-    "dotenv-cli": "^11.0.0",
-    "prisma": "^6.19.3"
+  "@types/bcrypt": "^6.0.0",
+  "@types/node": "^26.6.2",
+  "dotenv-cli": "^11.0.0",
+  "prisma": "^7.10.0"
   },
   "prisma": {
     "seed": "node prisma/seeds/seed.js"

@@ -1,7 +1,6 @@
-# Xác định thư mục backend
 $projectRoot = Split-Path $PSScriptRoot -Parent
+$composeRoot = Split-Path $projectRoot -Parent
 
-# Đọc file .env
 $envFile = Join-Path $projectRoot ".env"
 
 if (!(Test-Path $envFile)) {
@@ -9,22 +8,9 @@ if (!(Test-Path $envFile)) {
     exit 1
 }
 
-# Lấy DATABASE_URL từ .env
-$databaseUrl = (
-    Get-Content $envFile |
-    Select-String '^DATABASE_URL='
-).Line -replace '^DATABASE_URL=', ''
-
-if ([string]::IsNullOrWhiteSpace($databaseUrl)) {
-    Write-Host "Khong tim thay DATABASE_URL trong .env!" -ForegroundColor Red
-    exit 1
-}
-
-# Lấy ngày hiện tại
 $date = Get-Date -Format "yyyy-MM-dd"
-
-# Đường dẫn file backup
-$backupFile = Join-Path $PSScriptRoot "backup_$date.dump"
+$backupFileName = "backup_$date.dump"
+$backupFile = Join-Path $PSScriptRoot $backupFileName
 
 Write-Host ""
 Write-Host "========================================"
@@ -35,10 +21,12 @@ Write-Host "Dang sao luu..."
 Write-Host "File: $backupFile"
 Write-Host ""
 
-# Thực hiện backup
-pg_dump "$databaseUrl" -F c -b -v -f "$backupFile"
+docker compose `
+    -f (Join-Path $composeRoot "docker-compose.yml") `
+    run --rm `
+    backup `
+    sh -c "pg_dump `"`$DATABASE_URL`" -F c -b -v -f /backup/$backupFileName"
 
-# Kiểm tra kết quả
 if ($LASTEXITCODE -eq 0) {
     Write-Host ""
     Write-Host "Sao luu thanh cong!" -ForegroundColor Green

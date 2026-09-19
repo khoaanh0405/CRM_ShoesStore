@@ -1,23 +1,17 @@
-$envFile = ".\.env"
+$projectRoot = Split-Path $PSScriptRoot -Parent
+$composeRoot = Split-Path $projectRoot -Parent
+
+$envFile = Join-Path $projectRoot ".env"
 
 if (!(Test-Path $envFile)) {
     Write-Host "Khong tim thay file .env!" -ForegroundColor Red
-    exit
+    exit 1
 }
-
-$databaseUrl = ((Get-Content $envFile |
-    Select-String '^DATABASE_URL=').Line -replace '^DATABASE_URL=', '')
-
-if ([string]::IsNullOrWhiteSpace($databaseUrl)) {
-    Write-Host "Khong tim thay DATABASE_URL trong .env!" -ForegroundColor Red
-    exit
-}
-
-$env:DATABASE_URL = $databaseUrl
 
 while ($true) {
 
     Clear-Host
+
     Write-Host "========================================"
     Write-Host "       PHUC HOI CO SO DU LIEU"
     Write-Host "========================================"
@@ -29,10 +23,10 @@ while ($true) {
 
     $date = Read-Host "Lua chon"
 
-    # Nếu nhấn Enter -> chọn backup mới nhất
+    # ENTER -> backup moi nhat
     if ([string]::IsNullOrWhiteSpace($date)) {
 
-        $backup = Get-ChildItem ".\backup\backup_*.dump" |
+        $backup = Get-ChildItem $PSScriptRoot -Filter "backup_*.dump" |
                   Sort-Object LastWriteTime -Descending |
                   Select-Object -First 1
 
@@ -42,53 +36,54 @@ while ($true) {
             Read-Host "Nhan Enter de thu lai"
             continue
         }
-
     }
 
-    # Nếu nhập Q -> thoát
+    # Q -> thoat
     elseif ($date -eq "q" -or $date -eq "Q") {
+
         Write-Host "Da thoat."
         break
     }
 
-    # Nếu nhập ngày cụ thể
+    # Nhap ngay cu the
     else {
 
-        # Kiểm tra đúng định dạng yyyy-MM-dd
         $parsedDate = [datetime]::MinValue
 
-            $validDate = [datetime]::TryParseExact(
-                $date,
-                "yyyy-MM-dd",
-                $null,
-                [Globalization.DateTimeStyles]::None,
-                [ref]$parsedDate
-            )
+        $validDate = [datetime]::TryParseExact(
+            $date,
+            "yyyy-MM-dd",
+            $null,
+            [Globalization.DateTimeStyles]::None,
+            [ref]$parsedDate
+        )
 
-            if (!$validDate) {
-                Write-Host ""
-                Write-Host "Sai dinh dang ngay! Vui long nhap theo yyyy-MM-dd." -ForegroundColor Red
-                Read-Host "Nhan Enter de nhap lai"
-                continue
-            }
+        if (!$validDate) {
+            Write-Host ""
+            Write-Host "Sai dinh dang ngay! Vui long nhap theo yyyy-MM-dd." -ForegroundColor Red
+            Read-Host "Nhan Enter de nhap lai"
+            continue
+        }
 
-        $backup = ".\backup\backup_$date.dump"
+        $backupPath = Join-Path $PSScriptRoot "backup_$date.dump"
 
-        if (!(Test-Path $backup)) {
+        if (!(Test-Path $backupPath)) {
             Write-Host ""
             Write-Host "Khong tim thay backup ngay $date!" -ForegroundColor Red
             Read-Host "Nhan Enter de nhap lai"
             continue
         }
+
+        $backup = Get-Item $backupPath
     }
 
-    # Xác nhận trước khi restore
+    # Xac nhan
     Write-Host ""
     Write-Host "File backup duoc chon:"
-    Write-Host $backup
+    Write-Host $backup.FullName
     Write-Host ""
 
-    $confirm = Read-Host "Ban co chac chan muon phuc hoi? (Y/N)"
+    $confirm = Read-Host "CANH BAO: Restore co the ghi de du lieu hien tai. Tiep tuc? (Y/N)"
 
     if ($confirm -ne "Y" -and $confirm -ne "y") {
         Write-Host "Da huy phuc hoi."
@@ -96,14 +91,28 @@ while ($true) {
         continue
     }
 
-    # Thực hiện restore
-    pg_restore --clean --if-exists --no-owner --no-privileges --verbose --exit-on-error -d "$env:DATABASE_URL" $backup
+    Write-Host ""
+    Write-Host "Dang phuc hoi..." -ForegroundColor Yellow
+    Write-Host ""
+
+    # Lay ten file backup
+    $backupFileName = $backup.Name
+
+    # Chay pg_restore ben trong Docker
+    docker compose `
+        -f (Join-Path $composeRoot "docker-compose.yml") `
+        run --rm `
+        backup `
+        sh -c "pg_restore --clean --if-exists --no-owner --no-privileges --verbose --exit-on-error -d `"`$DATABASE_URL`" /backup/$backupFileName"
+
     if ($LASTEXITCODE -eq 0) {
+
         Write-Host ""
         Write-Host "Phuc hoi thanh cong!" -ForegroundColor Green
-        Write-Host "Backup: $backup"
+        Write-Host "Backup: $($backup.FullName)"
     }
     else {
+
         Write-Host ""
         Write-Host "Phuc hoi that bai!" -ForegroundColor Red
     }
