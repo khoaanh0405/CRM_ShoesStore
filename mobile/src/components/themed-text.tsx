@@ -1,16 +1,12 @@
 import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
-
 import { Fonts, ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-
 export type ThemedTextProps = TextProps & {
   type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code';
   themeColor?: ThemeColor;
 };
-
 export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
   const theme = useTheme();
-
   return (
     <Text
       style={[
@@ -29,7 +25,6 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
     />
   );
 }
-
 const styles = StyleSheet.create({
   small: {
     fontSize: 14,
