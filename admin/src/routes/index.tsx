@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import App from '../App';
 import Dashboard from '../pages/Dashboard';
 import LoginPage from '../pages/LoginPage';
+import ProductsPage from '../pages/ProductsPage';
 import FeedbacksPage from '../pages/FeedbacksPage';
 import SurveysPage from '../pages/SurveysPage';
 import SurveyDetailPage from '../pages/SurveyDetailPage';
@@ -22,6 +23,7 @@ const router = createBrowserRouter([
         element: <App />,
         children: [
           { index: true, element: <Dashboard /> },
+          { path: 'products', element: <ProductsPage /> },
           { path: 'feedbacks', element: <FeedbacksPage /> },
           { path: 'surveys', element: <SurveysPage /> },
           { path: 'surveys/:surveyId', element: <SurveyDetailPage /> },

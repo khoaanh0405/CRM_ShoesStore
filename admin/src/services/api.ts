@@ -9,6 +9,7 @@ import type {
   CreateQuestionForm,
   CreateOptionForm,
 } from '../types/survey';
+import type { Product, Supplier, CreateProductForm, CreateSupplierForm } from '../types/product';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
@@ -135,6 +136,53 @@ export interface CustomerBasic {
 export const getCustomers = async (): Promise<CustomerBasic[]> => {
   const res = await api.get('/customers');
   return res.data?.data ?? res.data ?? [];
+};
+
+// ====================================================
+// PRODUCTS & SUPPLIERS
+// ====================================================
+
+export const getProducts = async (params?: { includeInactive?: boolean }): Promise<Product[]> => {
+  const res = await api.get('/products', { params: { includeInactive: true, ...params } });
+  return res.data?.data ?? res.data ?? [];
+};
+
+export const createProduct = async (data: CreateProductForm): Promise<Product> => {
+  const res = await api.post('/products', data);
+  return res.data?.data ?? res.data;
+};
+
+export const updateProduct = async (productId: number, data: Partial<CreateProductForm>): Promise<Product> => {
+  const res = await api.put(`/products/${productId}`, data);
+  return res.data?.data ?? res.data;
+};
+
+export const toggleProductActive = async (productId: number, isActive: boolean): Promise<Product> => {
+  const res = await api.patch(`/products/${productId}/active`, { isActive });
+  return res.data?.data ?? res.data;
+};
+
+export const deleteProduct = async (productId: number): Promise<void> => {
+  await api.delete(`/products/${productId}`);
+};
+
+export const getSuppliers = async (): Promise<Supplier[]> => {
+  const res = await api.get('/suppliers');
+  return res.data?.data ?? res.data ?? [];
+};
+
+export const createSupplier = async (data: CreateSupplierForm): Promise<Supplier> => {
+  const res = await api.post('/suppliers', data);
+  return res.data?.data ?? res.data;
+};
+
+export const updateSupplier = async (supplierId: number, data: Partial<CreateSupplierForm>): Promise<Supplier> => {
+  const res = await api.put(`/suppliers/${supplierId}`, data);
+  return res.data?.data ?? res.data;
+};
+
+export const deleteSupplier = async (supplierId: number): Promise<void> => {
+  await api.delete(`/suppliers/${supplierId}`);
 };
 
 export default api;

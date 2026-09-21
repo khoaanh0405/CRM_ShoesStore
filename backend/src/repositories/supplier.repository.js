@@ -22,6 +22,12 @@ export const supplierRepository = {
     });
   },
 
+  findByNameExact(supplierName) {
+    return prisma.supplier.findFirst({
+      where: { supplierName: { equals: supplierName, mode: 'insensitive' } },
+    });
+  },
+
   findByIdWithProducts(supplierId) {
     return prisma.supplier.findUnique({
       where: { supplierId },

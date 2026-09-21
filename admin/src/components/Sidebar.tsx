@@ -24,10 +24,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
           </li>
           {/* Tab này do thành viên khác phụ trách */}
           <li className="nav-item">
-            <a href="#" className="nav-link">
+            <NavLink
+              to="/products"
+              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+            >
               <Package size={20} />
               <span>Quản lý sản phẩm & nhà cung cấp</span>
-            </a>
+            </NavLink>
           </li>
           <li className="nav-item">
             <NavLink

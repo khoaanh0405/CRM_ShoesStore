@@ -249,7 +249,7 @@ const FeedbacksPage: React.FC = () => {
                       title="Xem chi tiết"
                       onClick={() => setSelectedFeedback(fb)}
                     >
-                      <Eye size={15} />
+                      Chi tiết
                     </button>
                     {fb.status === 'Pending' && (
                       <>
@@ -259,7 +259,7 @@ const FeedbacksPage: React.FC = () => {
                           onClick={() => handleStatusChange(fb, 'Approved')}
                           disabled={actionLoading}
                         >
-                          <CheckCircle size={15} />
+                          Duyệt
                         </button>
                         <button
                           className="action-btn reject-btn"
@@ -267,7 +267,7 @@ const FeedbacksPage: React.FC = () => {
                           onClick={() => handleStatusChange(fb, 'Rejected')}
                           disabled={actionLoading}
                         >
-                          <XCircle size={15} />
+                          Từ chối
                         </button>
                       </>
                     )}
