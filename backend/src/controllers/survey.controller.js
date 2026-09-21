@@ -23,6 +23,16 @@ export const surveyController = {
   },
 
   /**
+   * Tạo khảo sát đơn giản không cần câu hỏi ngay — dùng cho form tạo nhanh
+   * trên Admin Dashboard. Câu hỏi được thêm sau qua Tab "Đư hỏi & Tùy chọn".
+   */
+  async createSimple(req, res) {
+    const { title, description, isActive } = req.body;
+    const survey = await surveyService.createSimple({ title, description, isActive });
+    res.status(201).json(survey);
+  },
+
+  /**
    * Tạo khảo sát kèm câu hỏi trong 1 lần (nested-write).
    * Body: { title, description, questions: [{ questionContent, questionType, options? }] }
    * Yêu cầu tối thiểu 15 câu hỏi (Service tự validate).

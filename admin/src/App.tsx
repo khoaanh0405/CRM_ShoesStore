@@ -1,7 +1,8 @@
+import { Outlet } from 'react-router-dom';
 import { useState } from 'react';
+import { Toaster } from 'react-hot-toast';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
-import Dashboard from './pages/Dashboard';
 import './App.css';
 
 function App() {
@@ -13,10 +14,11 @@ function App() {
 
   return (
     <div className="app-container">
+      <Toaster position="top-right" />
       <Sidebar isOpen={isSidebarOpen} />
       <div className={`main-content ${isSidebarOpen ? 'sidebar-open' : ''}`}>
         <Header toggleSidebar={toggleSidebar} />
-        <Dashboard />
+        <Outlet />
       </div>
     </div>
   );

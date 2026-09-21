@@ -21,6 +21,15 @@ export const surveyRepository = {
     return prisma.survey.findMany({
       where: typeof isActive === 'boolean' ? { isActive } : undefined,
       orderBy: { createdAt: 'desc' },
+      include: {
+        _count: {
+          select: {
+            questions: true,
+            surveyTargets: true,
+            surveyResponses: true,
+          },
+        },
+      },
     });
   },
 

@@ -1,4 +1,5 @@
 import React from 'react';
+import { NavLink } from 'react-router-dom';
 import { Users, Package, Star, FileText } from 'lucide-react';
 import './Sidebar.css';
 
@@ -14,12 +15,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
       </div>
       <nav className="sidebar-nav">
         <ul>
+          {/* Tab này do thành viên khác phụ trách */}
           <li className="nav-item">
-            <a href="#" className="nav-link active">
+            <a href="#" className="nav-link">
               <Users size={20} />
               <span>Quản lý tài khoản</span>
             </a>
           </li>
+          {/* Tab này do thành viên khác phụ trách */}
           <li className="nav-item">
             <a href="#" className="nav-link">
               <Package size={20} />
@@ -27,16 +30,22 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
             </a>
           </li>
           <li className="nav-item">
-            <a href="#" className="nav-link">
+            <NavLink
+              to="/feedbacks"
+              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+            >
               <Star size={20} />
               <span>Quản lý đánh giá</span>
-            </a>
+            </NavLink>
           </li>
           <li className="nav-item">
-            <a href="#" className="nav-link">
+            <NavLink
+              to="/surveys"
+              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+            >
               <FileText size={20} />
               <span>Quản lý khảo sát</span>
-            </a>
+            </NavLink>
           </li>
         </ul>
       </nav>

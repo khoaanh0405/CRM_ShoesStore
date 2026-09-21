@@ -31,6 +31,15 @@ export const surveyService = {
   },
 
   /**
+   * Tạo khảo sát đơn giản (không cần câu hỏi ngay). Admin sẽ thêm câu hỏi
+   * sau qua Tab "Câu hỏi & Tùy chọn" trong trang chi tiết.
+   */
+  async createSimple({ title, description, isActive = true }) {
+    if (!title?.trim()) throw new ValidationError('Tiêu đề khảo sát không được để trống.');
+    return surveyRepository.create({ title: title.trim(), description, isActive });
+  },
+
+  /**
    * Admin "Tạo bảng khảo sát và gửi đến tài khoản khách hàng" (mục 4.1.6),
    * phần tạo khảo sát. questions: [{ questionContent, questionType, options? }]
    * — options bắt buộc (>=2) khi questionType = 'SINGLE_CHOICE'.

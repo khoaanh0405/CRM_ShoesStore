@@ -5,6 +5,7 @@
  * trả lời vì không có option để group-by (đúng ghi chú trong
  * surveyAnswer.repository.js).
  */
+import prisma from '../config/database.js';
 import {
   surveyAnswerRepository,
   surveyQuestionRepository,
@@ -57,10 +58,57 @@ export const surveyAnswerService = {
     };
   },
 
-  /** Thống kê toàn bộ khảo sát — gộp statsByQuestion() cho mọi câu hỏi. */
+  /** Thống kê toàn bộ khảo sát — gộp statsByQuestion() cho mọi câu hỏi và tính tổng quan đối tượng/phản hồi. */
   async statsBySurvey(surveyId) {
     const questions = await surveyQuestionRepository.findBySurvey(surveyId);
-    return Promise.all(questions.map((q) => this.statsByQuestion(q.questionId)));
+
+    const [totalAssigned, totalResponses] = await Promise.all([
+      prisma.surveyTarget.count({ where: { surveyId } }),
+      prisma.surveyResponse.count({ where: { surveyId } }),
+    ]);
+
+    const completionRate = totalAssigned > 0
+      ? Math.round((totalResponses / totalAssigned) * 100)
+      : 0;
+
+    const questionStats = await Promise.all(
+      questions.map(async (q) => {
+        const stat = await this.statsByQuestion(q.questionId);
+        if (q.questionType === QUESTION_TYPES.TEXT) {
+          return {
+            questionId: q.questionId,
+            questionContent: q.questionContent,
+            questionType: q.questionType,
+            totalResponses: stat.totalAnswers,
+            breakdown: [],
+            textAnswers: stat.answers || [],
+          };
+        }
+
+        const breakdown = (stat.options || []).map((opt) => ({
+          optionId: opt.optionId,
+          optionText: opt.optionText,
+          count: opt.count,
+          percentage: stat.totalAnswers > 0 ? Math.round((opt.count / stat.totalAnswers) * 100) : 0,
+        }));
+
+        return {
+          questionId: q.questionId,
+          questionContent: q.questionContent,
+          questionType: q.questionType,
+          totalResponses: stat.totalAnswers,
+          breakdown,
+        };
+      })
+    );
+
+    return {
+      surveyId,
+      totalAssigned,
+      totalResponses,
+      completionRate,
+      questions: questionStats,
+    };
   },
 };
 

@@ -21,12 +21,29 @@ import {
   surveyTargetValidator,
   surveyResponseValidator,
 } from '../validators/index.js';
+import { validateBody } from '../validators/common.validator.js';
 import { authenticate, adminOnly } from '../middleware/index.js';
 
 const router = Router();
 
 // --- Khảo sát ---
 router.get('/', authenticate, surveyController.list);
+/**
+ * POST /api/surveys/simple — Tạo khảo sát đơn giản (chỉ cần title + description
+ * + isActive), không cần câu hỏi ngay. Dùng cho form tạo nhanh trên Admin UI.
+ * Câu hỏi/tùy chọn được thêm riêng sau qua /api/questions & /api/options.
+ */
+router.post(
+  '/simple',
+  adminOnly,
+  validateBody({
+    title: { required: true, type: 'string', maxLength: 200 },
+    description: { type: 'string' },
+    isActive: { type: 'boolean' },
+  }),
+  surveyController.createSimple
+);
+/** POST /api/surveys — Tạo kèm câu hỏi ngay (batch, yêu cầu >=15 câu hỏi). */
 router.post('/', adminOnly, surveyValidator.create, surveyController.create);
 router.get('/:id', authenticate, surveyValidator.idParam, surveyController.getById);
 /** /full = khảo sát kèm câu hỏi + lựa chọn, dùng khi khách hàng vào làm bài. */
