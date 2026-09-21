@@ -1,5 +1,6 @@
 import { AppScreen } from '@/components/app/app-screen';
 import { Chip } from '@/components/app/chip';
+import { NotificationBell } from '@/components/app/notification-bell';
 import { ProductCard } from '@/components/app/product-card';
 import { SectionTitle } from '@/components/app/section-title';
 import { ErrorView, LoadingView } from '@/components/app/state-views';
@@ -20,25 +21,21 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter, type Href } from 'expo-router';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-
 const BANNER = require('../../../assets/images/banner_Login-Register_UI.jpg');
-
 const QUICK_ACTIONS: { label: string; icon: IconName; href: Href }[] = [
   { label: 'Sản phẩm', icon: 'grid-outline', href: '/tabs/products' },
   { label: 'Khảo sát', icon: 'clipboard-outline', href: '/tabs/surveys' },
   { label: 'Gửi đánh giá', icon: 'create-outline', href: '/feedback/create' },
   { label: 'Hồ sơ', icon: 'person-outline', href: '/tabs/profile' },
 ];
-
 /**
- * Trang chủ khách hàng: lời chào, khảo sát đang chờ, lối tắt, danh mục,
- * gợi ý theo sở thích (CustomerPreference) và sản phẩm mới.
+ * Trang chủ khách hàng: lời chào, chuông thông báo, khảo sát đang chờ, lối
+ * tắt, danh mục, gợi ý theo sở thích (CustomerPreference) và sản phẩm mới.
  */
 export default function HomeScreen() {
   const router = useRouter();
   const { account } = useAuth();
   const customerId = useCustomerId();
-
   const { data, loading, refreshing, error, refresh, reload } = useApi(async () => {
     if (customerId == null) throw new Error('Không xác định được tài khoản khách hàng.');
     const [products, profile, surveys, preferences] = await Promise.all([
@@ -49,7 +46,6 @@ export default function HomeScreen() {
     ]);
     return { products, profile, surveys, preferences };
   }, [customerId]);
-
   if (loading && !data) {
     return (
       <AppScreen>
@@ -57,7 +53,6 @@ export default function HomeScreen() {
       </AppScreen>
     );
   }
-
   if (!data) {
     return (
       <AppScreen>
@@ -65,22 +60,17 @@ export default function HomeScreen() {
       </AppScreen>
     );
   }
-
   const { products, profile, surveys, preferences } = data;
   const fullName = profile?.fullName ?? account?.customer?.fullName ?? account?.username ?? '';
   const tags = preferences.map((p) => p.preferenceTag);
-
   const pendingSurveys = surveys.filter((t) => !t.isCompleted && t.survey.isActive);
   const categories = Array.from(new Set(products.map((p) => p.category).filter((c): c is string => !!c)));
   const recommended = recommendProducts(products, tags).slice(0, 8);
   const newest = [...products].sort((a, b) => b.productId - a.productId).slice(0, 8);
-
   const openProduct = (p: Product) =>
     router.push({ pathname: '/product/[id]', params: { id: String(p.productId) } });
-
   const openCategory = (category: string) =>
     router.push({ pathname: '/tabs/products', params: { category, t: String(Date.now()) } });
-
   return (
     <AppScreen>
       <ScrollView
@@ -97,19 +87,20 @@ export default function HomeScreen() {
               {givenNameOf(fullName) || 'bạn'}
             </Text>
           </View>
-          <Pressable
-            onPress={() => router.push('/tabs/profile')}
-            style={styles.avatar}
-            accessibilityLabel="Mở trang cá nhân">
-            <Text style={styles.avatarText}>{initialOf(fullName)}</Text>
-          </Pressable>
+          <View style={styles.greetingActions}>
+            <NotificationBell />
+            <Pressable
+              onPress={() => router.push('/tabs/profile')}
+              style={styles.avatar}
+              accessibilityLabel="Mở trang cá nhân">
+              <Text style={styles.avatarText}>{initialOf(fullName)}</Text>
+            </Pressable>
+          </View>
         </View>
-
         {/* Banner */}
         <View style={styles.banner}>
           <Image source={BANNER} style={StyleSheet.absoluteFill} contentFit="cover" />
         </View>
-
         {/* Khảo sát đang chờ */}
         <Pressable
           onPress={() => router.push('/tabs/surveys')}
@@ -131,7 +122,6 @@ export default function HomeScreen() {
           </View>
           <Ionicons name="chevron-forward" size={20} color={AppColors.textSecondary} />
         </Pressable>
-
         {/* Lối tắt */}
         <View style={styles.quickRow}>
           {QUICK_ACTIONS.map((action) => (
@@ -148,7 +138,6 @@ export default function HomeScreen() {
             </Pressable>
           ))}
         </View>
-
         {/* Danh mục */}
         {categories.length > 0 ? (
           <View style={styles.section}>
@@ -160,7 +149,6 @@ export default function HomeScreen() {
             </ScrollView>
           </View>
         ) : null}
-
         {/* Gợi ý theo sở thích */}
         {recommended.length > 0 ? (
           <View style={styles.section}>
@@ -184,7 +172,6 @@ export default function HomeScreen() {
             <Ionicons name="chevron-forward" size={18} color={AppColors.textSecondary} />
           </Pressable>
         )}
-
         {/* Sản phẩm mới */}
         <View style={styles.section}>
           <SectionTitle
@@ -202,7 +189,6 @@ export default function HomeScreen() {
     </AppScreen>
   );
 }
-
 function ProductRow({ products, onOpen }: { products: Product[]; onOpen: (p: Product) => void }) {
   return (
     <ScrollView
@@ -215,11 +201,9 @@ function ProductRow({ products, onOpen }: { products: Product[]; onOpen: (p: Pro
     </ScrollView>
   );
 }
-
 const styles = StyleSheet.create({
   content: { paddingBottom: 32, gap: 24 },
   pressed: { opacity: 0.85 },
-
   greetingRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -230,6 +214,7 @@ const styles = StyleSheet.create({
   greetingTexts: { flex: 1, gap: 2 },
   greetingSmall: { color: AppColors.textSecondary, fontSize: 14 },
   greetingName: { color: AppColors.textPrimary, fontSize: 30, fontWeight: '800' },
+  greetingActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   avatar: {
     width: 46,
     height: 46,
@@ -239,7 +224,6 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.accent,
   },
   avatarText: { color: AppColors.accentText, fontSize: 18, fontWeight: '800' },
-
   banner: {
     height: 150,
     marginHorizontal: SCREEN_PADDING,
@@ -249,7 +233,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: AppColors.border,
   },
-
   surveyCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -272,7 +255,6 @@ const styles = StyleSheet.create({
   surveyTexts: { flex: 1, gap: 2 },
   surveyTitle: { color: AppColors.textPrimary, fontSize: 15, fontWeight: '700' },
   surveySub: { color: AppColors.textSecondary, fontSize: 13 },
-
   quickRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -290,12 +272,10 @@ const styles = StyleSheet.create({
     borderColor: AppColors.border,
   },
   quickLabel: { color: AppColors.textPrimary, fontSize: 12, fontWeight: '600' },
-
   section: { gap: 12 },
   chipRow: { gap: 8, paddingHorizontal: SCREEN_PADDING },
   productRow: { gap: 12, paddingHorizontal: SCREEN_PADDING },
   emptyText: { color: AppColors.textSecondary, fontSize: 13, paddingHorizontal: SCREEN_PADDING },
-
   hintCard: {
     flexDirection: 'row',
     alignItems: 'center',
