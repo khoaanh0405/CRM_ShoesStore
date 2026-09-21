@@ -1,5 +1,6 @@
 import React from 'react';
-import { Users, Package, Star, FileText } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import { Users, Package, Star, FileText, LayoutDashboard } from 'lucide-react';
 import './Sidebar.css';
 
 interface SidebarProps {
@@ -15,28 +16,34 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
       <nav className="sidebar-nav">
         <ul>
           <li className="nav-item">
-            <a href="#" className="nav-link active">
+            <NavLink to="/" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} end>
+              <LayoutDashboard size={20} />
+              <span>Dashboard</span>
+            </NavLink>
+          </li>
+          <li className="nav-item">
+            <NavLink to="/accounts" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               <Users size={20} />
               <span>Quản lý tài khoản</span>
-            </a>
+            </NavLink>
           </li>
           <li className="nav-item">
-            <a href="#" className="nav-link">
+            <NavLink to="/products" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               <Package size={20} />
               <span>Quản lý sản phẩm & nhà cung cấp</span>
-            </a>
+            </NavLink>
           </li>
           <li className="nav-item">
-            <a href="#" className="nav-link">
+            <NavLink to="/reviews" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               <Star size={20} />
               <span>Quản lý đánh giá</span>
-            </a>
+            </NavLink>
           </li>
           <li className="nav-item">
-            <a href="#" className="nav-link">
+            <NavLink to="/surveys" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               <FileText size={20} />
               <span>Quản lý khảo sát</span>
-            </a>
+            </NavLink>
           </li>
         </ul>
       </nav>

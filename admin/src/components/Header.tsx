@@ -1,5 +1,7 @@
 import React from 'react';
-import { Menu, Search, Bell } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { logout } from '../services/auth';
+import { Menu, Search, Bell, LogOut } from 'lucide-react';
 import './Header.css';
 
 interface HeaderProps {
@@ -7,6 +9,13 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
   return (
     <header className="header">
       <div className="header-left">
@@ -30,6 +39,9 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
             className="avatar" 
           />
         </div>
+        <button className="logout-btn" onClick={handleLogout} title="Đăng xuất">
+          <LogOut size={20} />
+        </button>
       </div>
     </header>
   );
