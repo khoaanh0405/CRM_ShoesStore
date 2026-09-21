@@ -1,6 +1,6 @@
 /**
  * /api/customers — khách hàng và các resource con (sở thích, phản hồi,
- * khảo sát được gán, bài đã nộp).
+ * khảo sát được gán, bài đã nộp, thông báo).
  *
  * DELETE /:id là SOFT DELETE (customerService.remove -> softDelete), dữ liệu
  * Feedback/SurveyResponse vẫn được giữ nguyên.
@@ -16,6 +16,7 @@ import {
   feedbackController,
   surveyTargetController,
   surveyResponseController,
+  notificationController,
 } from '../controllers/index.js';
 import {
   customerValidator,
@@ -23,16 +24,14 @@ import {
   feedbackValidator,
   surveyTargetValidator,
   surveyResponseValidator,
+  notificationValidator,
 } from '../validators/index.js';
 import { authenticate, adminOnly } from '../middleware/index.js';
-
 const router = Router();
-
 // Các path chữ khai TRƯỚC /:id.
 router.get('/report', adminOnly, customerController.report);
 router.get('/search', adminOnly, customerController.search);
 router.get('/', adminOnly, customerController.list);
-
 router.get('/:id', authenticate, customerValidator.idParam, customerController.getById);
 router.get('/:id/profile', authenticate, customerValidator.idParam, customerController.getProfile);
 router.put(
@@ -43,7 +42,6 @@ router.put(
   customerController.updateProfile
 );
 router.delete('/:id', adminOnly, customerValidator.idParam, customerController.remove);
-
 // --- Resource con: sở thích ---
 router.get(
   '/:customerId/preferences',
@@ -58,7 +56,6 @@ router.post(
   customerPreferenceValidator.save,
   customerPreferenceController.add
 );
-
 // --- Resource con: phản hồi đã gửi ---
 router.get(
   '/:customerId/feedbacks',
@@ -66,7 +63,6 @@ router.get(
   feedbackValidator.customerIdParam,
   feedbackController.listByCustomer
 );
-
 // --- Resource con: khảo sát được gán / bài đã nộp ---
 router.get(
   '/:customerId/surveys',
@@ -80,5 +76,23 @@ router.get(
   surveyResponseValidator.customerIdParam,
   surveyResponseController.listByCustomer
 );
-
+// --- Resource con: thông báo (chuông thông báo phía khách hàng) ---
+router.get(
+  '/:customerId/notifications',
+  authenticate,
+  notificationValidator.customerIdParam,
+  notificationController.listByCustomer
+);
+router.get(
+  '/:customerId/notifications/unread-count',
+  authenticate,
+  notificationValidator.customerIdParam,
+  notificationController.countUnread
+);
+router.patch(
+  '/:customerId/notifications/read-all',
+  authenticate,
+  notificationValidator.customerIdParam,
+  notificationController.markAllRead
+);
 export default router;

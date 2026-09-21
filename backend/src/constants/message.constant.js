@@ -20,6 +20,7 @@ export const MESSAGES = {
     QUESTION: 'Không tìm thấy câu hỏi.',
     OPTION: 'Không tìm thấy lựa chọn.',
     RESPONSE: 'Không tìm thấy phiếu trả lời khảo sát.',
+    NOTIFICATION: 'Không tìm thấy thông báo.',
   },
   SURVEY: {
     ALREADY_SUBMITTED: 'Khách hàng đã nộp khảo sát này rồi.',
