@@ -28,7 +28,7 @@ export function AnimatedSplashOverlay() {
       easing: Easing.elastic(0.7),
     },
   });
-  const image = <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />;
+  const image = <Image style={styles.image} source={require('@/assets/images/banner_Login-Register_UI.jpg')} />;
   return animate ? (
     <Animated.View
       entering={splashKeyframe.duration(DURATION).withCallback((finished) => {
@@ -91,11 +91,11 @@ export function AnimatedIcon() {
   return (
     <View style={styles.iconContainer}>
       <Animated.View entering={glowKeyframe.duration(60 * 1000 * 4)} style={styles.glow}>
-        <Image style={styles.glow} source={require('@/assets/images/logo-glow.png')} />
+        <Image style={styles.glow} source={require('@/assets/images/banner_Login-Register_UI.jpg')} />
       </Animated.View>
       <Animated.View entering={keyframe.duration(DURATION)} style={styles.background} />
       <Animated.View style={styles.imageContainer} entering={logoKeyframe.duration(DURATION)}>
-        <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />
+        <Image style={styles.image} source={require('@/assets/images/banner_Login-Register_UI.jpg')} />
       </Animated.View>
     </View>
   );
