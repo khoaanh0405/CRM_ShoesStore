@@ -15,6 +15,22 @@ export const accountValidator = {
     address: { type: 'string', maxLength: 255 },
   }),
 
+  /**
+   * Admin thêm khách hàng mới (mục 4.1.1, POST /api/admin/customers) — cùng
+   * hình dạng dữ liệu với register vì đều tạo Account+Customer, chỉ khác
+   * người gọi (Admin) và ý nghĩa của `password` (mật khẩu khởi tạo do Admin
+   * nhập hộ, không phải khách hàng tự đặt).
+   */
+  createCustomerByAdmin: validateBody({
+    username: { required: true, type: 'string', maxLength: 50 },
+    password: { required: true, type: 'string', minLength: MIN_PASSWORD_LENGTH },
+    fullName: { required: true, type: 'string', maxLength: 100 },
+    dateOfBirth: { required: true, type: 'date' },
+    gender: { type: 'string', maxLength: 10 },
+    phone: { type: 'string', maxLength: 20 },
+    address: { type: 'string', maxLength: 255 },
+  }),
+
   login: validateBody({
     username: { required: true, type: 'string' },
     password: { required: true, type: 'string' },

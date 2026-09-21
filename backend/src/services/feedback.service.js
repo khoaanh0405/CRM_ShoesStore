@@ -5,9 +5,10 @@
  * người dùng" thay vì để Postgres throw lỗi CHECK constraint 23514).
  */
 import { feedbackRepository, customerRepository, productRepository } from '../repositories/index.js';
+import { notificationService } from './notification.service.js';
 import { NotFoundError, ValidationError } from '../errors/AppError.js';
-import { FEEDBACK_STATUS_LIST, FEEDBACK_RATING, MESSAGES } from '../constants/index.js';
-
+import { FEEDBACK_STATUS, FEEDBACK_STATUS_LIST, FEEDBACK_RATING, MESSAGES } from '../constants/index.js';
+import { NOTIFICATION_TYPE, NOTIFICATION_REF_TYPE } from '../constants/notification.constant.js';
 function assertValidRating(rating) {
   const ratingNum = Number(rating);
   if (!Number.isInteger(ratingNum) || ratingNum < FEEDBACK_RATING.MIN || ratingNum > FEEDBACK_RATING.MAX) {
@@ -15,43 +16,34 @@ function assertValidRating(rating) {
   }
   return ratingNum;
 }
-
 export const feedbackService = {
   list(filters) {
     return feedbackRepository.findAll(filters);
   },
-
   async getById(feedbackId) {
     const feedback = await feedbackRepository.findById(feedbackId);
     if (!feedback) throw new NotFoundError(MESSAGES.NOT_FOUND.FEEDBACK);
     return feedback;
   },
-
   listByCustomer(customerId) {
     return feedbackRepository.findByCustomer(customerId);
   },
-
   listByProduct(productId) {
     return feedbackRepository.findByProduct(productId);
   },
-
   listByStatus(status) {
     return feedbackRepository.findByStatus(status);
   },
-
   /** Khách hàng gửi phản hồi về sản phẩm (mục 4.3.3). Luôn khởi tạo status = 'Pending'. */
   async create({ customerId, productId, title, content, rating, imageUrl }) {
     if (!title?.trim() || !content?.trim()) {
       throw new ValidationError('Tiêu đề và nội dung phản hồi không được để trống.');
     }
     const ratingNum = assertValidRating(rating);
-
     const customer = await customerRepository.findById(customerId);
     if (!customer) throw new NotFoundError(MESSAGES.NOT_FOUND.CUSTOMER);
-
     const product = await productRepository.findById(productId);
     if (!product) throw new NotFoundError(MESSAGES.NOT_FOUND.PRODUCT);
-
     return feedbackRepository.create({
       customerId,
       productId,
@@ -61,16 +53,12 @@ export const feedbackService = {
       imageUrl,
     });
   },
-
   /** Khách hàng sửa phản hồi của chính mình. */
   async update(feedbackId, { title, content, rating, imageUrl }) {
     await this.getById(feedbackId);
-
     if (title !== undefined && !title.trim()) throw new ValidationError('Tiêu đề không được để trống.');
     if (content !== undefined && !content.trim()) throw new ValidationError('Nội dung không được để trống.');
-
     const ratingNum = rating !== undefined ? assertValidRating(rating) : undefined;
-
     return feedbackRepository.update(feedbackId, {
       title: title?.trim(),
       content: content?.trim(),
@@ -78,20 +66,35 @@ export const feedbackService = {
       imageUrl,
     });
   },
-
-  /** Admin tiếp nhận/xử lý phản hồi (mục 4.1.4). */
+  /**
+   * Admin tiếp nhận/xử lý phản hồi (mục 4.1.4). Khi chuyển sang Approved/
+   * Rejected, tạo thêm 1 Notification để khách hàng biết phản hồi của mình
+   * đã được xử lý (hiện trên chuông thông báo phía khách hàng).
+   */
   async updateStatus(feedbackId, status) {
     if (!FEEDBACK_STATUS_LIST.includes(status)) {
       throw new ValidationError(`Trạng thái không hợp lệ. Chỉ chấp nhận: ${FEEDBACK_STATUS_LIST.join(', ')}.`);
     }
-    await this.getById(feedbackId);
-    return feedbackRepository.updateStatus(feedbackId, status);
+    const feedback = await this.getById(feedbackId);
+    const updated = await feedbackRepository.updateStatus(feedbackId, status);
+    if (status === FEEDBACK_STATUS.APPROVED || status === FEEDBACK_STATUS.REJECTED) {
+      const isApproved = status === FEEDBACK_STATUS.APPROVED;
+      await notificationService.create({
+        customerId: feedback.customerId,
+        type: isApproved ? NOTIFICATION_TYPE.FEEDBACK_APPROVED : NOTIFICATION_TYPE.FEEDBACK_REJECTED,
+        title: isApproved ? 'Phản hồi của bạn đã được duyệt' : 'Phản hồi của bạn bị từ chối',
+        message: isApproved
+          ? `Phản hồi "${feedback.title}" của bạn đã được duyệt và hiển thị công khai.`
+          : `Phản hồi "${feedback.title}" của bạn đã bị từ chối. Vui lòng kiểm tra lại nội dung.`,
+        refType: NOTIFICATION_REF_TYPE.FEEDBACK,
+        refId: feedback.feedbackId,
+      });
+    }
+    return updated;
   },
-
   async remove(feedbackId) {
     await this.getById(feedbackId);
     return feedbackRepository.remove(feedbackId);
   },
 };
-
 export default feedbackService;

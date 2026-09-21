@@ -1,8 +1,6 @@
 /**
- * Controller cho Account (đăng ký/đăng nhập/khóa tài khoản/phân quyền).
- * Lưu ý: accountService.login() chỉ XÁC THỰC và trả về account (đã bỏ
- * passwordHash) — việc phát hành JWT là của tầng Controller/middleware auth,
- * hiện chưa triển khai nên ở đây chỉ trả account về cho client.
+ * Controller cho Account (đăng ký/đăng nhập/khóa tài khoản/phân quyền/
+ * Admin thêm khách hàng).
  */
 import { accountService } from '../services/index.js';
 import { parseId, parseNumber, signToken } from '../utils/index.js';
@@ -22,6 +20,21 @@ export const accountController = {
   async register(req, res) {
     const { username, password, fullName, dateOfBirth, gender, phone, address } = req.body;
     const account = await accountService.registerCustomer({
+      username, password, fullName, dateOfBirth, gender, phone, address,
+    });
+    res.status(201).json(account);
+  },
+
+  /**
+   * Admin thêm một khách hàng mới (mục 4.1.1) — POST /api/admin/customers.
+   * Route gắn adminOnly (xem admin.routes.js) nên chỉ Admin gọi được; khác
+   * register() ở chỗ người gọi là Admin (không phải khách hàng tự đăng ký)
+   * và `password` trong body là mật khẩu KHỞI TẠO do Admin tự nhập cho
+   * khách hàng, không phải khách hàng tự đặt.
+   */
+  async createCustomerByAdmin(req, res) {
+    const { username, password, fullName, dateOfBirth, gender, phone, address } = req.body;
+    const account = await accountService.createCustomerByAdmin({
       username, password, fullName, dateOfBirth, gender, phone, address,
     });
     res.status(201).json(account);
