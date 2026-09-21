@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import toast from 'react-hot-toast';
+import { login } from '../services/auth';
 import { LogIn, Eye, EyeOff } from 'lucide-react';
 import './LoginPage.css';
-
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -21,15 +19,11 @@ const LoginPage: React.FC = () => {
     }
     setLoading(true);
     try {
-      const res = await axios.post(`${BASE_URL}/api/accounts/login`, form);
-      const token = res.data?.token;
-      if (!token) throw new Error('No token returned');
-      localStorage.setItem('adminToken', token);
+      await login(form.username, form.password);
       toast.success('Đăng nhập thành công!');
-      navigate('/feedbacks');
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
-      const msg = error?.response?.data?.message || 'Sai tên đăng nhập hoặc mật khẩu';
+      navigate('/');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err.message || 'Sai tên đăng nhập hoặc mật khẩu';
       toast.error(msg);
     } finally {
       setLoading(false);

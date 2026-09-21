@@ -21,7 +21,6 @@ const adapter = new PrismaPg(pool);
 // Singleton Instance cho Prisma Client
 const prisma = new PrismaClient({ adapter, log: logLevels });
 
-/** Kiểm tra kết nối CSDL — dùng khi startup app trong server.js. */
 export const connectDB = async () => {
   try {
     await prisma.$connect();

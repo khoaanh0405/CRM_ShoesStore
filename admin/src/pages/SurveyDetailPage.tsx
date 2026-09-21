@@ -14,7 +14,7 @@ import {
   toggleSurveyActive,
 } from '../services/api';
 import type {
-  Survey, SurveyQuestion, SurveyStats, CreateQuestionForm, QuestionType
+  Survey, SurveyQuestion, SurveyStats, QuestionType
 } from '../types/survey';
 import type { CustomerBasic } from '../services/api';
 import './SurveyDetailPage.css';
@@ -437,7 +437,7 @@ const StatsTab: React.FC<{ surveyId: number }> = ({ surveyId }) => {
                       cx="50%"
                       cy="50%"
                       outerRadius={80}
-                      label={({ optionText, percentage }) => `${optionText}: ${percentage}%`}
+                      label={(entry: any) => `${entry.optionText}: ${entry.percentage}%`}
                     >
                       {q.breakdown.map((_, i) => (
                         <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />

@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Users, Package, Star, FileText } from 'lucide-react';
+import { Users, Package, Star, FileText, LayoutDashboard } from 'lucide-react';
 import './Sidebar.css';
 
 interface SidebarProps {
@@ -17,35 +17,32 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
         <ul>
           {/* Tab này do thành viên khác phụ trách */}
           <li className="nav-item">
-            <a href="#" className="nav-link">
+            <NavLink to="/" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} end>
+              <LayoutDashboard size={20} />
+              <span>Dashboard</span>
+            </NavLink>
+          </li>
+          <li className="nav-item">
+            <NavLink to="/accounts" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               <Users size={20} />
               <span>Quản lý tài khoản</span>
-            </a>
+            </NavLink>
           </li>
           {/* Tab này do thành viên khác phụ trách */}
           <li className="nav-item">
-            <NavLink
-              to="/products"
-              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-            >
+            <NavLink to="/products" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               <Package size={20} />
               <span>Quản lý sản phẩm & nhà cung cấp</span>
             </NavLink>
           </li>
           <li className="nav-item">
-            <NavLink
-              to="/feedbacks"
-              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-            >
+            <NavLink to="/feedbacks" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               <Star size={20} />
               <span>Quản lý đánh giá</span>
             </NavLink>
           </li>
           <li className="nav-item">
-            <NavLink
-              to="/surveys"
-              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-            >
+            <NavLink to="/surveys" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               <FileText size={20} />
               <span>Quản lý khảo sát</span>
             </NavLink>

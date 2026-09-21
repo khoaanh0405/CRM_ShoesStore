@@ -7,7 +7,6 @@
  *    (endpoint riêng cho Admin thêm khách hàng — xem admin.routes.js)
  */
 import { Router } from 'express';
-
 import roleRoutes from './role.routes.js';
 import accountRoutes from './account.routes.js';
 import adminRoutes from './admin.routes.js';
@@ -20,9 +19,8 @@ import surveyRoutes from './survey.routes.js';
 import surveyQuestionRoutes from './surveyQuestion.routes.js';
 import surveyQuestionOptionRoutes from './surveyQuestionOption.routes.js';
 import surveyResponseRoutes from './surveyResponse.routes.js';
-
+import notificationRoutes from './notification.routes.js';
 const router = Router();
-
 router.use('/roles', roleRoutes);
 router.use('/accounts', accountRoutes);
 router.use('/admin', adminRoutes);
@@ -35,5 +33,5 @@ router.use('/surveys', surveyRoutes);
 router.use('/questions', surveyQuestionRoutes);
 router.use('/options', surveyQuestionOptionRoutes);
 router.use('/responses', surveyResponseRoutes);
-
+router.use('/notifications', notificationRoutes);
 export default router;

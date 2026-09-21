@@ -7,9 +7,20 @@ const startServer = async () => {
   await connectDB();
 
   // 2. Lắng nghe Port
-  app.listen(config.port, () => {
+  const server = app.listen(config.port, () => {
     console.log(`Server CRM đang chạy trên port ${config.port} [Mode: ${config.nodeEnv}]`);
+  });
+
+  server.on('error', (error) => {
+    if (error.syscall !== 'listen') throw error;
+    if (error.code === 'EADDRINUSE') {
+      console.error(`LỖI: Port ${config.port} đang bị sử dụng bởi một tiến trình khác.`);
+      console.error('Vui lòng tắt server cũ (hoặc kill tiến trình Node) trước khi chạy lại.');
+      process.exit(1);
+    }
+    throw error;
   });
 };
 
 startServer();
+process.on('exit', (code) => console.log('Exiting with code:', code));

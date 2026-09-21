@@ -6,6 +6,8 @@ import ProductsPage from '../pages/ProductsPage';
 import FeedbacksPage from '../pages/FeedbacksPage';
 import SurveysPage from '../pages/SurveysPage';
 import SurveyDetailPage from '../pages/SurveyDetailPage';
+import AccountManagement from '../pages/AccountManagement';
+import ProfilePage from '../pages/ProfilePage';
 import ProtectedRoute from './protectedRoute';
 
 const router = createBrowserRouter([
@@ -23,6 +25,8 @@ const router = createBrowserRouter([
         element: <App />,
         children: [
           { index: true, element: <Dashboard /> },
+          { path: 'accounts', element: <AccountManagement /> },
+          { path: 'profile', element: <ProfilePage /> },
           { path: 'products', element: <ProductsPage /> },
           { path: 'feedbacks', element: <FeedbacksPage /> },
           { path: 'surveys', element: <SurveysPage /> },

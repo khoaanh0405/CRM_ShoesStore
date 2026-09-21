@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Plus, Search, Edit2, Trash2, Power, PowerOff, Package, Truck, X } from 'lucide-react';
+import { Plus, Search, Power, Package, Truck, X } from 'lucide-react';
 import {
   getProducts, createProduct, updateProduct, toggleProductActive, deleteProduct,
   getSuppliers, createSupplier, updateSupplier, deleteSupplier

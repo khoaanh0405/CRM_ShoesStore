@@ -1,16 +1,20 @@
 .header {
-  height: 70px;
+  height: 64px;
   background-color: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
-.header-left {
+.header-left, .header-right {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
 }
 
 .menu-btn {
@@ -18,65 +22,57 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  transition: background-color 0.2s;
 }
 
 .menu-btn:hover {
-  color: var(--color-text-main);
+  background-color: var(--color-bg);
 }
 
 .search-bar {
   display: flex;
   align-items: center;
-  background-color: #F4F5F7;
-  border-radius: 6px;
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
   padding: 8px 16px;
   width: 300px;
-  border: 1px solid #E2E8F0;
 }
 
 .search-icon {
-  color: #A0ABBB;
-  margin-right: 12px;
+  color: var(--color-text-muted);
 }
 
 .search-bar input {
   border: none;
   background: transparent;
   outline: none;
-  font-size: 14px;
-  color: var(--color-text-main);
+  margin-left: 8px;
   width: 100%;
 }
 
-.search-bar input::placeholder {
-  color: #A0ABBB;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-}
-
 .notification-btn {
-  color: #A0ABBB;
+  color: var(--color-text-muted);
   position: relative;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #F4F5F7;
   border-radius: 50%;
-  width: 40px;
-  height: 40px;
+  transition: background-color 0.2s;
 }
 
 .notification-btn:hover {
-  color: var(--color-text-main);
+  background-color: var(--color-bg);
 }
 
 .notification-dot {
   position: absolute;
-  top: 8px;
+  top: 10px;
   right: 10px;
   width: 8px;
   height: 8px;
@@ -88,11 +84,28 @@
 .user-profile {
   display: flex;
   align-items: center;
+  cursor: pointer;
 }
 
 .avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.logout-btn {
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  object-fit: cover;
+  transition: all 0.2s;
+}
+
+.logout-btn:hover {
+  background-color: #FEE2E2;
+  color: #DC2626;
 }

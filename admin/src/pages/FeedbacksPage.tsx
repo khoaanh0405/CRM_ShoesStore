@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Star, CheckCircle, XCircle, Eye, X } from 'lucide-react';
+import { Star, CheckCircle, XCircle, X } from 'lucide-react';
 import { getFeedbacks, updateFeedbackStatus } from '../services/api';
 import type { Feedback, FeedbackStatus } from '../types/feedback';
 import './FeedbacksPage.css';

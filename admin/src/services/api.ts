@@ -19,12 +19,27 @@ const api = axios.create({
 
 // Đính kèm token từ localStorage vào mọi request (tương thích với trang Login của team)
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('adminToken');
+  const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
+
+// ====================================================
+// DASHBOARD & ADMIN
+// ====================================================
+
+export const getDashboardStats = async () => {
+  const res = await api.get('/admin/stats');
+  return res.data?.data ?? res.data;
+};
+
+export const changePassword = async (accountId: number, data: any) => {
+  const res = await api.put(`/accounts/${accountId}/password`, data);
+  return res.data?.data ?? res.data;
+};
+
 
 // ====================================================
 // FEEDBACKS
