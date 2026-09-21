@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Plus, Search, Power, Package, Truck, X } from 'lucide-react';
+import { Plus, Search, Power, Package, Truck, X, ImageIcon } from 'lucide-react';
 import {
-  getProducts, createProduct, updateProduct, toggleProductActive, deleteProduct,
+  getProducts, createProduct, updateProduct, toggleProductActive,
   getSuppliers, createSupplier, updateSupplier, deleteSupplier
 } from '../services/api';
 import type { Product, Supplier, CreateProductForm, CreateSupplierForm } from '../types/product';
@@ -16,7 +16,9 @@ const formatVND = (price: number | string) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num || 0);
 };
 
+// ──────────────────────────────────────────────────────────
 // Modal Thêm / Sửa Sản phẩm
+// ──────────────────────────────────────────────────────────
 const ProductModal: React.FC<{
   product: Product | null;
   suppliers: Supplier[];
@@ -26,17 +28,24 @@ const ProductModal: React.FC<{
   const [form, setForm] = useState<CreateProductForm>({
     supplierId: product?.supplierId || (suppliers[0]?.supplierId ?? 1),
     productName: product?.productName || '',
-    category: product?.category || 'Sneaker',
-    brand: product?.brand || 'Nike',
-    size: product?.size || '42',
-    color: product?.color || 'Đen',
-    material: product?.material || 'Da thật',
+    category: product?.category || '',
+    brand: product?.brand || '',
+    size: product?.size || '',
+    color: product?.color || '',
+    material: product?.material || '',
     price: product ? parseFloat(product.price as string) : 1000000,
     stockQuantity: product?.stockQuantity ?? 50,
     isActive: product?.isActive ?? true,
     imageUrl: product?.imageUrl || '',
   });
   const [loading, setLoading] = useState(false);
+  const [imgError, setImgError] = useState(false);
+
+  // Reset image error khi URL thay đổi
+  const handleImageUrlChange = (url: string) => {
+    setImgError(false);
+    setForm({ ...form, imageUrl: url });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,6 +69,8 @@ const ProductModal: React.FC<{
     }
   };
 
+  const hasValidImage = !!form.imageUrl && !imgError;
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card product-modal" onClick={(e) => e.stopPropagation()}>
@@ -67,8 +78,10 @@ const ProductModal: React.FC<{
           <h3>{product ? 'Sửa sản phẩm' : 'Thêm sản phẩm mới'}</h3>
           <button className="modal-close-btn" onClick={onClose}><X size={20} /></button>
         </div>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
           <div className="modal-body modal-grid-2">
+
+            {/* Tên sản phẩm */}
             <div className="form-group full-width">
               <label className="form-label">Tên sản phẩm <span className="required">*</span></label>
               <input
@@ -78,9 +91,11 @@ const ProductModal: React.FC<{
                 value={form.productName}
                 onChange={(e) => setForm({ ...form, productName: e.target.value })}
                 required
+                autoFocus
               />
             </div>
 
+            {/* Nhà cung cấp */}
             <div className="form-group">
               <label className="form-label">Nhà cung cấp <span className="required">*</span></label>
               <select
@@ -94,6 +109,7 @@ const ProductModal: React.FC<{
               </select>
             </div>
 
+            {/* Danh mục */}
             <div className="form-group">
               <label className="form-label">Danh mục</label>
               <input
@@ -105,6 +121,7 @@ const ProductModal: React.FC<{
               />
             </div>
 
+            {/* Thương hiệu */}
             <div className="form-group">
               <label className="form-label">Thương hiệu</label>
               <input
@@ -116,6 +133,7 @@ const ProductModal: React.FC<{
               />
             </div>
 
+            {/* Giá */}
             <div className="form-group">
               <label className="form-label">Giá bán (VNĐ) <span className="required">*</span></label>
               <input
@@ -129,6 +147,7 @@ const ProductModal: React.FC<{
               />
             </div>
 
+            {/* Tồn kho */}
             <div className="form-group">
               <label className="form-label">Số lượng tồn kho</label>
               <input
@@ -140,6 +159,7 @@ const ProductModal: React.FC<{
               />
             </div>
 
+            {/* Size */}
             <div className="form-group">
               <label className="form-label">Size / Kích thước</label>
               <input
@@ -151,6 +171,7 @@ const ProductModal: React.FC<{
               />
             </div>
 
+            {/* Màu sắc */}
             <div className="form-group">
               <label className="form-label">Màu sắc</label>
               <input
@@ -162,6 +183,7 @@ const ProductModal: React.FC<{
               />
             </div>
 
+            {/* Chất liệu */}
             <div className="form-group full-width">
               <label className="form-label">Chất liệu</label>
               <input
@@ -173,22 +195,43 @@ const ProductModal: React.FC<{
               />
             </div>
 
+            {/* Hình ảnh */}
             <div className="form-group full-width image-upload-section">
-              <label className="form-label">Hình ảnh sản phẩm (URL)</label>
-              <div className="image-input-container">
+              <label className="form-label">Hình ảnh sản phẩm</label>
+              <div className="image-url-row">
                 <input
                   type="url"
                   className="form-input"
-                  placeholder="Nhập đường dẫn ảnh sản phẩm (VD: https://images.unsplash.com/...)"
+                  placeholder="https://images.unsplash.com/... hoặc https://example.com/shoe.jpg"
                   value={form.imageUrl || ''}
-                  onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
+                  onChange={(e) => handleImageUrlChange(e.target.value)}
                 />
-                {form.imageUrl && (
-                  <div className="image-preview">
-                    <img src={form.imageUrl} alt="Preview" onError={(e) => e.currentTarget.style.display = 'none'} onLoad={(e) => e.currentTarget.style.display = 'block'} />
-                  </div>
-                )}
+                {/* Thumbnail preview nhỏ bên cạnh */}
+                <div className="image-preview-thumb">
+                  {hasValidImage ? (
+                    <img
+                      src={form.imageUrl!}
+                      alt="Preview"
+                      onError={() => setImgError(true)}
+                      onLoad={() => setImgError(false)}
+                    />
+                  ) : (
+                    <div className="image-preview-thumb-placeholder">
+                      <ImageIcon size={22} />
+                    </div>
+                  )}
+                </div>
               </div>
+              {/* Large preview bên dưới */}
+              {hasValidImage && (
+                <div className="image-large-preview">
+                  <img
+                    src={form.imageUrl!}
+                    alt="Xem trước hình ảnh sản phẩm"
+                    onError={() => setImgError(true)}
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -204,7 +247,61 @@ const ProductModal: React.FC<{
   );
 };
 
+// ──────────────────────────────────────────────────────────
+// Modal xác nhận ẩn / "xóa" sản phẩm (soft-delete)
+// ──────────────────────────────────────────────────────────
+const DeactivateConfirmModal: React.FC<{
+  product: Product;
+  onClose: () => void;
+  onConfirm: () => Promise<void>;
+}> = ({ product, onClose, onConfirm }) => {
+  const [loading, setLoading] = useState(false);
+
+  const handleConfirm = async () => {
+    setLoading(true);
+    try {
+      await onConfirm();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-card" style={{ width: '440px' }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>Xác nhận ẩn sản phẩm</h3>
+          <button className="modal-close-btn" onClick={onClose}><X size={20} /></button>
+        </div>
+        <div className="modal-body">
+          <p style={{ fontSize: 14, color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Bạn có chắc muốn ẩn sản phẩm{' '}
+            <strong style={{ color: 'var(--color-text-main)' }}>"{product.productName}"</strong>?
+          </p>
+          <p className="deactivate-note" style={{ marginTop: 8 }}>
+            ✅ Sản phẩm sẽ được ẩn khỏi danh sách kinh doanh nhưng <strong>dữ liệu vẫn được giữ lại</strong> trong hệ thống. Bạn có thể hiện lại sản phẩm bất cứ lúc nào.
+          </p>
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn btn-secondary" onClick={onClose}>Hủy</button>
+          <button
+            type="button"
+            className="btn"
+            style={{ background: '#FEE2E2', color: '#DC2626' }}
+            onClick={handleConfirm}
+            disabled={loading}
+          >
+            {loading ? 'Đang xử lý...' : 'Xác nhận ẩn'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ──────────────────────────────────────────────────────────
 // Modal Thêm / Sửa Nhà cung cấp
+// ──────────────────────────────────────────────────────────
 const SupplierModal: React.FC<{
   supplier: Supplier | null;
   onClose: () => void;
@@ -248,18 +345,19 @@ const SupplierModal: React.FC<{
         </div>
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
-            <div className="form-group">
+            <div className="form-group" style={{ marginBottom: 14 }}>
               <label className="form-label">Tên nhà cung cấp <span className="required">*</span></label>
               <input
                 type="text"
                 className="form-input"
-                placeholder="VD: Công ty TNHH Sản xuất Giày Giày Việt"
+                placeholder="VD: Công ty TNHH Sản xuất Giày Việt"
                 value={form.supplierName}
                 onChange={(e) => setForm({ ...form, supplierName: e.target.value })}
                 required
+                autoFocus
               />
             </div>
-            <div className="form-group">
+            <div className="form-group" style={{ marginBottom: 14 }}>
               <label className="form-label">Số điện thoại</label>
               <input
                 type="text"
@@ -269,7 +367,7 @@ const SupplierModal: React.FC<{
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
               />
             </div>
-            <div className="form-group">
+            <div className="form-group" style={{ marginBottom: 14 }}>
               <label className="form-label">Email</label>
               <input
                 type="email"
@@ -303,6 +401,9 @@ const SupplierModal: React.FC<{
   );
 };
 
+// ──────────────────────────────────────────────────────────
+// Main Page
+// ──────────────────────────────────────────────────────────
 const ProductsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<MainTab>('products');
   const [products, setProducts] = useState<Product[]>([]);
@@ -321,13 +422,16 @@ const ProductsPage: React.FC = () => {
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [showSupplierModal, setShowSupplierModal] = useState(false);
 
+  // Deactivate confirm modal
+  const [deactivatingProduct, setDeactivatingProduct] = useState<Product | null>(null);
+
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
 
   const loadData = async () => {
     setLoading(true);
     try {
       const [prods, sups] = await Promise.all([
-        getProducts(),
+        getProducts({ includeInactive: true }),
         getSuppliers(),
       ]);
       setProducts(prods);
@@ -352,7 +456,8 @@ const ProductsPage: React.FC = () => {
     const matchSupplier = supplierFilter === 'ALL' || p.supplierId === supplierFilter;
     const matchStatus =
       statusFilter === 'ALL' ||
-      (statusFilter === 'ACTIVE' && p.isActive);
+      (statusFilter === 'ACTIVE' && p.isActive) ||
+      (statusFilter === 'INACTIVE' && !p.isActive);
     return matchSearch && matchSupplier && matchStatus;
   });
 
@@ -378,17 +483,23 @@ const ProductsPage: React.FC = () => {
     }
   };
 
-  const handleDeleteProduct = async (p: Product) => {
-    if (!confirm(`Bạn có chắc muốn xóa sản phẩm "${p.productName}"?`)) return;
+  /**
+   * "Xóa" sản phẩm = soft-delete: gọi API setActive(false).
+   * Sản phẩm vẫn còn trong DB và trong danh sách (hiển thị trạng thái "Tạm ẩn").
+   */
+  const handleDeactivateProduct = async (p: Product) => {
     setActionLoadingId(p.productId);
     try {
-      await deleteProduct(p.productId);
-      setProducts((prev) => prev.filter((item) => item.productId !== p.productId));
-      toast.success('Đã xóa sản phẩm');
+      await toggleProductActive(p.productId, false);
+      setProducts((prev) =>
+        prev.map((item) => item.productId === p.productId ? { ...item, isActive: false } : item)
+      );
+      toast.success(`✅ Đã ẩn sản phẩm "${p.productName}"`);
     } catch {
-      toast.error('Không thể xóa sản phẩm (đã có đánh giá liên quan)');
+      toast.error('Không thể ẩn sản phẩm');
     } finally {
       setActionLoadingId(null);
+      setDeactivatingProduct(null);
     }
   };
 
@@ -503,6 +614,7 @@ const ProductsPage: React.FC = () => {
             >
               <option value="ALL">Tất cả trạng thái</option>
               <option value="ACTIVE">Đang kinh doanh</option>
+              <option value="INACTIVE">Đã ẩn</option>
             </select>
           </div>
         )}
@@ -548,7 +660,9 @@ const ProductsPage: React.FC = () => {
                           )}
                           <div className="product-name-block">
                             <span className="product-title">{p.productName}</span>
-                            <span className="product-brand">{p.brand ? `Hãng: ${p.brand}` : ''} {p.size ? `• Size: ${p.size}` : ''}</span>
+                            <span className="product-brand">
+                              {p.brand ? `Hãng: ${p.brand}` : ''}{p.brand && p.size ? ' • ' : ''}{p.size ? `Size: ${p.size}` : ''}
+                            </span>
                           </div>
                         </div>
                       </td>
@@ -577,14 +691,16 @@ const ProductsPage: React.FC = () => {
                         >
                           {p.isActive ? 'Ẩn' : 'Hiện'}
                         </button>
-                        <button
-                          className="action-btn delete-btn"
-                          title="Xóa sản phẩm"
-                          onClick={() => handleDeleteProduct(p)}
-                          disabled={actionLoadingId === p.productId}
-                        >
-                          Xóa
-                        </button>
+                        {p.isActive && (
+                          <button
+                            className="action-btn delete-btn"
+                            title="Ẩn sản phẩm (giữ dữ liệu)"
+                            onClick={() => setDeactivatingProduct(p)}
+                            disabled={actionLoadingId === p.productId}
+                          >
+                            Xóa
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -669,6 +785,15 @@ const ProductsPage: React.FC = () => {
           supplier={editingSupplier}
           onClose={() => setShowSupplierModal(false)}
           onSaved={loadData}
+        />
+      )}
+
+      {/* Deactivate Confirm Modal */}
+      {deactivatingProduct && (
+        <DeactivateConfirmModal
+          product={deactivatingProduct}
+          onClose={() => setDeactivatingProduct(null)}
+          onConfirm={() => handleDeactivateProduct(deactivatingProduct)}
         />
       )}
     </div>
