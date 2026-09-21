@@ -78,6 +78,7 @@ model Customer {
   feedbacks           Feedback[]
   surveyTargets       SurveyTarget[]
   surveyResponses     SurveyResponse[]
+  notifications       Notification[]
 
   @@index([isDeleted])
   @@map("customers")
@@ -199,4 +200,26 @@ model SurveyAnswer {
   @@index([questionId])
   @@index([optionId])
   @@map("survey_answers")
+}
+
+// Thông báo cho khách hàng (chuông thông báo phía mobile): Admin duyệt/từ
+// chối phản hồi, hoặc gửi khảo sát mới tới khách hàng đều tạo 1 bản ghi ở
+// đây. refType/refId trỏ tới đối tượng liên quan (SURVEY/FEEDBACK) để FE
+// điều hướng thẳng khi bấm vào thông báo, nullable vì không phải loại
+// thông báo nào cũng cần điều hướng.
+model Notification {
+  notificationId Int      @id @default(autoincrement()) @map("notification_id")
+  customerId     Int      @map("customer_id")
+  type           String   @db.VarChar(30)
+  title          String   @db.VarChar(150)
+  message        String   @db.Text
+  refType        String?  @map("ref_type") @db.VarChar(20)
+  refId          Int?     @map("ref_id")
+  isRead         Boolean  @default(false) @map("is_read")
+  createdAt      DateTime @default(now()) @map("created_at")
+  customer       Customer @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([customerId, isRead])
+  @@map("notifications")
 }
