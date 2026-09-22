@@ -26,13 +26,21 @@ export const supplierService = {
 
   async create({ supplierName, phone, email, address }) {
     if (!supplierName?.trim()) throw new ValidationError('Tên nhà cung cấp không được để trống.');
+    
+    const existing = await supplierRepository.findByNameExact(supplierName.trim());
+    if (existing) throw new ConflictError('Nhà cung cấp với tên này đã tồn tại.');
+
     return supplierRepository.create({ supplierName: supplierName.trim(), phone, email, address });
   },
 
   async update(supplierId, { supplierName, phone, email, address }) {
     await this.getById(supplierId);
-    if (supplierName !== undefined && !supplierName.trim()) {
-      throw new ValidationError('Tên nhà cung cấp không được để trống.');
+    if (supplierName !== undefined) {
+      if (!supplierName.trim()) throw new ValidationError('Tên nhà cung cấp không được để trống.');
+      const existing = await supplierRepository.findByNameExact(supplierName.trim());
+      if (existing && existing.supplierId !== supplierId) {
+        throw new ConflictError('Nhà cung cấp với tên này đã tồn tại.');
+      }
     }
     return supplierRepository.update(supplierId, {
       supplierName: supplierName?.trim(),

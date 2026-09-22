@@ -15,7 +15,7 @@
  * lặp lại logic nested-write Account+Customer ở 2 nơi.
  */
 import { Router } from 'express';
-import { accountController } from '../controllers/index.js';
+import { accountController, adminController } from '../controllers/index.js';
 import { accountValidator } from '../validators/index.js';
 import { adminOnly } from '../middleware/index.js';
 
@@ -27,5 +27,7 @@ router.post(
   accountValidator.createCustomerByAdmin,
   accountController.createCustomerByAdmin
 );
+
+router.get('/stats', adminOnly, adminController.getDashboardStats);
 
 export default router;

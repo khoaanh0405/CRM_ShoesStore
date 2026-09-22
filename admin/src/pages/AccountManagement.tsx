@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, Unlock, Edit2, Search, RefreshCw, Eye, Trash2, X, AlertCircle, CheckCircle, Plus } from 'lucide-react';
+import { Search, RefreshCw, Trash2, X, AlertCircle, CheckCircle, Plus } from 'lucide-react';
 import api from '../utils/api';
 import './AccountManagement.css';
 

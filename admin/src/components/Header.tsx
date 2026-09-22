@@ -32,7 +32,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
           <Bell size={20} />
           <span className="notification-dot"></span>
         </button>
-        <div className="user-profile">
+        <div className="user-profile" onClick={() => navigate('/profile')} style={{ cursor: 'pointer' }} title="Hồ sơ">
           <img 
             src="https://ui-avatars.com/api/?name=Admin+User&background=21b964&color=fff" 
             alt="User Avatar" 

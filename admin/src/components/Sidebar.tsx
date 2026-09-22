@@ -15,6 +15,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
       </div>
       <nav className="sidebar-nav">
         <ul>
+          {/* Tab này do thành viên khác phụ trách */}
           <li className="nav-item">
             <NavLink to="/" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} end>
               <LayoutDashboard size={20} />
@@ -27,6 +28,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
               <span>Quản lý tài khoản</span>
             </NavLink>
           </li>
+          {/* Tab này do thành viên khác phụ trách */}
           <li className="nav-item">
             <NavLink to="/products" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               <Package size={20} />
@@ -34,7 +36,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
             </NavLink>
           </li>
           <li className="nav-item">
-            <NavLink to="/reviews" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+            <NavLink to="/feedbacks" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               <Star size={20} />
               <span>Quản lý đánh giá</span>
             </NavLink>
