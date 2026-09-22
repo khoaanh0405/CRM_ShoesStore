@@ -31,8 +31,10 @@ const Dashboard: React.FC = () => {
     <div className="dashboard">
       <div className="hero-section">
         <div className="hero-content">
-          <h1 className="page-title">Dashboard Tổng Quan</h1>
-          <p>Xem thống kê nhanh về hệ thống CRM Shoes Store</p>
+          <div className="hero-text">
+            <h1 className="page-title">Dashboard Tổng Quan</h1>
+            <p className="hero-date">{new Date().toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          </div>
         </div>
       </div>
       
@@ -44,7 +46,7 @@ const Dashboard: React.FC = () => {
             <StatCard 
               title="Khách hàng" 
               count={stats.totalCustomers.toString()} 
-              completedText="Đang hoạt động" 
+              completedText="Tổng số khách hàng" 
               iconType="teams" 
             />
             <StatCard 

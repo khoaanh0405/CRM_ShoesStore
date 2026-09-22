@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import toast from 'react-hot-toast';
-import { Plus, Search, Power, Package, Truck, X, ImageIcon } from 'lucide-react';
+import { Plus, Search, Power, Package, Truck, X, Upload, Image as ImageIcon } from 'lucide-react';
 import {
   getProducts, createProduct, updateProduct, toggleProductActive,
   getSuppliers, createSupplier, updateSupplier, deleteSupplier
 } from '../services/api';
 import type { Product, Supplier, CreateProductForm, CreateSupplierForm } from '../types/product';
+import Pagination from '../components/Pagination';
 import './ProductsPage.css';
 
 type MainTab = 'products' | 'suppliers';
@@ -39,12 +40,29 @@ const ProductModal: React.FC<{
     imageUrl: product?.imageUrl || '',
   });
   const [loading, setLoading] = useState(false);
-  const [imgError, setImgError] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string>(product?.imageUrl || '');
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Reset image error khi URL thay đổi
-  const handleImageUrlChange = (url: string) => {
-    setImgError(false);
-    setForm({ ...form, imageUrl: url });
+  const handleFileSelect = (file: File) => {
+    if (!file.type.startsWith('image/')) { toast.error('Vui long chon file anh'); return; }
+    if (file.size > 5242880) { toast.error('Anh qua lon, toi da 5MB'); return; }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      setImagePreview(dataUrl);
+      setForm(function(prev) { return { ...prev, imageUrl: dataUrl }; });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (file) handleFileSelect(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault(); setIsDragging(false);
+    const file = e.dataTransfer.files?.[0]; if (file) handleFileSelect(file);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -69,7 +87,6 @@ const ProductModal: React.FC<{
     }
   };
 
-  const hasValidImage = !!form.imageUrl && !imgError;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -195,42 +212,41 @@ const ProductModal: React.FC<{
               />
             </div>
 
-            {/* Hình ảnh */}
-            <div className="form-group full-width image-upload-section">
+            {/* Image upload - drag & drop or click */}
+            <div className="form-group full-width">
               <label className="form-label">Hình ảnh sản phẩm</label>
-              <div className="image-url-row">
-                <input
-                  type="url"
-                  className="form-input"
-                  placeholder="https://images.unsplash.com/... hoặc https://example.com/shoe.jpg"
-                  value={form.imageUrl || ''}
-                  onChange={(e) => handleImageUrlChange(e.target.value)}
-                />
-                {/* Thumbnail preview nhỏ bên cạnh */}
-                <div className="image-preview-thumb">
-                  {hasValidImage ? (
-                    <img
-                      src={form.imageUrl!}
-                      alt="Preview"
-                      onError={() => setImgError(true)}
-                      onLoad={() => setImgError(false)}
-                    />
-                  ) : (
-                    <div className="image-preview-thumb-placeholder">
-                      <ImageIcon size={22} />
+              <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
+              <div
+                className={`image-upload-dropzone ${isDragging ? 'dragging' : ''} ${imagePreview ? 'has-image' : ''}`.trim()}
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {imagePreview ? (
+                  <div className="upload-preview-container">
+                    <img src={imagePreview} alt="Preview" className="upload-preview-img" />
+                    <div className="upload-preview-overlay">
+                      <Upload size={20} />
+                      <span>Click để thay ảnh khác</span>
                     </div>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="upload-placeholder">
+                    <ImageIcon size={32} className="upload-icon" />
+                    <p className="upload-text">Kéo thả ảnh vào đây hoặc <span className="upload-link">click để chọn file</span></p>
+                    <p className="upload-hint">Hỗ trợ JPG, PNG, WEBP — Tối đa 5MB</p>
+                  </div>
+                )}
               </div>
-              {/* Large preview bên dưới */}
-              {hasValidImage && (
-                <div className="image-large-preview">
-                  <img
-                    src={form.imageUrl!}
-                    alt="Xem trước hình ảnh sản phẩm"
-                    onError={() => setImgError(true)}
-                  />
-                </div>
+              {imagePreview && (
+                <button
+                  type="button"
+                  className="upload-remove-btn"
+                  onClick={(e) => { e.stopPropagation(); setImagePreview(''); setForm((prev) => ({ ...prev, imageUrl: '' })); }}
+                >
+                  <X size={14} /> Xóa ảnh
+                </button>
               )}
             </div>
           </div>
@@ -461,6 +477,20 @@ const ProductsPage: React.FC = () => {
     return matchSearch && matchSupplier && matchStatus;
   });
 
+  // Pagination for products (15 items per page)
+  const PRODUCTS_PER_PAGE = 15;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, supplierFilter, statusFilter, activeTab]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE));
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * PRODUCTS_PER_PAGE,
+    currentPage * PRODUCTS_PER_PAGE
+  );
+
   // Filter suppliers
   const filteredSuppliers = suppliers.filter((s) =>
     s.supplierName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -583,7 +613,7 @@ const ProductsPage: React.FC = () => {
 
       {/* Filter / Search Bar */}
       <div className="filter-bar">
-        <div className="search-box">
+        <div className="search-box-enhanced">
           <Search size={16} className="search-icon" />
           <input
             type="text"
@@ -642,13 +672,13 @@ const ProductsPage: React.FC = () => {
                     <th>Giá bán</th>
                     <th>Tồn kho</th>
                     <th>Trạng thái</th>
-                    <th>Thao tác</th>
+                    <th className="col-actions">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredProducts.map((p, idx) => (
+                  {paginatedProducts.map((p, idx) => (
                     <tr key={p.productId}>
-                      <td className="col-idx">{idx + 1}</td>
+                      <td className="col-idx">{(currentPage - 1) * PRODUCTS_PER_PAGE + idx + 1}</td>
                       <td className="col-product-info">
                         <div className="product-item">
                           {p.imageUrl ? (
@@ -676,36 +706,47 @@ const ProductsPage: React.FC = () => {
                         </span>
                       </td>
                       <td className="col-actions">
-                        <button
-                          className="action-btn edit-btn"
-                          title="Sửa"
-                          onClick={() => { setEditingProduct(p); setShowProductModal(true); }}
-                        >
-                          Sửa
-                        </button>
-                        <button
-                          className={`action-btn ${p.isActive ? 'toggle-off-btn' : 'toggle-on-btn'}`}
-                          title={p.isActive ? 'Ẩn sản phẩm' : 'Hiện sản phẩm'}
-                          onClick={() => handleToggleProductActive(p)}
-                          disabled={actionLoadingId === p.productId}
-                        >
-                          {p.isActive ? 'Ẩn' : 'Hiện'}
-                        </button>
-                        {p.isActive && (
+                        <div className="action-group">
                           <button
-                            className="action-btn delete-btn"
-                            title="Ẩn sản phẩm (giữ dữ liệu)"
-                            onClick={() => setDeactivatingProduct(p)}
+                            className="action-btn edit-btn"
+                            title="Sửa"
+                            onClick={() => { setEditingProduct(p); setShowProductModal(true); }}
+                          >
+                            Sửa
+                          </button>
+                          <button
+                            className={`action-btn ${p.isActive ? 'toggle-off-btn' : 'toggle-on-btn'}`}
+                            title={p.isActive ? 'Ẩn sản phẩm' : 'Hiện sản phẩm'}
+                            onClick={() => handleToggleProductActive(p)}
                             disabled={actionLoadingId === p.productId}
                           >
-                            Xóa
+                            {p.isActive ? 'Ẩn' : 'Hiện'}
                           </button>
-                        )}
+                          {p.isActive && (
+                            <button
+                              className="action-btn delete-btn"
+                              title="Ẩn sản phẩm (giữ dữ liệu)"
+                              onClick={() => setDeactivatingProduct(p)}
+                              disabled={actionLoadingId === p.productId}
+                            >
+                              Xóa
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredProducts.length}
+                itemsPerPage={PRODUCTS_PER_PAGE}
+                itemLabel="sản phẩm"
+                onPageChange={setCurrentPage}
+              />
             </div>
           )}
         </>
@@ -732,7 +773,7 @@ const ProductsPage: React.FC = () => {
                     <th>Email</th>
                     <th>Địa Chỉ</th>
                     <th>Sản phẩm</th>
-                    <th>Thao tác</th>
+                    <th className="col-actions">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -743,22 +784,24 @@ const ProductsPage: React.FC = () => {
                       <td>{s.phone || '—'}</td>
                       <td>{s.email || '—'}</td>
                       <td>{s.address || '—'}</td>
-                      <td><span className="tag-category">{s.products?.length ?? s._count?.products ?? 0} sản phẩm</span></td>
+                      <td><span className="tag-category">{s._count?.products !== undefined ? s._count.products : products.filter(p => p.supplierId === s.supplierId).length} sản phẩm</span></td>
                       <td className="col-actions">
-                        <button
-                          className="action-btn edit-btn"
-                          title="Sửa"
-                          onClick={() => { setEditingSupplier(s); setShowSupplierModal(true); }}
-                        >
-                          Sửa
-                        </button>
-                        <button
-                          className="action-btn delete-btn"
-                          title="Xóa"
-                          onClick={() => handleDeleteSupplier(s)}
-                        >
-                          Xóa
-                        </button>
+                        <div className="action-group">
+                          <button
+                            className="action-btn edit-btn"
+                            title="Sửa"
+                            onClick={() => { setEditingSupplier(s); setShowSupplierModal(true); }}
+                          >
+                            Sửa
+                          </button>
+                          <button
+                            className="action-btn delete-btn"
+                            title="Xóa"
+                            onClick={() => handleDeleteSupplier(s)}
+                          >
+                            Xóa
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -801,3 +844,7 @@ const ProductsPage: React.FC = () => {
 };
 
 export default ProductsPage;
+
+
+
+

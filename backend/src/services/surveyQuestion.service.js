@@ -18,18 +18,16 @@ export const surveyQuestionService = {
     return question;
   },
 
-  /** Thêm 1 câu hỏi (kèm lựa chọn nếu là SINGLE_CHOICE) vào khảo sát đã tồn tại. */
+  /** Them 1 cau hoi (kem lua chon neu co) vao khao sat da ton tai. */
   async create({ surveyId, questionContent, questionType, options = [] }) {
     const survey = await surveyRepository.findById(surveyId);
     if (!survey) throw new NotFoundError(MESSAGES.NOT_FOUND.SURVEY);
 
-    if (!questionContent?.trim()) throw new ValidationError('Nội dung câu hỏi không được để trống.');
+    if (!questionContent?.trim()) throw new ValidationError('Noi dung cau hoi khong duoc de trong.');
     if (!QUESTION_TYPE_LIST.includes(questionType)) {
-      throw new ValidationError(`Loại câu hỏi không hợp lệ: "${questionType}".`);
+      throw new ValidationError(`Loai cau hoi khong hop le: "${questionType}".`);
     }
-    if (questionType === 'SINGLE_CHOICE' && (!Array.isArray(options) || options.length < 2)) {
-      throw new ValidationError('Câu hỏi trắc nghiệm phải có ít nhất 2 lựa chọn.');
-    }
+    // Note: Khong bat buoc phai co options khi tao - options co the duoc them sau qua API /options
 
     const question = await surveyQuestionRepository.create({
       surveyId,
@@ -37,7 +35,7 @@ export const surveyQuestionService = {
       questionType,
     });
 
-    if (questionType === 'SINGLE_CHOICE') {
+    if ((questionType === 'SINGLE_CHOICE' || questionType === 'MULTIPLE_CHOICE') && Array.isArray(options) && options.length > 0) {
       await Promise.all(
         options.map((optionText, idx) =>
           surveyQuestionOptionRepository.create({

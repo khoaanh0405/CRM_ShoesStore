@@ -211,9 +211,14 @@ const AccountManagement: React.FC = () => {
           <h1 className="page-title">Quản lý tài khoản</h1>
           <p className="page-subtitle">Xem và quản lý danh sách tài khoản hệ thống</p>
         </div>
-        <button className="btn-primary" onClick={fetchAccounts} title="Làm mới">
-          <RefreshCw size={18} />
-          Làm mới
+        <button
+          className="btn-refresh"
+          onClick={fetchAccounts}
+          title="Làm mới"
+          disabled={loading}
+        >
+          <RefreshCw size={16} className={loading ? 'spinning' : ''} />
+          {loading ? 'Đang tải...' : 'Làm mới'}
         </button>
       </div>
 
@@ -226,14 +231,19 @@ const AccountManagement: React.FC = () => {
             Thêm mới
           </button>
           
-          <div className="search-box">
-            <Search size={18} className="search-icon" />
+          <div className="search-box enhanced">
+            <Search size={16} className="search-icon" />
             <input 
               type="text" 
               placeholder="Tìm kiếm username hoặc ID..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+            {searchTerm && (
+              <button className="search-clear" onClick={() => setSearchTerm('')}>
+                <X size={14} />
+              </button>
+            )}
           </div>
         </div>
 

@@ -14,7 +14,7 @@
 .header-left, .header-right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .menu-btn {
@@ -22,86 +22,77 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  transition: background-color 0.2s;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  transition: all 0.2s;
+  flex-shrink: 0;
 }
 
 .menu-btn:hover {
   background-color: var(--color-bg);
+  color: var(--color-text-main);
 }
 
-.search-bar {
+.header-brand {
   display: flex;
   align-items: center;
-  background-color: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 8px 16px;
-  width: 300px;
+  gap: 8px;
 }
 
-.search-icon {
-  color: var(--color-text-muted);
+.brand-icon {
+  color: var(--color-primary);
 }
 
-.search-bar input {
-  border: none;
-  background: transparent;
-  outline: none;
-  margin-left: 8px;
-  width: 100%;
+.brand-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text-main);
+  letter-spacing: -0.3px;
 }
 
-.notification-btn {
-  color: var(--color-text-muted);
-  position: relative;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: background-color 0.2s;
-}
-
-.notification-btn:hover {
-  background-color: var(--color-bg);
-}
-
-.notification-dot {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 8px;
-  height: 8px;
-  background-color: var(--color-primary);
-  border-radius: 50%;
-  border: 2px solid var(--color-surface);
+.header-divider {
+  width: 1px;
+  height: 24px;
+  background-color: var(--color-border);
 }
 
 .user-profile {
   display: flex;
   align-items: center;
+  gap: 8px;
   cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 8px;
+  transition: background-color 0.2s;
+}
+
+.user-profile:hover {
+  background-color: var(--color-bg);
 }
 
 .avatar {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   object-fit: cover;
 }
 
+.user-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-main);
+}
+
 .logout-btn {
-  color: var(--color-text-muted);
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
+  gap: 6px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 8px;
   transition: all 0.2s;
 }
 
