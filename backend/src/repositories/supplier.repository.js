@@ -7,7 +7,14 @@ import prisma from '../config/database.js';
 
 export const supplierRepository = {
   findAll() {
-    return prisma.supplier.findMany({ orderBy: { supplierId: 'asc' } });
+    return prisma.supplier.findMany({
+      orderBy: { supplierId: 'asc' },
+      include: {
+        _count: {
+          select: { products: true },
+        },
+      },
+    });
   },
 
   findById(supplierId) {
@@ -19,6 +26,11 @@ export const supplierRepository = {
     return prisma.supplier.findMany({
       where: { supplierName: { contains: keyword, mode: 'insensitive' } },
       orderBy: { supplierName: 'asc' },
+      include: {
+        _count: {
+          select: { products: true },
+        },
+      },
     });
   },
 

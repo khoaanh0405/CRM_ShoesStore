@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { logout } from '../services/auth';
-import { Menu, Search, Bell, LogOut } from 'lucide-react';
+import { Menu, LogOut, LayoutDashboard } from 'lucide-react';
 import './Header.css';
 
 interface HeaderProps {
@@ -19,28 +19,27 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   return (
     <header className="header">
       <div className="header-left">
-        <button className="menu-btn" onClick={toggleSidebar}>
-          <Menu size={24} />
+        <button className="menu-btn" onClick={toggleSidebar} title="Mở/đóng menu">
+          <Menu size={20} />
         </button>
-        <div className="search-bar">
-          <Search className="search-icon" size={20} />
-          <input type="text" placeholder="Search" />
+        <div className="header-brand">
+          <LayoutDashboard size={20} className="brand-icon" />
+          <span className="brand-name">CRM Shoes Store</span>
         </div>
       </div>
       <div className="header-right">
-        <button className="notification-btn">
-          <Bell size={20} />
-          <span className="notification-dot"></span>
-        </button>
-        <div className="user-profile" onClick={() => navigate('/profile')} style={{ cursor: 'pointer' }} title="Hồ sơ">
+        <div className="user-profile" onClick={() => navigate('/profile')} title="Hồ sơ cá nhân">
           <img 
             src="https://ui-avatars.com/api/?name=Admin+User&background=21b964&color=fff" 
             alt="User Avatar" 
             className="avatar" 
           />
+          <span className="user-name">Admin</span>
         </div>
+        <div className="header-divider" />
         <button className="logout-btn" onClick={handleLogout} title="Đăng xuất">
-          <LogOut size={20} />
+          <LogOut size={18} />
+          <span>Đăng xuất</span>
         </button>
       </div>
     </header>

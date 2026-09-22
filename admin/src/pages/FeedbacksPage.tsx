@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { Star, CheckCircle, XCircle, X } from 'lucide-react';
 import { getFeedbacks, updateFeedbackStatus } from '../services/api';
 import type { Feedback, FeedbackStatus } from '../types/feedback';
+import Pagination from '../components/Pagination';
 import './FeedbacksPage.css';
 
 type FilterTab = 'All' | FeedbackStatus;
@@ -139,6 +140,20 @@ const FeedbacksPage: React.FC = () => {
   const filtered =
     activeTab === 'All' ? feedbacks : feedbacks.filter((f) => f.status === activeTab);
 
+  // Pagination for feedbacks (10 items per page)
+  const FEEDBACKS_PER_PAGE = 10;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / FEEDBACKS_PER_PAGE));
+  const paginatedFeedbacks = filtered.slice(
+    (currentPage - 1) * FEEDBACKS_PER_PAGE,
+    currentPage * FEEDBACKS_PER_PAGE
+  );
+
   const counts = {
     All: feedbacks.length,
     Pending: feedbacks.filter((f) => f.status === 'Pending').length,
@@ -210,13 +225,13 @@ const FeedbacksPage: React.FC = () => {
                 <th>Rating</th>
                 <th>Ngày gửi</th>
                 <th>Trạng thái</th>
-                <th>Thao tác</th>
+                <th className="col-actions">Thao tác</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((fb, idx) => (
+              {paginatedFeedbacks.map((fb, idx) => (
                 <tr key={fb.feedbackId} className="feedback-row">
-                  <td className="col-index">{idx + 1}</td>
+                  <td className="col-index">{(currentPage - 1) * FEEDBACKS_PER_PAGE + idx + 1}</td>
                   <td className="col-product">
                     <span className="product-name">
                       {fb.product?.productName ?? `SP #${fb.productId}`}
@@ -244,38 +259,49 @@ const FeedbacksPage: React.FC = () => {
                     <StatusBadge status={fb.status} />
                   </td>
                   <td className="col-actions">
-                    <button
-                      className="action-btn view-btn"
-                      title="Xem chi tiết"
-                      onClick={() => setSelectedFeedback(fb)}
-                    >
-                      Chi tiết
-                    </button>
-                    {fb.status === 'Pending' && (
-                      <>
-                        <button
-                          className="action-btn approve-btn"
-                          title="Duyệt"
-                          onClick={() => handleStatusChange(fb, 'Approved')}
-                          disabled={actionLoading}
-                        >
-                          Duyệt
-                        </button>
-                        <button
-                          className="action-btn reject-btn"
-                          title="Từ chối"
-                          onClick={() => handleStatusChange(fb, 'Rejected')}
-                          disabled={actionLoading}
-                        >
-                          Từ chối
-                        </button>
-                      </>
-                    )}
+                    <div className="action-group">
+                      <button
+                        className="action-btn view-btn"
+                        title="Xem chi tiết"
+                        onClick={() => setSelectedFeedback(fb)}
+                      >
+                        Chi tiết
+                      </button>
+                      {fb.status === 'Pending' && (
+                        <>
+                          <button
+                            className="action-btn approve-btn"
+                            title="Duyệt đánh giá"
+                            onClick={() => handleStatusChange(fb, 'Approved')}
+                            disabled={actionLoading}
+                          >
+                            Duyệt
+                          </button>
+                          <button
+                            className="action-btn reject-btn"
+                            title="Từ chối đánh giá"
+                            onClick={() => handleStatusChange(fb, 'Rejected')}
+                            disabled={actionLoading}
+                          >
+                            Từ chối
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filtered.length}
+            itemsPerPage={FEEDBACKS_PER_PAGE}
+            itemLabel="đánh giá"
+            onPageChange={setCurrentPage}
+          />
         </div>
       )}
 

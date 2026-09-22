@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import toast from 'react-hot-toast';
-import { Plus, Search, Power, Package, Truck, X } from 'lucide-react';
+import { Plus, Search, Power, Package, Truck, X, Upload, Image as ImageIcon } from 'lucide-react';
 import {
-  getProducts, createProduct, updateProduct, toggleProductActive, deleteProduct,
+  getProducts, createProduct, updateProduct, toggleProductActive,
   getSuppliers, createSupplier, updateSupplier, deleteSupplier
 } from '../services/api';
 import type { Product, Supplier, CreateProductForm, CreateSupplierForm } from '../types/product';
+import Pagination from '../components/Pagination';
 import './ProductsPage.css';
 
 type MainTab = 'products' | 'suppliers';
@@ -16,7 +17,9 @@ const formatVND = (price: number | string) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num || 0);
 };
 
+// ──────────────────────────────────────────────────────────
 // Modal Thêm / Sửa Sản phẩm
+// ──────────────────────────────────────────────────────────
 const ProductModal: React.FC<{
   product: Product | null;
   suppliers: Supplier[];
@@ -26,17 +29,41 @@ const ProductModal: React.FC<{
   const [form, setForm] = useState<CreateProductForm>({
     supplierId: product?.supplierId || (suppliers[0]?.supplierId ?? 1),
     productName: product?.productName || '',
-    category: product?.category || 'Sneaker',
-    brand: product?.brand || 'Nike',
-    size: product?.size || '42',
-    color: product?.color || 'Đen',
-    material: product?.material || 'Da thật',
+    category: product?.category || '',
+    brand: product?.brand || '',
+    size: product?.size || '',
+    color: product?.color || '',
+    material: product?.material || '',
     price: product ? parseFloat(product.price as string) : 1000000,
     stockQuantity: product?.stockQuantity ?? 50,
     isActive: product?.isActive ?? true,
     imageUrl: product?.imageUrl || '',
   });
   const [loading, setLoading] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string>(product?.imageUrl || '');
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (file: File) => {
+    if (!file.type.startsWith('image/')) { toast.error('Vui long chon file anh'); return; }
+    if (file.size > 5242880) { toast.error('Anh qua lon, toi da 5MB'); return; }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      setImagePreview(dataUrl);
+      setForm(function(prev) { return { ...prev, imageUrl: dataUrl }; });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (file) handleFileSelect(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault(); setIsDragging(false);
+    const file = e.dataTransfer.files?.[0]; if (file) handleFileSelect(file);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,6 +87,7 @@ const ProductModal: React.FC<{
     }
   };
 
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card product-modal" onClick={(e) => e.stopPropagation()}>
@@ -67,8 +95,10 @@ const ProductModal: React.FC<{
           <h3>{product ? 'Sửa sản phẩm' : 'Thêm sản phẩm mới'}</h3>
           <button className="modal-close-btn" onClick={onClose}><X size={20} /></button>
         </div>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
           <div className="modal-body modal-grid-2">
+
+            {/* Tên sản phẩm */}
             <div className="form-group full-width">
               <label className="form-label">Tên sản phẩm <span className="required">*</span></label>
               <input
@@ -78,9 +108,11 @@ const ProductModal: React.FC<{
                 value={form.productName}
                 onChange={(e) => setForm({ ...form, productName: e.target.value })}
                 required
+                autoFocus
               />
             </div>
 
+            {/* Nhà cung cấp */}
             <div className="form-group">
               <label className="form-label">Nhà cung cấp <span className="required">*</span></label>
               <select
@@ -94,6 +126,7 @@ const ProductModal: React.FC<{
               </select>
             </div>
 
+            {/* Danh mục */}
             <div className="form-group">
               <label className="form-label">Danh mục</label>
               <input
@@ -105,6 +138,7 @@ const ProductModal: React.FC<{
               />
             </div>
 
+            {/* Thương hiệu */}
             <div className="form-group">
               <label className="form-label">Thương hiệu</label>
               <input
@@ -116,6 +150,7 @@ const ProductModal: React.FC<{
               />
             </div>
 
+            {/* Giá */}
             <div className="form-group">
               <label className="form-label">Giá bán (VNĐ) <span className="required">*</span></label>
               <input
@@ -129,6 +164,7 @@ const ProductModal: React.FC<{
               />
             </div>
 
+            {/* Tồn kho */}
             <div className="form-group">
               <label className="form-label">Số lượng tồn kho</label>
               <input
@@ -140,6 +176,7 @@ const ProductModal: React.FC<{
               />
             </div>
 
+            {/* Size */}
             <div className="form-group">
               <label className="form-label">Size / Kích thước</label>
               <input
@@ -151,6 +188,7 @@ const ProductModal: React.FC<{
               />
             </div>
 
+            {/* Màu sắc */}
             <div className="form-group">
               <label className="form-label">Màu sắc</label>
               <input
@@ -162,6 +200,7 @@ const ProductModal: React.FC<{
               />
             </div>
 
+            {/* Chất liệu */}
             <div className="form-group full-width">
               <label className="form-label">Chất liệu</label>
               <input
@@ -173,22 +212,42 @@ const ProductModal: React.FC<{
               />
             </div>
 
-            <div className="form-group full-width image-upload-section">
-              <label className="form-label">Hình ảnh sản phẩm (URL)</label>
-              <div className="image-input-container">
-                <input
-                  type="url"
-                  className="form-input"
-                  placeholder="Nhập đường dẫn ảnh sản phẩm (VD: https://images.unsplash.com/...)"
-                  value={form.imageUrl || ''}
-                  onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-                />
-                {form.imageUrl && (
-                  <div className="image-preview">
-                    <img src={form.imageUrl} alt="Preview" onError={(e) => e.currentTarget.style.display = 'none'} onLoad={(e) => e.currentTarget.style.display = 'block'} />
+            {/* Image upload - drag & drop or click */}
+            <div className="form-group full-width">
+              <label className="form-label">Hình ảnh sản phẩm</label>
+              <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
+              <div
+                className={`image-upload-dropzone ${isDragging ? 'dragging' : ''} ${imagePreview ? 'has-image' : ''}`.trim()}
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {imagePreview ? (
+                  <div className="upload-preview-container">
+                    <img src={imagePreview} alt="Preview" className="upload-preview-img" />
+                    <div className="upload-preview-overlay">
+                      <Upload size={20} />
+                      <span>Click để thay ảnh khác</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="upload-placeholder">
+                    <ImageIcon size={32} className="upload-icon" />
+                    <p className="upload-text">Kéo thả ảnh vào đây hoặc <span className="upload-link">click để chọn file</span></p>
+                    <p className="upload-hint">Hỗ trợ JPG, PNG, WEBP — Tối đa 5MB</p>
                   </div>
                 )}
               </div>
+              {imagePreview && (
+                <button
+                  type="button"
+                  className="upload-remove-btn"
+                  onClick={(e) => { e.stopPropagation(); setImagePreview(''); setForm((prev) => ({ ...prev, imageUrl: '' })); }}
+                >
+                  <X size={14} /> Xóa ảnh
+                </button>
+              )}
             </div>
           </div>
 
@@ -204,7 +263,61 @@ const ProductModal: React.FC<{
   );
 };
 
+// ──────────────────────────────────────────────────────────
+// Modal xác nhận ẩn / "xóa" sản phẩm (soft-delete)
+// ──────────────────────────────────────────────────────────
+const DeactivateConfirmModal: React.FC<{
+  product: Product;
+  onClose: () => void;
+  onConfirm: () => Promise<void>;
+}> = ({ product, onClose, onConfirm }) => {
+  const [loading, setLoading] = useState(false);
+
+  const handleConfirm = async () => {
+    setLoading(true);
+    try {
+      await onConfirm();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-card" style={{ width: '440px' }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>Xác nhận ẩn sản phẩm</h3>
+          <button className="modal-close-btn" onClick={onClose}><X size={20} /></button>
+        </div>
+        <div className="modal-body">
+          <p style={{ fontSize: 14, color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
+            Bạn có chắc muốn ẩn sản phẩm{' '}
+            <strong style={{ color: 'var(--color-text-main)' }}>"{product.productName}"</strong>?
+          </p>
+          <p className="deactivate-note" style={{ marginTop: 8 }}>
+            ✅ Sản phẩm sẽ được ẩn khỏi danh sách kinh doanh nhưng <strong>dữ liệu vẫn được giữ lại</strong> trong hệ thống. Bạn có thể hiện lại sản phẩm bất cứ lúc nào.
+          </p>
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn btn-secondary" onClick={onClose}>Hủy</button>
+          <button
+            type="button"
+            className="btn"
+            style={{ background: '#FEE2E2', color: '#DC2626' }}
+            onClick={handleConfirm}
+            disabled={loading}
+          >
+            {loading ? 'Đang xử lý...' : 'Xác nhận ẩn'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ──────────────────────────────────────────────────────────
 // Modal Thêm / Sửa Nhà cung cấp
+// ──────────────────────────────────────────────────────────
 const SupplierModal: React.FC<{
   supplier: Supplier | null;
   onClose: () => void;
@@ -248,18 +361,19 @@ const SupplierModal: React.FC<{
         </div>
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
-            <div className="form-group">
+            <div className="form-group" style={{ marginBottom: 14 }}>
               <label className="form-label">Tên nhà cung cấp <span className="required">*</span></label>
               <input
                 type="text"
                 className="form-input"
-                placeholder="VD: Công ty TNHH Sản xuất Giày Giày Việt"
+                placeholder="VD: Công ty TNHH Sản xuất Giày Việt"
                 value={form.supplierName}
                 onChange={(e) => setForm({ ...form, supplierName: e.target.value })}
                 required
+                autoFocus
               />
             </div>
-            <div className="form-group">
+            <div className="form-group" style={{ marginBottom: 14 }}>
               <label className="form-label">Số điện thoại</label>
               <input
                 type="text"
@@ -269,7 +383,7 @@ const SupplierModal: React.FC<{
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
               />
             </div>
-            <div className="form-group">
+            <div className="form-group" style={{ marginBottom: 14 }}>
               <label className="form-label">Email</label>
               <input
                 type="email"
@@ -303,6 +417,9 @@ const SupplierModal: React.FC<{
   );
 };
 
+// ──────────────────────────────────────────────────────────
+// Main Page
+// ──────────────────────────────────────────────────────────
 const ProductsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<MainTab>('products');
   const [products, setProducts] = useState<Product[]>([]);
@@ -321,13 +438,16 @@ const ProductsPage: React.FC = () => {
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [showSupplierModal, setShowSupplierModal] = useState(false);
 
+  // Deactivate confirm modal
+  const [deactivatingProduct, setDeactivatingProduct] = useState<Product | null>(null);
+
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
 
   const loadData = async () => {
     setLoading(true);
     try {
       const [prods, sups] = await Promise.all([
-        getProducts(),
+        getProducts({ includeInactive: true }),
         getSuppliers(),
       ]);
       setProducts(prods);
@@ -352,9 +472,24 @@ const ProductsPage: React.FC = () => {
     const matchSupplier = supplierFilter === 'ALL' || p.supplierId === supplierFilter;
     const matchStatus =
       statusFilter === 'ALL' ||
-      (statusFilter === 'ACTIVE' && p.isActive);
+      (statusFilter === 'ACTIVE' && p.isActive) ||
+      (statusFilter === 'INACTIVE' && !p.isActive);
     return matchSearch && matchSupplier && matchStatus;
   });
+
+  // Pagination for products (15 items per page)
+  const PRODUCTS_PER_PAGE = 15;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, supplierFilter, statusFilter, activeTab]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE));
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * PRODUCTS_PER_PAGE,
+    currentPage * PRODUCTS_PER_PAGE
+  );
 
   // Filter suppliers
   const filteredSuppliers = suppliers.filter((s) =>
@@ -378,17 +513,23 @@ const ProductsPage: React.FC = () => {
     }
   };
 
-  const handleDeleteProduct = async (p: Product) => {
-    if (!confirm(`Bạn có chắc muốn xóa sản phẩm "${p.productName}"?`)) return;
+  /**
+   * "Xóa" sản phẩm = soft-delete: gọi API setActive(false).
+   * Sản phẩm vẫn còn trong DB và trong danh sách (hiển thị trạng thái "Tạm ẩn").
+   */
+  const handleDeactivateProduct = async (p: Product) => {
     setActionLoadingId(p.productId);
     try {
-      await deleteProduct(p.productId);
-      setProducts((prev) => prev.filter((item) => item.productId !== p.productId));
-      toast.success('Đã xóa sản phẩm');
+      await toggleProductActive(p.productId, false);
+      setProducts((prev) =>
+        prev.map((item) => item.productId === p.productId ? { ...item, isActive: false } : item)
+      );
+      toast.success(`✅ Đã ẩn sản phẩm "${p.productName}"`);
     } catch {
-      toast.error('Không thể xóa sản phẩm (đã có đánh giá liên quan)');
+      toast.error('Không thể ẩn sản phẩm');
     } finally {
       setActionLoadingId(null);
+      setDeactivatingProduct(null);
     }
   };
 
@@ -472,7 +613,7 @@ const ProductsPage: React.FC = () => {
 
       {/* Filter / Search Bar */}
       <div className="filter-bar">
-        <div className="search-box">
+        <div className="search-box-enhanced">
           <Search size={16} className="search-icon" />
           <input
             type="text"
@@ -503,6 +644,7 @@ const ProductsPage: React.FC = () => {
             >
               <option value="ALL">Tất cả trạng thái</option>
               <option value="ACTIVE">Đang kinh doanh</option>
+              <option value="INACTIVE">Đã ẩn</option>
             </select>
           </div>
         )}
@@ -530,13 +672,13 @@ const ProductsPage: React.FC = () => {
                     <th>Giá bán</th>
                     <th>Tồn kho</th>
                     <th>Trạng thái</th>
-                    <th>Thao tác</th>
+                    <th className="col-actions">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredProducts.map((p, idx) => (
+                  {paginatedProducts.map((p, idx) => (
                     <tr key={p.productId}>
-                      <td className="col-idx">{idx + 1}</td>
+                      <td className="col-idx">{(currentPage - 1) * PRODUCTS_PER_PAGE + idx + 1}</td>
                       <td className="col-product-info">
                         <div className="product-item">
                           {p.imageUrl ? (
@@ -548,7 +690,9 @@ const ProductsPage: React.FC = () => {
                           )}
                           <div className="product-name-block">
                             <span className="product-title">{p.productName}</span>
-                            <span className="product-brand">{p.brand ? `Hãng: ${p.brand}` : ''} {p.size ? `• Size: ${p.size}` : ''}</span>
+                            <span className="product-brand">
+                              {p.brand ? `Hãng: ${p.brand}` : ''}{p.brand && p.size ? ' • ' : ''}{p.size ? `Size: ${p.size}` : ''}
+                            </span>
                           </div>
                         </div>
                       </td>
@@ -562,34 +706,47 @@ const ProductsPage: React.FC = () => {
                         </span>
                       </td>
                       <td className="col-actions">
-                        <button
-                          className="action-btn edit-btn"
-                          title="Sửa"
-                          onClick={() => { setEditingProduct(p); setShowProductModal(true); }}
-                        >
-                          Sửa
-                        </button>
-                        <button
-                          className={`action-btn ${p.isActive ? 'toggle-off-btn' : 'toggle-on-btn'}`}
-                          title={p.isActive ? 'Ẩn sản phẩm' : 'Hiện sản phẩm'}
-                          onClick={() => handleToggleProductActive(p)}
-                          disabled={actionLoadingId === p.productId}
-                        >
-                          {p.isActive ? 'Ẩn' : 'Hiện'}
-                        </button>
-                        <button
-                          className="action-btn delete-btn"
-                          title="Xóa sản phẩm"
-                          onClick={() => handleDeleteProduct(p)}
-                          disabled={actionLoadingId === p.productId}
-                        >
-                          Xóa
-                        </button>
+                        <div className="action-group">
+                          <button
+                            className="action-btn edit-btn"
+                            title="Sửa"
+                            onClick={() => { setEditingProduct(p); setShowProductModal(true); }}
+                          >
+                            Sửa
+                          </button>
+                          <button
+                            className={`action-btn ${p.isActive ? 'toggle-off-btn' : 'toggle-on-btn'}`}
+                            title={p.isActive ? 'Ẩn sản phẩm' : 'Hiện sản phẩm'}
+                            onClick={() => handleToggleProductActive(p)}
+                            disabled={actionLoadingId === p.productId}
+                          >
+                            {p.isActive ? 'Ẩn' : 'Hiện'}
+                          </button>
+                          {p.isActive && (
+                            <button
+                              className="action-btn delete-btn"
+                              title="Ẩn sản phẩm (giữ dữ liệu)"
+                              onClick={() => setDeactivatingProduct(p)}
+                              disabled={actionLoadingId === p.productId}
+                            >
+                              Xóa
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredProducts.length}
+                itemsPerPage={PRODUCTS_PER_PAGE}
+                itemLabel="sản phẩm"
+                onPageChange={setCurrentPage}
+              />
             </div>
           )}
         </>
@@ -616,7 +773,7 @@ const ProductsPage: React.FC = () => {
                     <th>Email</th>
                     <th>Địa Chỉ</th>
                     <th>Sản phẩm</th>
-                    <th>Thao tác</th>
+                    <th className="col-actions">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -627,22 +784,24 @@ const ProductsPage: React.FC = () => {
                       <td>{s.phone || '—'}</td>
                       <td>{s.email || '—'}</td>
                       <td>{s.address || '—'}</td>
-                      <td><span className="tag-category">{s.products?.length ?? s._count?.products ?? 0} sản phẩm</span></td>
+                      <td><span className="tag-category">{s._count?.products !== undefined ? s._count.products : products.filter(p => p.supplierId === s.supplierId).length} sản phẩm</span></td>
                       <td className="col-actions">
-                        <button
-                          className="action-btn edit-btn"
-                          title="Sửa"
-                          onClick={() => { setEditingSupplier(s); setShowSupplierModal(true); }}
-                        >
-                          Sửa
-                        </button>
-                        <button
-                          className="action-btn delete-btn"
-                          title="Xóa"
-                          onClick={() => handleDeleteSupplier(s)}
-                        >
-                          Xóa
-                        </button>
+                        <div className="action-group">
+                          <button
+                            className="action-btn edit-btn"
+                            title="Sửa"
+                            onClick={() => { setEditingSupplier(s); setShowSupplierModal(true); }}
+                          >
+                            Sửa
+                          </button>
+                          <button
+                            className="action-btn delete-btn"
+                            title="Xóa"
+                            onClick={() => handleDeleteSupplier(s)}
+                          >
+                            Xóa
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -671,8 +830,21 @@ const ProductsPage: React.FC = () => {
           onSaved={loadData}
         />
       )}
+
+      {/* Deactivate Confirm Modal */}
+      {deactivatingProduct && (
+        <DeactivateConfirmModal
+          product={deactivatingProduct}
+          onClose={() => setDeactivatingProduct(null)}
+          onConfirm={() => handleDeactivateProduct(deactivatingProduct)}
+        />
+      )}
     </div>
   );
 };
 
 export default ProductsPage;
+
+
+
+

@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Plus, FileText, Users, MessageSquare, Power, PowerOff, X, ChevronRight } from 'lucide-react';
+import { Plus, FileText, Users, MessageSquare, Power, PowerOff, X, ChevronRight, Search } from 'lucide-react';
 import { getSurveys, createSurvey, toggleSurveyActive } from '../services/api';
 import type { Survey, CreateSurveyForm } from '../types/survey';
+import Pagination from '../components/Pagination';
 import './SurveysPage.css';
 
 // Modal tạo khảo sát mới
@@ -102,6 +103,7 @@ const SurveysPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const loadSurveys = async () => {
     setLoading(true);
@@ -145,6 +147,25 @@ const SurveysPage: React.FC = () => {
 
   const activeSurveys = surveys.filter((s) => s.isActive);
   const inactiveSurveys = surveys.filter((s) => !s.isActive);
+  
+  const filteredSurveys = surveys.filter((s) =>
+    s.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (s.description ?? '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Pagination for surveys (6 items per page)
+  const SURVEYS_PER_PAGE = 6;
+  const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredSurveys.length / SURVEYS_PER_PAGE));
+  const paginatedSurveys = filteredSurveys.slice(
+    (currentPage - 1) * SURVEYS_PER_PAGE,
+    currentPage * SURVEYS_PER_PAGE
+  );
 
   return (
     <div className="surveys-page">
@@ -153,6 +174,26 @@ const SurveysPage: React.FC = () => {
           <h1 className="page-title">Quản lý Khảo sát</h1>
           <p className="page-subtitle">Tạo, quản lý và theo dõi kết quả khảo sát khách hàng</p>
         </div>
+      </div>
+
+      {/* Toolbar: Search bar & Create button on the SAME row */}
+      <div className="surveys-toolbar">
+        <div className="survey-search-bar">
+          <Search size={16} className="survey-search-icon" />
+          <input
+            type="text"
+            className="survey-search-input"
+            placeholder="Tìm kiếm khảo sát theo tên, mô tả..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          {searchTerm && (
+            <button className="survey-search-clear" onClick={() => setSearchTerm('')}>
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
         <button
           id="create-survey-btn"
           className="btn btn-primary create-btn"
@@ -194,71 +235,89 @@ const SurveysPage: React.FC = () => {
           </button>
         </div>
       ) : (
-        <div className="surveys-list">
-          {surveys.map((survey) => (
-            <div
-              key={survey.surveyId}
-              className={`survey-card ${!survey.isActive ? 'inactive' : ''}`}
-              onClick={() => navigate(`/surveys/${survey.surveyId}`)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === 'Enter' && navigate(`/surveys/${survey.surveyId}`)}
-            >
-              <div className="survey-card-left">
-                <div className="survey-card-icon">
-                  <FileText size={22} />
-                </div>
-                <div className="survey-card-info">
-                  <div className="survey-card-title-row">
-                    <h3 className="survey-card-title">{survey.title}</h3>
-                    <span className={`active-badge ${survey.isActive ? 'on' : 'off'}`}>
-                      {survey.isActive ? '● Đang hoạt động' : '○ Đã đóng'}
-                    </span>
-                  </div>
-                  {survey.description && (
-                    <p className="survey-card-desc">{survey.description}</p>
-                  )}
-                  <div className="survey-card-meta">
-                    <span className="meta-chip">
-                      <FileText size={13} />
-                      {survey._count?.questions ?? survey.questions?.length ?? 0} câu hỏi
-                    </span>
-                    <span className="meta-chip">
-                      <Users size={13} />
-                      {survey._count?.surveyTargets ?? 0} đối tượng
-                    </span>
-                    <span className="meta-chip">
-                      <MessageSquare size={13} />
-                      {survey._count?.surveyResponses ?? 0} phản hồi
-                    </span>
-                    <span className="meta-chip date">
-                      Tạo ngày {new Date(survey.createdAt).toLocaleDateString('vi-VN')}
-                    </span>
-                  </div>
-                </div>
+        <>
+          <div className="surveys-list">
+            {filteredSurveys.length === 0 && searchTerm ? (
+              <div className="empty-state">
+                <Search size={48} strokeWidth={1} />
+                <p>Không tìm thấy khảo sát với từ khóa "{searchTerm}"</p>
               </div>
+            ) : (
+              paginatedSurveys.map((survey) => (
+              <div
+                key={survey.surveyId}
+                className={`survey-card ${!survey.isActive ? 'inactive' : ''}`}
+                onClick={() => navigate(`/surveys/${survey.surveyId}`)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === 'Enter' && navigate(`/surveys/${survey.surveyId}`)}
+              >
+                <div className="survey-card-left">
+                  <div className="survey-card-icon">
+                    <FileText size={22} />
+                  </div>
+                  <div className="survey-card-info">
+                    <div className="survey-card-title-row">
+                      <h3 className="survey-card-title">{survey.title}</h3>
+                      <span className={`active-badge ${survey.isActive ? 'on' : 'off'}`}>
+                        {survey.isActive ? '● Đang hoạt động' : '○ Đã đóng'}
+                      </span>
+                    </div>
+                    {survey.description && (
+                      <p className="survey-card-desc">{survey.description}</p>
+                    )}
+                    <div className="survey-card-meta">
+                      <span className="meta-chip">
+                        <FileText size={13} />
+                        {survey._count?.questions ?? survey.questions?.length ?? 0} câu hỏi
+                      </span>
+                      <span className="meta-chip">
+                        <Users size={13} />
+                        {survey._count?.surveyTargets ?? 0} đối tượng
+                      </span>
+                      <span className="meta-chip">
+                        <MessageSquare size={13} />
+                        {survey._count?.surveyResponses ?? 0} phản hồi
+                      </span>
+                      <span className="meta-chip date">
+                        Tạo ngày {new Date(survey.createdAt).toLocaleDateString('vi-VN')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
 
-              <div className="survey-card-actions" onClick={(e) => e.stopPropagation()}>
-                <button
-                  className={`toggle-active-btn ${survey.isActive ? 'deactivate' : 'activate'}`}
-                  onClick={(e) => handleToggleActive(survey, e)}
-                  disabled={togglingId === survey.surveyId}
-                  title={survey.isActive ? 'Đóng khảo sát' : 'Kích hoạt khảo sát'}
-                >
-                  {survey.isActive ? <PowerOff size={16} /> : <Power size={16} />}
-                  {togglingId === survey.surveyId ? 'Đang xử lý...' : survey.isActive ? 'Đóng' : 'Kích hoạt'}
-                </button>
-                <button
-                  className="detail-btn"
-                  onClick={() => navigate(`/surveys/${survey.surveyId}`)}
-                  title="Xem chi tiết"
-                >
-                  Chi tiết <ChevronRight size={15} />
-                </button>
+                <div className="survey-card-actions" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    className={`toggle-active-btn ${survey.isActive ? 'deactivate' : 'activate'}`}
+                    onClick={(e) => handleToggleActive(survey, e)}
+                    disabled={togglingId === survey.surveyId}
+                    title={survey.isActive ? 'Đóng khảo sát' : 'Kích hoạt khảo sát'}
+                  >
+                    {survey.isActive ? <PowerOff size={16} /> : <Power size={16} />}
+                    {togglingId === survey.surveyId ? 'Đang xử lý...' : survey.isActive ? 'Đóng' : 'Kích hoạt'}
+                  </button>
+                  <button
+                    className="detail-btn"
+                    onClick={() => navigate(`/surveys/${survey.surveyId}`)}
+                    title="Xem chi tiết"
+                  >
+                    Chi tiết <ChevronRight size={15} />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+              ))
+            )}
+          </div>
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredSurveys.length}
+            itemsPerPage={SURVEYS_PER_PAGE}
+            itemLabel="khảo sát"
+            onPageChange={setCurrentPage}
+          />
+        </>
       )}
 
       {showCreateModal && (
