@@ -204,4 +204,37 @@ export const deleteSupplier = async (supplierId: number): Promise<void> => {
   await api.delete(`/suppliers/${supplierId}`);
 };
 
+export const getAccounts = async () => {
+  const res = await api.get('/accounts');
+  return res.data?.data ?? res.data ?? [];
+};
+
+// GET /customers/report (customer.routes.js, staffOnly) — endpoint đã có
+// sẵn ở backend (customerController.report), dùng cho panel "Báo cáo CRM"
+// trên Dashboard.tsx.
+export const getCustomerReport = async () => {
+  const res = await api.get('/customers/report');
+  return res.data?.data ?? res.data;
+};
+
+// Backend chưa có endpoint activity log — trả mảng rỗng cho tới khi có API thật
+export const getRecentActivity = async (): Promise<{ time: string; account: string; action: string }[]> => {
+  try {
+    const res = await api.get('/admin/activity-log');
+    return res.data?.data ?? res.data ?? [];
+  } catch {
+    return [];
+  }
+};
+
+// Backend chưa có tracking online — trả null cho tới khi làm Socket.io/polling
+export const getOnlineCustomerCount = async (): Promise<number | null> => {
+  try {
+    const res = await api.get('/admin/online-count');
+    return res.data?.count ?? null;
+  } catch {
+    return null;
+  }
+};
+
 export default api;

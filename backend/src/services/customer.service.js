@@ -14,8 +14,12 @@ function ageBucketOf(age) {
 }
 
 export const customerService = {
-  list({ includeDeleted = false } = {}) {
-    return customerRepository.findAll({ includeDeleted });
+  async list({ includeDeleted = false } = {}) {
+    const customers = await customerRepository.findAll({ includeDeleted });
+    return customers.map((c) => ({
+      ...c,
+      preferences: (c.customerPreferences ?? []).map((p) => ({ tag: p.preferenceTag })),
+    }));
   },
 
   async getById(customerId, options = {}) {

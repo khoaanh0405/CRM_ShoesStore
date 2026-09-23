@@ -171,12 +171,17 @@ export const accountService = {
     return sanitize(await accountRepository.unlock(accountId));
   },
 
-  /** Admin phân quyền lại cho account. */
-  async updateRole(accountId, roleId) {
+  /**
+   * Admin phân quyền lại cho account. Nhận `roleName` (chuỗi, ví dụ "Manager")
+   * — khớp với những gì AccountManagement.tsx đang gửi lên
+   * (PATCH /accounts/:id/role, body { roleName }) — tự tra roleId tương ứng
+   * qua roleRepository.findByName() rồi mới cập nhật.
+   */
+  async updateRole(accountId, roleName) {
     await this.getById(accountId);
-    const role = await roleRepository.findById(roleId);
+    const role = await roleRepository.findByName(roleName);
     if (!role) throw new NotFoundError(MESSAGES.NOT_FOUND.ROLE);
-    return sanitize(await accountRepository.updateRole(accountId, roleId));
+    return sanitize(await accountRepository.updateRole(accountId, role.roleId));
   },
 };
 

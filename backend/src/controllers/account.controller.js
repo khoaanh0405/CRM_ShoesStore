@@ -75,10 +75,14 @@ export const accountController = {
     res.json(await accountService.unlock(accountId));
   },
 
+  /**
+   * Body: { roleName } — khớp với AccountManagement.tsx (gửi roleName, không
+   * phải roleId). accountService.updateRole tự tra roleId tương ứng.
+   */
   async updateRole(req, res) {
     const accountId = parseId(req.params.id, 'accountId');
-    const roleId = parseId(req.body.roleId, 'roleId');
-    res.json(await accountService.updateRole(accountId, roleId));
+    const { roleName } = req.body;
+    res.json(await accountService.updateRole(accountId, roleName));
   },
 };
 

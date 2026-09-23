@@ -11,6 +11,7 @@ interface Customer {
   phone?: string;
   gender?: string;
   isLocked: boolean;
+  preferences?: { tag: string }[];
   account: { username: string; isLocked: boolean };
 }
 
@@ -103,7 +104,7 @@ const CustomersPage = () => {
         <div className="table-wrapper">
           <table className="custom-table">
             <thead>
-              <tr><th>Họ tên</th><th>SĐT</th><th>Giới tính</th><th>Trạng thái</th><th className="col-actions">Thao tác</th></tr>
+              <tr><th>Họ tên</th><th>SĐT</th><th>Giới tính</th><th>Sở thích</th><th>Trạng thái</th><th className="col-actions">Thao tác</th></tr>
             </thead>
             <tbody>
               {customers.map((c) => (
@@ -111,6 +112,18 @@ const CustomersPage = () => {
                   <td className="font-medium">{c.fullName}</td>
                   <td>{c.phone}</td>
                   <td>{c.gender}</td>
+                  <td>
+                    {(c.preferences ?? []).length === 0 ? (
+                      <span className="text-muted">—</span>
+                    ) : (
+                      <div className="pref-badges">
+                        {c.preferences!.slice(0, 2).map((p) => (
+                          <span key={p.tag} className="pref-badge">{p.tag}</span>
+                        ))}
+                        {c.preferences!.length > 2 && <span className="pref-badge more">+{c.preferences!.length - 2}</span>}
+                      </div>
+                    )}
+                  </td>
                   <td>
                     <span className={`status-badge ${c.isLocked ? 'badge-rejected' : 'badge-approved'}`}>
                       {c.isLocked ? 'Đã khóa' : 'Hoạt động'}

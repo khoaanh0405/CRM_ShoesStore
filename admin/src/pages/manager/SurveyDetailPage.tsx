@@ -6,7 +6,7 @@ import {
   FileText, ChevronDown, ChevronUp, Power, PowerOff
 } from 'lucide-react';
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell
 } from 'recharts';
 import {
   getSurveyFull, getSurveyStats, assignSurvey, getCustomers,
@@ -427,40 +427,22 @@ const StatsTab: React.FC<{ surveyId: number }> = ({ surveyId }) => {
             </div>
           ) : (
             <div className="chart-wrapper">
-              {q.breakdown.length <= 4 ? (
-                <ResponsiveContainer width="100%" height={200}>
-                  <PieChart>
-                    <Pie
-                      data={q.breakdown}
-                      dataKey="count"
-                      nameKey="optionText"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      label={(entry: any) => `${entry.optionText}: ${entry.percentage}%`}
-                    >
-                      {q.breakdown.map((_, i) => (
-                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(v) => [`${v} phản hồi`, '']} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={q.breakdown} layout="vertical">
-                    <XAxis type="number" allowDecimals={false} />
-                    <YAxis type="category" dataKey="optionText" width={140} tick={{ fontSize: 12 }} />
-                    <Tooltip formatter={(v) => [`${v} phản hồi`, '']} />
-                    <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-                      {q.breakdown.map((_, i) => (
-                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
+              {/* Luôn dùng biểu đồ cột ngang cho mọi câu hỏi trắc nghiệm —
+                  nhất quán, không bị lỗi cắt nhãn như Pie Chart (nhãn Pie vẽ
+                  ra ngoài bán kính, bị .stat-question-card{overflow:hidden}
+                  cắt cụt), và vẫn đọc rõ tỷ lệ nhờ bảng breakdown-table đi kèm. */}
+              <ResponsiveContainer width="100%" height={Math.max(160, q.breakdown.length * 44)}>
+                <BarChart data={q.breakdown} layout="vertical">
+                  <XAxis type="number" allowDecimals={false} />
+                  <YAxis type="category" dataKey="optionText" width={140} tick={{ fontSize: 12 }} />
+                  <Tooltip formatter={(v) => [`${v} phản hồi`, '']} />
+                  <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                    {q.breakdown.map((_, i) => (
+                      <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
               {/* Bảng số liệu */}
               <table className="breakdown-table">
                 <thead>

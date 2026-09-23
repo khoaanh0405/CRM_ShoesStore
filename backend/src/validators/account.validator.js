@@ -41,8 +41,13 @@ export const accountValidator = {
     newPassword: { required: true, type: 'string', minLength: MIN_PASSWORD_LENGTH },
   }),
 
+  /**
+   * Khớp với AccountManagement.tsx (PATCH /accounts/:id/role, body
+   * { roleName }) — không phải { roleId }. accountService.updateRole tự tra
+   * roleId tương ứng từ roleName này.
+   */
   updateRole: validateBody({
-    roleId: { required: true, type: 'int', min: 1 },
+    roleName: { required: true, type: 'string', maxLength: 50 },
   }),
 };
 
