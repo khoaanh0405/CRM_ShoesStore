@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { changePassword } from '../services/api';
+import { changePassword } from '../../services/api';
 import toast from 'react-hot-toast';
 import { User, Lock, Key } from 'lucide-react';
 import './ProfilePage.css';

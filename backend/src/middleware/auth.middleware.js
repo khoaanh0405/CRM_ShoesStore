@@ -46,5 +46,6 @@ export function authorize(...allowedRoles) {
   };
 }
 
-/** Lối tắt hay dùng nhất: chỉ Admin mới được vào. */
 export const adminOnly = [authenticate, authorize(ROLE_NAMES.ADMIN)];
+export const managerOnly = [authenticate, authorize(ROLE_NAMES.MANAGER)];
+export const staffOnly = [authenticate, authorize(ROLE_NAMES.ADMIN, ROLE_NAMES.MANAGER)];

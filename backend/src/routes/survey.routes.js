@@ -7,6 +7,7 @@
  * surveys với FK RESTRICT nên xóa cứng luôn thất bại khi đã có người trả
  * lời. Thay bằng PATCH /:id/active với isActive=false để "đóng" khảo sát.
  */
+import { authenticate, managerOnly } from '../middleware/index.js';
 import { Router } from 'express';
 import {
   surveyController,
@@ -22,12 +23,11 @@ import {
   surveyResponseValidator,
 } from '../validators/index.js';
 import { validateBody } from '../validators/common.validator.js';
-import { authenticate, adminOnly } from '../middleware/index.js';
 
 const router = Router();
 
 // --- Khảo sát ---
-router.get('/', authenticate, surveyController.list);
+router.get('/', authenticate, managerOnly, surveyController.list);
 /**
  * POST /api/surveys/simple — Tạo khảo sát đơn giản (chỉ cần title + description
  * + isActive), không cần câu hỏi ngay. Dùng cho form tạo nhanh trên Admin UI.
@@ -35,7 +35,7 @@ router.get('/', authenticate, surveyController.list);
  */
 router.post(
   '/simple',
-  adminOnly,
+  managerOnly,
   validateBody({
     title: { required: true, type: 'string', maxLength: 200 },
     description: { type: 'string' },
@@ -44,14 +44,14 @@ router.post(
   surveyController.createSimple
 );
 /** POST /api/surveys — Tạo kèm câu hỏi ngay (batch, yêu cầu >=15 câu hỏi). */
-router.post('/', adminOnly, surveyValidator.create, surveyController.create);
+router.post('/', managerOnly, surveyValidator.create, surveyController.create);
 router.get('/:id', authenticate, surveyValidator.idParam, surveyController.getById);
 /** /full = khảo sát kèm câu hỏi + lựa chọn, dùng khi khách hàng vào làm bài. */
 router.get('/:id/full', authenticate, surveyValidator.idParam, surveyController.getWithQuestions);
-router.put('/:id', adminOnly, surveyValidator.idParam, surveyValidator.update, surveyController.update);
+router.put('/:id', managerOnly, surveyValidator.idParam, surveyValidator.update, surveyController.update);
 router.patch(
   '/:id/active',
-  adminOnly,
+  managerOnly,
   surveyValidator.idParam,
   surveyValidator.setActive,
   surveyController.setActive
@@ -69,34 +69,34 @@ router.get(
 /** Gán hàng loạt qua surveyService (có lọc khách hàng đã bị soft-delete). */
 router.post(
   '/:id/assign',
-  adminOnly,
+  managerOnly,
   surveyValidator.idParam,
   surveyValidator.assign,
   surveyController.assignToCustomers
 );
 router.get(
   '/:surveyId/targets',
-  adminOnly,
+  managerOnly,
   surveyTargetValidator.surveyIdParam,
   surveyTargetController.listBySurvey
 );
 router.post(
   '/:surveyId/targets',
-  adminOnly,
+  managerOnly,
   surveyTargetValidator.surveyIdParam,
   surveyTargetValidator.assign,
   surveyTargetController.assign
 );
 router.post(
   '/:surveyId/targets/bulk',
-  adminOnly,
+  managerOnly,
   surveyTargetValidator.surveyIdParam,
   surveyTargetValidator.assignMany,
   surveyTargetController.assignMany
 );
 router.delete(
   '/:surveyId/targets/:customerId',
-  adminOnly,
+  managerOnly,
   surveyTargetValidator.compositeParams,
   surveyTargetController.remove
 );
@@ -111,7 +111,7 @@ router.post(
 );
 router.get(
   '/:surveyId/responses',
-  adminOnly,
+  managerOnly,
   surveyResponseValidator.surveyIdParam,
   surveyResponseController.listBySurvey
 );
@@ -119,7 +119,7 @@ router.get(
 // --- Thống kê kết quả khảo sát (mục 4.1.7) ---
 router.get(
   '/:surveyId/stats',
-  adminOnly,
+  managerOnly,
   surveyResponseValidator.surveyIdParam,
   surveyAnswerController.statsBySurvey
 );

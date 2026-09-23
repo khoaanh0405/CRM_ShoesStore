@@ -4,9 +4,9 @@ import { Plus, Search, Power, Package, Truck, X, Upload, Image as ImageIcon } fr
 import {
   getProducts, createProduct, updateProduct, toggleProductActive,
   getSuppliers, createSupplier, updateSupplier, deleteSupplier
-} from '../services/api';
-import type { Product, Supplier, CreateProductForm, CreateSupplierForm } from '../types/product';
-import Pagination from '../components/Pagination';
+} from '../../services/api';
+import type { Product, Supplier, CreateProductForm, CreateSupplierForm } from '../../types/product';
+import Pagination from '../../components/Pagination';
 import './ProductsPage.css';
 
 type MainTab = 'products' | 'suppliers';

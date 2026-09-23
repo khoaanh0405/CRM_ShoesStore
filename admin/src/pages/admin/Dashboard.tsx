@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import StatCard from '../components/StatCard';
-import { getDashboardStats } from '../services/api';
+import StatCard from '../../components/StatCard';
+import { getDashboardStats } from '../../services/api';
 import toast from 'react-hot-toast';
+import { Users, Package, Star, FileText } from 'lucide-react';
 import './Dashboard.css';
 
 const Dashboard: React.FC = () => {
@@ -37,36 +38,16 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       </div>
-      
+
       <div className="dashboard-content">
         {loading ? (
           <div style={{ textAlign: 'center', padding: '2rem' }}>Đang tải dữ liệu...</div>
         ) : (
           <div className="stats-container">
-            <StatCard 
-              title="Khách hàng" 
-              count={stats.totalCustomers.toString()} 
-              completedText="Tổng số khách hàng" 
-              iconType="teams" 
-            />
-            <StatCard 
-              title="Sản phẩm" 
-              count={stats.totalProducts.toString()} 
-              completedText="Đang kinh doanh" 
-              iconType="projects" 
-            />
-            <StatCard 
-              title="Phản hồi mới" 
-              count={stats.pendingFeedbacks.toString()} 
-              completedText="Chờ xử lý" 
-              iconType="tasks" 
-            />
-            <StatCard 
-              title="Khảo sát" 
-              count={stats.activeSurveys.toString()} 
-              completedText="Đang thu thập" 
-              iconType="productivity" 
-            />
+            <StatCard icon={Users} label="Khách hàng" value={stats.totalCustomers} />
+            <StatCard icon={Package} label="Sản phẩm" value={stats.totalProducts} />
+            <StatCard icon={Star} label="Phản hồi mới" value={stats.pendingFeedbacks} />
+            <StatCard icon={FileText} label="Khảo sát" value={stats.activeSurveys} />
           </div>
         )}
       </div>

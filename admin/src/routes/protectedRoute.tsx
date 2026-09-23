@@ -1,14 +1,21 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { isAuthenticated } from '../services/auth';
+import { useAuthStore } from '../store/useAuthStore';
+import type { RoleName } from '../config/constants';
 
-const ProtectedRoute: React.FC = () => {
+interface Props {
+  allow?: RoleName[];
+}
+
+const ProtectedRoute: React.FC<Props> = ({ allow }) => {
   if (!isAuthenticated()) {
-    // Nếu chưa đăng nhập, chuyển hướng về trang login
     return <Navigate to="/login" replace />;
   }
-
-  // Nếu đã đăng nhập, render các component con (Dashboard, AccountManagement...)
+  const roleName = useAuthStore.getState().roleName;
+  if (allow && roleName && !allow.includes(roleName)) {
+    return <Navigate to="/" replace />;
+  }
   return <Outlet />;
 };
 

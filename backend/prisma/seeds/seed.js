@@ -23,6 +23,12 @@ async function main() {
     create: { roleName: 'Customer', description: 'Khách hàng mua sắm' },
   });
 
+  const managerRole = await prisma.role.upsert({
+  where: { roleName: 'Manager' },
+  update: {},
+  create: { roleName: 'Manager', description: 'Quản lý CRM (khách hàng, phản hồi, khảo sát)' },
+});
+
   const hashedPassword = await bcrypt.hash('123456', 10);
 
   // 2. Tạo Tài khoản Admin
@@ -36,6 +42,17 @@ async function main() {
       isLocked: false,
     },
   });
+
+  await prisma.account.upsert({
+  where: { username: 'manager' },
+  update: {},
+  create: {
+    username: 'manager',
+    passwordHash: hashedPassword,
+    roleId: managerRole.roleId,
+    isLocked: false,
+  },
+});
 
   // 3. Tạo 15 Khách hàng: đa dạng độ tuổi, giới tính, sở thích.
   // - Đa số ACTIVE (isLocked=false, isDeleted=false) để test luồng bình thường.

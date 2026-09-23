@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Plus, FileText, Users, MessageSquare, Power, PowerOff, X, ChevronRight, Search } from 'lucide-react';
-import { getSurveys, createSurvey, toggleSurveyActive } from '../services/api';
-import type { Survey, CreateSurveyForm } from '../types/survey';
-import Pagination from '../components/Pagination';
+import { getSurveys, createSurvey, toggleSurveyActive } from '../../services/api';
+import type { Survey, CreateSurveyForm } from '../../types/survey';
+import Pagination from '../../components/Pagination';
 import './SurveysPage.css';
 
 // Modal tạo khảo sát mới

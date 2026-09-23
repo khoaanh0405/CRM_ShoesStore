@@ -12,11 +12,11 @@ import {
   getSurveyFull, getSurveyStats, assignSurvey, getCustomers,
   createQuestion, updateQuestion, deleteQuestion, createOption, deleteOption,
   toggleSurveyActive,
-} from '../services/api';
+} from '../../services/api';
 import type {
   Survey, SurveyQuestion, SurveyStats, QuestionType
-} from '../types/survey';
-import type { CustomerBasic } from '../services/api';
+} from '../../types/survey';
+import type { CustomerBasic } from '../../services/api';
 import './SurveyDetailPage.css';
 
 type ActiveTab = 'questions' | 'targets' | 'stats';

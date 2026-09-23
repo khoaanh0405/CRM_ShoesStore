@@ -31,6 +31,10 @@ api.interceptors.request.use((config) => {
 // ====================================================
 
 export const getDashboardStats = async () => {
+  // Dùng thẳng endpoint /admin/stats (adminController.getDashboardStats) mà
+  // backend đã tính sẵn, thay vì gộp 4 request riêng lẻ (getCustomers,
+  // getProducts, getFeedbacks, getSurveys) — cách cũ dùng Promise.all nên chỉ
+  // cần 1 trong 4 request lỗi/403 là toàn bộ dashboard mất số liệu.
   const res = await api.get('/admin/stats');
   return res.data?.data ?? res.data;
 };

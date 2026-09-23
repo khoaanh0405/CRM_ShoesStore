@@ -13,21 +13,21 @@ import {
   surveyQuestionValidator,
   surveyQuestionOptionValidator,
 } from '../validators/index.js';
-import { authenticate, adminOnly } from '../middleware/index.js';
+import { authenticate, managerOnly } from '../middleware/index.js';
 
 const router = Router();
 
-router.post('/', adminOnly, surveyQuestionValidator.create, surveyQuestionController.create);
+router.post('/', managerOnly, surveyQuestionValidator.create, surveyQuestionController.create);
 router.get('/:id', authenticate, surveyQuestionValidator.idParam, surveyQuestionController.getById);
 router.put(
   '/:id',
-  adminOnly,
+  managerOnly,
   surveyQuestionValidator.idParam,
   surveyQuestionValidator.update,
   surveyQuestionController.update
 );
 /** Chỉ xóa được khi chưa có ai trả lời — FK RESTRICT, Service đổi thành 409. */
-router.delete('/:id', adminOnly, surveyQuestionValidator.idParam, surveyQuestionController.remove);
+router.delete('/:id', managerOnly, surveyQuestionValidator.idParam, surveyQuestionController.remove);
 
 // --- Lựa chọn của câu hỏi ---
 router.get(
@@ -40,7 +40,7 @@ router.get(
 // --- Thống kê 1 câu hỏi (mục 4.1.7) ---
 router.get(
   '/:questionId/stats',
-  adminOnly,
+  managerOnly,
   surveyQuestionOptionValidator.questionIdParam,
   surveyAnswerController.statsByQuestion
 );

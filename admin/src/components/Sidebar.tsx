@@ -1,52 +1,47 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Users, Package, Star, FileText, LayoutDashboard } from 'lucide-react';
+import { Users, Package, Star, FileText, LayoutDashboard, UserRound } from 'lucide-react';
+import { useAuthStore } from '../store/useAuthStore';
+import { ROLE_NAMES } from '../config/constants';
 import './Sidebar.css';
 
 interface SidebarProps {
   isOpen: boolean;
 }
 
+const adminMenu = [
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/accounts', label: 'Quản lý tài khoản', icon: Users },
+  { to: '/products', label: 'Quản lý sản phẩm & nhà cung cấp', icon: Package },
+];
+
+const managerMenu = [
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/customers', label: 'Quản lý khách hàng', icon: UserRound },
+  { to: '/feedbacks', label: 'Quản lý đánh giá', icon: Star },
+  { to: '/surveys', label: 'Quản lý khảo sát', icon: FileText },
+];
+
 const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
+  const roleName = useAuthStore((s) => s.roleName);
+  const menu = roleName === ROLE_NAMES.MANAGER ? managerMenu : adminMenu;
+  const title = roleName === ROLE_NAMES.MANAGER ? 'Quản lý CRM' : 'Admin';
+
   return (
     <aside className={`sidebar ${isOpen ? 'open' : 'closed'}`}>
       <div className="sidebar-header">
-        <h2>Admin</h2>
+        <h2>{title}</h2>
       </div>
       <nav className="sidebar-nav">
         <ul>
-          {/* Tab này do thành viên khác phụ trách */}
-          <li className="nav-item">
-            <NavLink to="/" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} end>
-              <LayoutDashboard size={20} />
-              <span>Dashboard</span>
-            </NavLink>
-          </li>
-          <li className="nav-item">
-            <NavLink to="/accounts" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-              <Users size={20} />
-              <span>Quản lý tài khoản</span>
-            </NavLink>
-          </li>
-          {/* Tab này do thành viên khác phụ trách */}
-          <li className="nav-item">
-            <NavLink to="/products" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-              <Package size={20} />
-              <span>Quản lý sản phẩm & nhà cung cấp</span>
-            </NavLink>
-          </li>
-          <li className="nav-item">
-            <NavLink to="/feedbacks" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-              <Star size={20} />
-              <span>Quản lý đánh giá</span>
-            </NavLink>
-          </li>
-          <li className="nav-item">
-            <NavLink to="/surveys" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-              <FileText size={20} />
-              <span>Quản lý khảo sát</span>
-            </NavLink>
-          </li>
+          {menu.map(({ to, label, icon: Icon, end }) => (
+            <li className="nav-item" key={to}>
+              <NavLink to={to} end={end} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+                <Icon size={20} />
+                <span>{label}</span>
+              </NavLink>
+            </li>
+          ))}
         </ul>
       </nav>
     </aside>

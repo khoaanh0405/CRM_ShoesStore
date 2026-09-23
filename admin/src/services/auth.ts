@@ -1,30 +1,23 @@
 import api from '../utils/api';
+import { useAuthStore } from '../store/useAuthStore';
+import { ROLE_NAMES } from '../config/constants';
 
 export const login = async (username: string, password: string) => {
   const response = await api.post('/accounts/login', { username, password });
-  
-  if (response.data && response.data.account) {
-    const roleName = response.data.account.role?.roleName;
-    if (roleName !== 'Admin') {
-      throw new Error('Tài khoản mật khẩu admin sai');
-    }
+  const account = response.data?.account;
+  const roleName = account?.role?.roleName;
+
+  if (roleName !== ROLE_NAMES.ADMIN && roleName !== ROLE_NAMES.MANAGER) {
+    throw new Error('Tài khoản không có quyền truy cập trang quản trị.');
   }
 
-  if (response.data && response.data.token) {
+  if (response.data?.token) {
     localStorage.setItem('token', response.data.token);
-    // Lưu thêm thông tin user nếu cần
-    if (response.data.account) {
-      localStorage.setItem('user', JSON.stringify(response.data.account));
-    }
+    useAuthStore.getState().setUser(account);
   }
   return response.data;
 };
 
-export const logout = () => {
-  localStorage.removeItem('token');
-  localStorage.removeItem('user');
-};
+export const logout = () => useAuthStore.getState().clear();
 
-export const isAuthenticated = () => {
-  return !!localStorage.getItem('token');
-};
+export const isAuthenticated = () => !!localStorage.getItem('token');

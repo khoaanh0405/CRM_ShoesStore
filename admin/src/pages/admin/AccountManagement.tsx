@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, RefreshCw, Trash2, X, AlertCircle, CheckCircle, Plus } from 'lucide-react';
-import api from '../utils/api';
+import api from '../../utils/api';
 import './AccountManagement.css';
 
 interface Account {
@@ -59,38 +59,34 @@ const AccountManagement: React.FC = () => {
   };
 
   const fetchAccounts = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const [accountsRes, customersRes] = await Promise.all([
-        api.get('/accounts'),
-        api.get('/customers') // Chỉ trả về các khách hàng chưa bị xóa (isDeleted: false)
-      ]);
-      
-      const allAccounts = accountsRes.data;
-      const activeCustomers = customersRes.data;
-      const activeCustomerIds = new Set(activeCustomers.map((c: any) => c.customerId));
-
-      // Lọc: Giữ lại Admin/Staff, và chỉ giữ lại Customer nếu nằm trong activeCustomerIds
-      const activeAccounts = allAccounts.filter((acc: Account) => {
-        if (acc.role?.roleName === 'Customer') {
-          return activeCustomerIds.has(acc.accountId);
-        }
-        return true;
-      });
-
-      setAccounts(activeAccounts);
-    } catch (err: any) {
-      console.error(err);
-      setError(err.response?.data?.message || 'Lỗi khi tải dữ liệu tài khoản');
-    } finally {
-      setLoading(false);
-    }
-  };
+  setLoading(true);
+  setError('');
+  try {
+    const res = await api.get('/accounts');
+    setAccounts(res.data);
+  } catch (err: any) {
+    setError(err.response?.data?.message || 'Lỗi khi tải dữ liệu tài khoản');
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     fetchAccounts();
   }, []);
+
+  const ROLE_OPTIONS = ['Admin', 'Manager', 'Customer'];
+
+const changeRole = async (account: Account, newRole: string) => {
+  if (newRole === account.role?.roleName) return;
+  try {
+    await api.patch(`/accounts/${account.accountId}/role`, { roleName: newRole });
+    showToast(`Đã đổi quyền thành ${newRole}`, 'success');
+    fetchAccounts();
+  } catch (err: any) {
+    showToast(err.response?.data?.message || 'Đổi quyền thất bại', 'error');
+  }
+};
 
   const toggleLock = async (account: Account) => {
     try {
@@ -265,9 +261,14 @@ const AccountManagement: React.FC = () => {
                   <td>#{account.accountId}</td>
                   <td className="font-medium">{account.username}</td>
                   <td>
-                    <span className={`role-badge role-${account.role?.roleName.toLowerCase()}`}>
-                      {account.role?.roleName}
-                    </span>
+                    <select
+                      className={`role-badge role-${account.role?.roleName.toLowerCase()}`}
+                      value={account.role?.roleName}
+                      onChange={(e) => changeRole(account, e.target.value)}
+                      style={{ border: 'none', cursor: 'pointer' }}
+                    >
+                      {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                    </select>
                   </td>
                   <td>
                     {account.isLocked ? (

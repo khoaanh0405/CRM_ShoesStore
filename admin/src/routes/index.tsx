@@ -1,22 +1,22 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import App from '../App';
-import Dashboard from '../pages/Dashboard';
-import LoginPage from '../pages/LoginPage';
-import ProductsPage from '../pages/ProductsPage';
-import FeedbacksPage from '../pages/FeedbacksPage';
-import SurveysPage from '../pages/SurveysPage';
-import SurveyDetailPage from '../pages/SurveyDetailPage';
-import AccountManagement from '../pages/AccountManagement';
-import ProfilePage from '../pages/ProfilePage';
+import LoginPage from '../pages/login/LoginPage';
 import ProtectedRoute from './protectedRoute';
+import RoleGuard from '../components/RoleGuard';
+import RoleDashboard from '../pages/login/RoleDashboard';
+import { ROLE_NAMES } from '../config/constants';
+
+import AccountManagement from '../pages/admin/AccountManagement';
+import ProductsPage from '../pages/admin/ProductsPage';
+import ProfilePage from '../pages/login/ProfilePage';
+
+import CustomersPage from '../pages/manager/CustomersPage';
+import FeedbacksPage from '../pages/manager/FeedbacksPage';
+import SurveysPage from '../pages/manager/SurveysPage';
+import SurveyDetailPage from '../pages/manager/SurveyDetailPage';
 
 const router = createBrowserRouter([
-  // Route công khai — không cần token
-  {
-    path: '/login',
-    element: <LoginPage />,
-  },
-  // Routes được bảo vệ — cần token
+  { path: '/login', element: <LoginPage /> },
   {
     path: '/',
     element: <ProtectedRoute />,
@@ -24,13 +24,14 @@ const router = createBrowserRouter([
       {
         element: <App />,
         children: [
-          { index: true, element: <Dashboard /> },
-          { path: 'accounts', element: <AccountManagement /> },
+          { index: true, element: <RoleDashboard /> },
           { path: 'profile', element: <ProfilePage /> },
-          { path: 'products', element: <ProductsPage /> },
-          { path: 'feedbacks', element: <FeedbacksPage /> },
-          { path: 'surveys', element: <SurveysPage /> },
-          { path: 'surveys/:surveyId', element: <SurveyDetailPage /> },
+          { path: 'accounts', element: <RoleGuard allow={[ROLE_NAMES.ADMIN]}><AccountManagement /></RoleGuard> },
+          { path: 'products', element: <RoleGuard allow={[ROLE_NAMES.ADMIN]}><ProductsPage /></RoleGuard> },
+          { path: 'customers', element: <RoleGuard allow={[ROLE_NAMES.MANAGER]}><CustomersPage /></RoleGuard> },
+          { path: 'feedbacks', element: <RoleGuard allow={[ROLE_NAMES.MANAGER]}><FeedbacksPage /></RoleGuard> },
+          { path: 'surveys', element: <RoleGuard allow={[ROLE_NAMES.MANAGER]}><SurveysPage /></RoleGuard> },
+          { path: 'surveys/:surveyId', element: <RoleGuard allow={[ROLE_NAMES.MANAGER]}><SurveyDetailPage /></RoleGuard> },
           { path: '*', element: <Navigate to="/" replace /> },
         ],
       },
