@@ -9,12 +9,14 @@ interface SidebarProps {
   isOpen: boolean;
 }
 
+import { BarChart3 } from 'lucide-react'; // thêm vào dòng import icon lucide-react hiện có
+
 const adminMenu = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/accounts', label: 'Quản lý tài khoản', icon: Users },
   { to: '/products', label: 'Quản lý sản phẩm & nhà cung cấp', icon: Package },
+  { to: '/reports', label: 'Tổng quan CRM', icon: BarChart3 },
 ];
-
 const managerMenu = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/customers', label: 'Quản lý khách hàng', icon: UserRound },

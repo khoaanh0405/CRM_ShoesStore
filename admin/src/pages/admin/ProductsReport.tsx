@@ -8,6 +8,7 @@ import { getProducts, getSuppliers } from '../../services/api';
 import type { Product, Supplier } from '../../types/product';
 import './ProductsReport.css';
 
+
 const OV_COLORS = ['#7C3AED', '#F59E0B', '#059669', '#2563EB', '#DC2626', '#14B8A6', '#DB2777'];
 const LOW_STOCK_THRESHOLD = 10;
 
