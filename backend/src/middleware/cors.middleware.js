@@ -13,6 +13,9 @@ export function cors(req, res, next) {
   // Preflight request: trả 204 ngay, không đi tiếp xuống route.
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
+
+  res.header('Access-Control-Expose-Headers', 'Retry-After');
 }
+
 
 export default cors;

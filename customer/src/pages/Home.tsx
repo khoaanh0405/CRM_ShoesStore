@@ -61,14 +61,6 @@ export default function HomePage() {
           <div style={{ color: AppColors.textSecondary, fontSize: 14 }}>Xin chào,</div>
           <div style={{ color: AppColors.textPrimary, fontSize: 30, fontWeight: 800 }}>{givenNameOf(fullName) || 'bạn'}</div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <NotificationBell />
-          <button onClick={() => navigate('/tabs/profile')} aria-label="Mở trang cá nhân" style={{
-            width: 46, height: 46, borderRadius: 23, display: 'flex', alignItems: 'center', justifyContent: 'center', background: AppColors.accent,
-          }}>
-            <span style={{ color: AppColors.accentText, fontSize: 18, fontWeight: 800 }}>{initialOf(fullName)}</span>
-          </button>
-        </div>
       </div>
 
       <div onClick={() => navigate('/tabs/surveys')} style={{
@@ -140,8 +132,8 @@ export default function HomePage() {
 
 function ProductRow({ products, onOpen }: { products: Product[]; onOpen: (p: Product) => void }) {
   return (
-    <div style={{ display: 'flex', gap: 12, overflowX: 'auto', padding: `0 ${SCREEN_PADDING}px` }}>
-      {products.map((p) => <ProductCard key={p.productId} product={p} width={160} onClick={() => onOpen(p)} />)}
+    <div className="product-grid" style={{ padding: `0 ${SCREEN_PADDING}px` }}>
+      {products.map((p) => <ProductCard key={p.productId} product={p} width="100%" onClick={() => onOpen(p)} />)}
     </div>
   );
 }

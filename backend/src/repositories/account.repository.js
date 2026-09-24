@@ -18,13 +18,17 @@
 import prisma from '../config/database.js';
 
 export const accountRepository = {
-  findAll({ roleId } = {}) {
-    return prisma.account.findMany({
-      where: roleId ? { roleId } : undefined,
-      orderBy: { accountId: 'asc' },
-      include: { role: true },
-    });
-  },
+  
+  findAll({ includeDeleted = false } = {}) {
+  return prisma.customer.findMany({
+    where: includeDeleted ? undefined : { isDeleted: false },
+    orderBy: { customerId: 'asc' },
+    include: {
+      customerPreferences: true,
+      account: { select: { username: true, isLocked: true } },
+    },
+  });
+},
 
   findById(accountId) {
     return prisma.account.findUnique({

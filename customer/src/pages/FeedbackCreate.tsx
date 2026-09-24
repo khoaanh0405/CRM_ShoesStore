@@ -12,8 +12,11 @@ import { productService } from '@/services/product.service';
 import type { Product } from '@/types/product';
 import { formatPrice } from '@/utils/format';
 import { ChevronDown, ImageOff, Search, Send, X } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import axios from 'axios';
+import { useCooldown } from '@/hooks/useCooldown';
+
 
 const TITLE_MAX = 150;
 
@@ -21,6 +24,7 @@ const TITLE_MAX = 150;
 export default function FeedbackCreatePage() {
   const navigate = useNavigate();
   const customerId = useCustomerId();
+  const { remaining, start: startCooldown } = useCooldown('feedback', 60);
   const [searchParams] = useSearchParams();
   const initialProductId = searchParams.get('productId');
 
@@ -30,7 +34,8 @@ export default function FeedbackCreatePage() {
   const [content, setContent] = useState('');
   const [errors, setErrors] = useState<{ product?: string; rating?: string; title?: string; content?: string }>({});
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+  const lockRef = useRef(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const { data: products, loading } = useApi(() => productService.list(), []);
@@ -38,6 +43,7 @@ export default function FeedbackCreatePage() {
   const selected = products?.find((p) => p.productId === selectedId) ?? null;
 
   const handleSubmit = async () => {
+    if (remaining > 0 || submitting) return;
     const next = {
       product: selectedId == null ? 'Vui lòng chọn sản phẩm.' : undefined,
       rating: rating < 1 ? 'Vui lòng chọn số sao.' : undefined,
@@ -51,10 +57,15 @@ export default function FeedbackCreatePage() {
     setFormError(null);
     try {
       await feedbackService.create({ customerId, productId: selectedId, title: title.trim(), content: content.trim(), rating });
+      startCooldown(60);
       alert('Đã gửi đánh giá. Phản hồi của bạn đang chờ cửa hàng duyệt. Cảm ơn bạn!');
       goBack();
     } catch (e) {
       setFormError(getApiErrorMessage(e, 'Vui lòng thử lại sau.'));
+
+      if (axios.isAxiosError(e) && e.response?.status === 429) {
+        startCooldown(Number(e.response.headers['retry-after']) || 60);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -96,7 +107,13 @@ export default function FeedbackCreatePage() {
 
           {formError ? <span style={{ color: AppColors.danger, fontSize: 13 }}>{formError}</span> : null}
 
-          <AppButton label="Gửi đánh giá" icon={Send} onClick={handleSubmit} loading={submitting} />
+          <AppButton
+            label={remaining > 0 ? `Vui lòng chờ ${remaining}s` : 'Gửi đánh giá'}
+            icon={Send}
+            onClick={handleSubmit}
+            loading={submitting}
+            disabled={remaining > 0}
+          />
         </div>
       )}
 
@@ -121,7 +138,7 @@ function ProductPickerModal({ products, selectedId, onClose, onSelect }: { produ
   const filtered = products.filter((p) => p.productName.toLowerCase().includes(query.trim().toLowerCase()));
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: AppColors.background, zIndex: 50, display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto' }}>
+    <div style={{ position: 'fixed', inset: 0, background: AppColors.background, zIndex: 50, display: 'flex', flexDirection: 'column', maxWidth: 640, margin: '0 auto', boxShadow: '0 0 0 100vmax rgba(0,0,0,.4)' }}>
       <ScreenHeader title="Chọn sản phẩm" right={<button onClick={onClose} aria-label="Đóng" style={{ background: 'none', border: 'none' }}><X size={26} color={AppColors.textPrimary} /></button>} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: `0 ${SCREEN_PADDING}px 12px`, padding: '0 14px', borderRadius: Radius.md, border: `1px solid ${AppColors.border}`, background: AppColors.surface }}>
         <Search size={18} color={AppColors.textSecondary} />

@@ -117,7 +117,7 @@ export default function ProductsPage() {
             actionLabel={keyword || category || activeFilterCount > 0 ? 'Xóa tất cả bộ lọc' : undefined}
             onAction={() => { setKeyword(''); setCategory(null); resetFilters(); }} />
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: `0 ${SCREEN_PADDING}px 24px` }}>
+          <div className="product-grid" style={{ padding: `0 ${SCREEN_PADDING}px 24px` }}>
             {data.map((p) => <ProductCard key={p.productId} product={p} width="100%" onClick={() => openProduct(p)} />)}
           </div>
         )

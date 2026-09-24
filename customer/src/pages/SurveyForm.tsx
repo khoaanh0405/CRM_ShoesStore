@@ -11,8 +11,10 @@ import { getApiErrorMessage } from '@/services/api-client';
 import { surveyService } from '@/services/survey.service';
 import type { SubmitAnswer, SurveyQuestion } from '@/types/survey';
 import { Check, Lock, Send } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+
+
 
 type DraftAnswer = { value: string; optionId?: number };
 
@@ -26,6 +28,7 @@ export default function SurveyFormPage() {
   const [answers, setAnswers] = useState<Record<number, DraftAnswer>>({});
   const [showErrors, setShowErrors] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const lockRef = useRef(false);
 
   const { data, loading, error, reload } = useApi(async () => {
     if (customerId == null) throw new Error('Không xác định được tài khoản khách hàng.');
@@ -67,22 +70,24 @@ export default function SurveyFormPage() {
   const setChoice = (q: SurveyQuestion, optionId: number, optionText: string) => setAnswers((prev) => ({ ...prev, [q.questionId]: { value: optionText, optionId } }));
 
   const doSubmit = async () => {
-    if (customerId == null) return;
-    const payload: SubmitAnswer[] = questions.map((q) => {
-      const a = answers[q.questionId];
-      return { questionId: q.questionId, answerValue: a.value.trim(), ...(a.optionId !== undefined && { optionId: a.optionId }) };
-    });
-    setSubmitting(true);
-    try {
-      await surveyService.submit(surveyId, { customerId, answers: payload });
-      alert('Đã nộp khảo sát. Cảm ơn bạn đã chia sẻ ý kiến!');
-      goBack();
-    } catch (e) {
-      alert('Không nộp được khảo sát: ' + getApiErrorMessage(e, 'Vui lòng thử lại sau.'));
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  if (customerId == null || lockRef.current) return;
+  lockRef.current = true;
+  const payload: SubmitAnswer[] = questions.map((q) => {
+    const a = answers[q.questionId];
+    return { questionId: q.questionId, answerValue: a.value.trim(), ...(a.optionId !== undefined && { optionId: a.optionId }) };
+  });
+  setSubmitting(true);
+  try {
+    await surveyService.submit(surveyId, { customerId, answers: payload });
+    alert('Đã nộp khảo sát. Cảm ơn bạn đã chia sẻ ý kiến!');
+    goBack();
+  } catch (e) {
+    alert('Không nộp được khảo sát: ' + getApiErrorMessage(e, 'Vui lòng thử lại sau.'));
+  } finally {
+    setSubmitting(false);
+    lockRef.current = false;
+  }
+};
 
   const handleSubmit = () => {
     setShowErrors(true);

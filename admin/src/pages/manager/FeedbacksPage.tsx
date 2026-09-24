@@ -172,12 +172,18 @@ const FeedbacksPage: React.FC = () => {
         setSelectedFeedback((prev) => prev ? { ...prev, status } : null);
       }
       toast.success(status === 'Approved' ? '✅ Đã duyệt đánh giá!' : '❌ Đã từ chối đánh giá!');
-    } catch {
-      toast.error('Thao tác thất bại, vui lòng thử lại');
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Thao tác thất bại, vui lòng thử lại');
     } finally {
       setActionLoading(false);
     }
   };
+
+  const isSuspicious = (f: Feedback) =>
+  feedbacks.filter(
+    (x) => x.customerId === f.customerId && x.status === 'Pending' &&
+      Math.abs(new Date(x.createdAt).getTime() - new Date(f.createdAt).getTime()) < 10 * 60 * 1000
+  ).length >= 3;
 
   return (
     <div className="feedbacks-page">
@@ -247,7 +253,10 @@ const FeedbacksPage: React.FC = () => {
                     </div>
                   </td>
                   <td className="col-title">
-                    <span className="feedback-title" title={fb.title}>{fb.title}</span>
+                    <span className="feedback-title" title={fb.title}>
+                      {isSuspicious(fb) && <span style={{ color: '#DC2626', fontWeight: 700 }}>⚠ </span>}
+                      {fb.title}
+                    </span>
                   </td>
                   <td className="col-rating">
                     <RatingStars rating={fb.rating} />

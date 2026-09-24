@@ -7,7 +7,7 @@
  * surveys với FK RESTRICT nên xóa cứng luôn thất bại khi đã có người trả
  * lời. Thay bằng PATCH /:id/active với isActive=false để "đóng" khảo sát.
  */
-import { authenticate, managerOnly } from '../middleware/index.js';
+import { authenticate, managerOnly, rateLimit, ownCustomerOnly } from '../middleware/index.js';
 import { Router } from 'express';
 import {
   surveyController,
@@ -122,6 +122,16 @@ router.get(
   managerOnly,
   surveyResponseValidator.surveyIdParam,
   surveyAnswerController.statsBySurvey
+);
+
+router.post(
+  '/:surveyId/submit',
+  authenticate,
+  rateLimit({ windowMs: 60 * 1000, max: 5, message: 'Bạn nộp khảo sát quá nhiều lần.' }),
+  surveyResponseValidator.surveyIdParam,
+  surveyResponseValidator.submit,
+  ownCustomerOnly,
+  surveyResponseController.submit
 );
 
 export default router;

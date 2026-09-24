@@ -1,6 +1,9 @@
 import { AppColors } from '@/constants/appTheme';
-import { Home, Grid, Clipboard, MessageCircle, User } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
+import { initialOf } from '@/utils/format';
+import { Clipboard, Grid, Home, MessageCircle, User } from 'lucide-react';
+import { Link, NavLink } from 'react-router-dom';
+import { NotificationBell } from './NotificationBell';
 
 const TABS = [
   { to: '/tabs', label: 'Trang chủ', icon: Home, end: true },
@@ -9,23 +12,37 @@ const TABS = [
   { to: '/tabs/feedbacks', label: 'Đánh giá', icon: MessageCircle },
   { to: '/tabs/profile', label: 'Cá nhân', icon: User },
 ];
+const cls = ({ isActive }: { isActive: boolean }) => 'nav-link' + (isActive ? ' active' : '');
 
-/** Thanh điều hướng dưới cùng cho web (thay cho Tabs của expo-router). */
 export function TabBar() {
+  const { account } = useAuth();
+  const name = account?.customer?.fullName ?? account?.username ?? '';
   return (
-    <nav style={{
-      display: 'flex', borderTop: `1px solid ${AppColors.border}`, background: AppColors.surface,
-      position: 'sticky', bottom: 0, zIndex: 10,
-    }}>
-      {TABS.map(({ to, label, icon: Icon, end }) => (
-        <NavLink key={to} to={to} end={end} style={({ isActive }) => ({
-          flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-          padding: '8px 0 10px', color: isActive ? AppColors.accent : AppColors.textSecondary,
-        })}>
-          <Icon size={22} />
-          <span style={{ fontSize: 11, fontWeight: 600 }}>{label}</span>
-        </NavLink>
-      ))}
-    </nav>
+    <>
+      <header className="nav-top">
+        <div className="nav-top-inner">
+          <Link to="/tabs" className="brand">CRM ShoesStore</Link>
+          <nav className="nav-top-links">
+            {TABS.map(({ to, label, icon: Icon, end }) => (
+              <NavLink key={to} to={to} end={end} className={cls}><Icon size={18} />{label}</NavLink>
+            ))}
+          </nav>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <NotificationBell />
+            <Link to="/tabs/profile" aria-label="Trang cá nhân" style={{
+              width: 40, height: 40, borderRadius: 20, background: AppColors.accent, color: AppColors.accentText,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800,
+            }}>{initialOf(name)}</Link>
+          </div>
+        </div>
+      </header>
+      <nav className="nav-bottom">
+        {TABS.map(({ to, label, icon: Icon, end }) => (
+          <NavLink key={to} to={to} end={end} className={({ isActive }) => (isActive ? 'active' : '')}>
+            <Icon size={22} /><span>{label}</span>
+          </NavLink>
+        ))}
+      </nav>
+    </>
   );
 }

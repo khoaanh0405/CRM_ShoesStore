@@ -40,10 +40,9 @@ export const getDashboardStats = async () => {
 };
 
 export const changePassword = async (accountId: number, data: any) => {
-  const res = await api.put(`/accounts/${accountId}/password`, data);
+  const res = await api.patch(`/accounts/${accountId}/password`, data);
   return res.data?.data ?? res.data;
 };
-
 
 // ====================================================
 // FEEDBACKS

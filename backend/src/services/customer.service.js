@@ -15,12 +15,13 @@ function ageBucketOf(age) {
 
 export const customerService = {
   async list({ includeDeleted = false } = {}) {
-    const customers = await customerRepository.findAll({ includeDeleted });
-    return customers.map((c) => ({
-      ...c,
-      preferences: (c.customerPreferences ?? []).map((p) => ({ tag: p.preferenceTag })),
-    }));
-  },
+  const customers = await customerRepository.findAll({ includeDeleted });
+  return customers.map((c) => ({
+    ...c,
+    isLocked: c.account?.isLocked ?? false,
+    preferences: (c.customerPreferences ?? []).map((p) => ({ tag: p.preferenceTag })),
+  }));
+},
 
   async getById(customerId, options = {}) {
     const customer = await customerRepository.findById(customerId, options);
