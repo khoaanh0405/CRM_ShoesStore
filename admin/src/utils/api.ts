@@ -7,10 +7,10 @@ const api = axios.create({
   },
 });
 
-// Thêm interceptor để tự động đính kèm token vào mọi request
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    // Đổi từ localStorage -> sessionStorage
+    const token = sessionStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

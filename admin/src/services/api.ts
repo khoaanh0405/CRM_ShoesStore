@@ -17,15 +17,15 @@ const api = axios.create({
   baseURL: `${BASE_URL}/api`,
 });
 
-// Đính kèm token từ localStorage vào mọi request (tương thích với trang Login của team)
+// Đổi từ localStorage -> sessionStorage để đồng bộ với utils/api.ts và
+// auth.ts (phiên đăng nhập chỉ tồn tại trong tab hiện tại, không lưu vĩnh viễn).
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
-
 // ====================================================
 // DASHBOARD & ADMIN
 // ====================================================

@@ -1,34 +1,25 @@
 /**
  * Repository cho model Account (bảng accounts).
- *
- * LƯU Ý NGHIỆP VỤ QUAN TRỌNG (đã thống nhất, không hard-delete):
- * - accounts.role_id -> roles (RESTRICT).
- * - customers.customer_id -> accounts.account_id (CASCADE) là quan hệ 1-1 dùng
- *   chung PK (Customer "kế thừa" Account). Nếu hard-delete 1 Account có Customer,
- *   Postgres sẽ cascade xóa luôn Customer — nhưng nghiệp vụ "Xóa khách hàng"
- *   (4.1.2) đã được thiết kế là SOFT DELETE (Customer.isDeleted), tuyệt đối
- *   không được xóa cứng để không mất lịch sử Feedback/Survey của khách hàng.
- * - Vì vậy Repository này KHÔNG expose hàm delete() vật lý. "Khóa tài khoản"
- *   (4.1.3, cả cho account thường lẫn ngăn đăng nhập) dùng lock()/unlock()
- *   (toggle accounts.is_locked) — đây là cơ chế "vô hiệu hóa" account thay thế
- *   cho việc xóa. Nếu về sau thật sự cần xóa cứng Account KHÔNG có Customer
- *   liên kết (ví dụ 1 account Admin tạo nhầm), hãy bổ sung hàm riêng có kiểm
- *   tra tường minh, không dùng chung với account có Customer.
+ * roles.role_id -> accounts (RESTRICT), customers.customer_id -> accounts (CASCADE, 1-1).
+ * Repository KHÔNG chịu trách nhiệm hash mật khẩu — việc đó thuộc account.service.js.
  */
 import prisma from '../config/database.js';
 
 export const accountRepository = {
-  
-  findAll({ includeDeleted = false } = {}) {
-  return prisma.customer.findMany({
-    where: includeDeleted ? undefined : { isDeleted: false },
-    orderBy: { customerId: 'asc' },
-    include: {
-      customerPreferences: true,
-      account: { select: { username: true, isLocked: true } },
-    },
-  });
-},
+  /**
+   * Danh sách tài khoản kèm role (và customer nếu có) để AccountManagement.tsx
+   * hiển thị username, role.roleName, isLocked, createdAt.
+   */
+  findAll({ roleId } = {}) {
+    return prisma.account.findMany({
+      where: typeof roleId === 'number' ? { roleId } : undefined,
+      orderBy: { accountId: 'asc' },
+      include: {
+        role: true,
+        customer: true,
+      },
+    });
+  },
 
   findById(accountId) {
     return prisma.account.findUnique({
@@ -41,7 +32,7 @@ export const accountRepository = {
     return prisma.account.findUnique({ where: { username } });
   },
 
-  /** Dùng cho luồng đăng nhập: cần role (phân quyền) + customer (nếu có) trong 1 lần query. */
+  /** Dùng cho login — cần đủ role + customer để phát hành JWT payload đúng. */
   findByUsernameWithRelations(username) {
     return prisma.account.findUnique({
       where: { username },
@@ -49,37 +40,26 @@ export const accountRepository = {
     });
   },
 
-  /**
-   * Tạo Account mới. passwordHash phải được hash sẵn (bcrypt) trước khi gọi
-   * xuống Repository — Repository không chịu trách nhiệm hash mật khẩu.
-   */
   create({ username, passwordHash, roleId, isLocked = false }) {
     return prisma.account.create({
       data: { username, passwordHash, roleId, isLocked },
+      include: { role: true, customer: true },
     });
   },
 
-  /** Cập nhật thông tin account (không đổi role qua hàm này, xem updateRole). */
-  update(accountId, { username, passwordHash }) {
+  update(accountId, data) {
     return prisma.account.update({
       where: { accountId },
-      data: { username, passwordHash },
+      data,
+      include: { role: true, customer: true },
     });
   },
 
-  /** Admin phân quyền lại cho account (đổi role_id). */
-  updateRole(accountId, roleId) {
-    return prisma.account.update({
-      where: { accountId },
-      data: { roleId },
-    });
-  },
-
-  /** Khóa tài khoản — dùng cho nghiệp vụ 4.1.3 "Khóa tài khoản khách hàng" và Admin khóa account nói chung. */
   lock(accountId) {
     return prisma.account.update({
       where: { accountId },
       data: { isLocked: true },
+      include: { role: true, customer: true },
     });
   },
 
@@ -87,7 +67,20 @@ export const accountRepository = {
     return prisma.account.update({
       where: { accountId },
       data: { isLocked: false },
+      include: { role: true, customer: true },
     });
+  },
+
+  updateRole(accountId, roleId) {
+    return prisma.account.update({
+      where: { accountId },
+      data: { roleId },
+      include: { role: true, customer: true },
+    });
+  },
+
+  remove(accountId) {
+    return prisma.account.delete({ where: { accountId } });
   },
 };
 

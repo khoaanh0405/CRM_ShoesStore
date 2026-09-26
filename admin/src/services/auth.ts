@@ -12,7 +12,8 @@ export const login = async (username: string, password: string) => {
   }
 
   if (response.data?.token) {
-    localStorage.setItem('token', response.data.token);
+    // Đổi từ localStorage -> sessionStorage (xem giải thích ở useAuthStore.ts)
+    sessionStorage.setItem('token', response.data.token);
     useAuthStore.getState().setUser(account);
   }
   return response.data;
@@ -20,4 +21,4 @@ export const login = async (username: string, password: string) => {
 
 export const logout = () => useAuthStore.getState().clear();
 
-export const isAuthenticated = () => !!localStorage.getItem('token');
+export const isAuthenticated = () => !!sessionStorage.getItem('token');

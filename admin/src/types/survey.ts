@@ -1,4 +1,4 @@
-export type QuestionType = 'TEXT' | 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE';
+export type QuestionType = 'TEXT' | 'SINGLE_CHOICE';
 
 export interface SurveyQuestionOption {
   optionId: number;

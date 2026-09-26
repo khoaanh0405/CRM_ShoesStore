@@ -14,7 +14,7 @@ const ProfilePage: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const userStr = localStorage.getItem('user');
+    const userStr = sessionStorage.getItem('user'); // đổi từ localStorage
     if (userStr) {
       try {
         setUser(JSON.parse(userStr));

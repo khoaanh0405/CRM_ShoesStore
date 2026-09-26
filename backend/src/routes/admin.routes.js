@@ -18,5 +18,6 @@ router.post(
 // Manager (KHÔNG bao gồm Admin) nên dùng nó ở đây sẽ luôn chặn Admin, và cũng
 // sẽ chặn Manager nếu tài khoản test thực chất mang role Admin.
 router.get('/stats', staffOnly, adminController.getDashboardStats);
+router.get('/online-count', staffOnly, adminController.getOnlineCount);
 
 export default router;

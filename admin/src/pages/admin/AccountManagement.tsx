@@ -63,7 +63,10 @@ const AccountManagement: React.FC = () => {
   setError('');
   try {
     const res = await api.get('/accounts');
-    setAccounts(res.data);
+    // Backend trả về { success, data: [...] } — cần unwrap giống các API khác trong dự án,
+    // nếu không "accounts" sẽ là object thay vì array và toàn bộ .filter/.map phía dưới sẽ lỗi.
+    const list = res.data?.data ?? res.data ?? [];
+    setAccounts(Array.isArray(list) ? list : []);
   } catch (err: any) {
     setError(err.response?.data?.message || 'Lỗi khi tải dữ liệu tài khoản');
   } finally {

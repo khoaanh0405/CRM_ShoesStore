@@ -106,27 +106,43 @@
 
 /* Filter bar */
 .filter-bar {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: stretch;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.search-box-enhanced {
+  grid-column: 1;
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
+  gap: 10px;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface);
+  box-sizing: border-box;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .search-box-enhanced {
   position: relative;
-  flex: 1;
-  min-width: 240px;
   display: flex;
   align-items: center;
+  gap: 10px;
   background: var(--color-surface);
   border: 1.5px solid var(--color-border);
   border-radius: 10px;
-  padding: 0 12px;
+  padding: 0 14px;
   height: 42px;
+  width: 320px;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 20px;
   transition: border-color 0.2s, box-shadow 0.2s;
-  gap: 8px;
 }
 
 .search-box-enhanced:focus-within {
@@ -134,53 +150,18 @@
   box-shadow: 0 0 0 3px rgba(30, 173, 93, 0.1);
 }
 
-.search-box-enhanced .search-icon {
-  position: static;
-  color: var(--color-text-muted);
-  flex-shrink: 0;
-}
+.search-icon { color: var(--color-text-muted); flex-shrink: 0; }
 
-.search-box-enhanced .search-input {
+.search-input {
   flex: 1;
+  min-width: 0;
+  height: 100%;
   border: none;
   background: transparent;
   outline: none;
-  font-size: 14px;
-  color: var(--color-text-main);
   padding: 0;
-  height: 100%;
-}
-
-.search-box {
-  position: relative;
-  flex: 1;
-  min-width: 240px;
-  display: flex;
-  align-items: center;
-}
-
-.search-icon {
-  position: absolute;
-  left: 14px;
-  color: var(--color-text-muted);
-  pointer-events: none;
-}
-
-.search-input {
-  width: 100%;
-  height: 40px;
-  padding: 0 14px 0 40px;
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
   font-size: 14px;
-  background: var(--color-surface);
   color: var(--color-text-main);
-  transition: border 0.15s;
-}
-
-.search-input:focus {
-  border-color: var(--color-primary);
-  outline: none;
 }
 
 .search-clear-btn {
@@ -190,7 +171,7 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background-color: var(--color-border);
+  background: var(--color-border);
   color: var(--color-text-muted);
   border: none;
   cursor: pointer;
@@ -199,32 +180,40 @@
 }
 
 .search-clear-btn:hover {
-  background-color: #E5E7EB;
+  background-color: #e5e7eb;
   color: var(--color-text-main);
 }
 
 .filter-selects {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  display: contents; /* để 2 select trở thành cột con trực tiếp của grid cha */
 }
 
 .form-select {
-  height: 40px;
+  grid-row: 1;
+  height: 44px;
+  min-width: 170px;
   padding: 0 14px;
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1.5px solid var(--color-border);
-  font-size: 13px;
+  font-size: 13.5px;
+  font-weight: 500;
   background: var(--color-surface);
   color: var(--color-text-main);
   cursor: pointer;
-  transition: border-color 0.2s;
+  box-sizing: border-box;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2364748B'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  padding-right: 34px;
 }
 
 .form-select:focus {
   border-color: var(--color-primary);
   outline: none;
+  box-shadow: 0 0 0 3px rgba(30, 173, 93, 0.12);
 }
 
 /* Loading & Empty */
@@ -842,4 +831,18 @@ th.col-actions {
 
 .upload-remove-btn:hover {
   background: #FECACA;
+}
+
+@media (max-width: 860px) {
+  .filter-bar {
+    grid-template-columns: 1fr;
+  }
+  .filter-selects {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .form-select {
+    min-width: 0;
+  }
 }

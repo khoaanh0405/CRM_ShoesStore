@@ -24,7 +24,6 @@ type ActiveTab = 'questions' | 'targets' | 'stats';
 const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   TEXT: 'Trả lời tự do',
   SINGLE_CHOICE: 'Chọn một',
-  MULTIPLE_CHOICE: 'Chọn nhiều',
 };
 
 const CHART_COLORS = ['#1EAD5D', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6'];

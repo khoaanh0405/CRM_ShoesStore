@@ -17,13 +17,13 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 function persistSession(token: string, account: Account) {
-  localStorage.setItem(AUTH_TOKEN_KEY, token);
-  localStorage.setItem(AUTH_ACCOUNT_KEY, JSON.stringify(account));
+  sessionStorage.setItem(AUTH_TOKEN_KEY, token);
+  sessionStorage.setItem(AUTH_ACCOUNT_KEY, JSON.stringify(account));
 }
 
 function clearSession() {
-  localStorage.removeItem(AUTH_TOKEN_KEY);
-  localStorage.removeItem(AUTH_ACCOUNT_KEY);
+  sessionStorage.removeItem(AUTH_TOKEN_KEY);
+  sessionStorage.removeItem(AUTH_ACCOUNT_KEY);
 }
 
 /**
@@ -38,8 +38,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     try {
-      const storedToken = localStorage.getItem(AUTH_TOKEN_KEY);
-      const storedAccount = localStorage.getItem(AUTH_ACCOUNT_KEY);
+      const storedToken = sessionStorage.getItem(AUTH_TOKEN_KEY);
+      const storedAccount = sessionStorage.getItem(AUTH_ACCOUNT_KEY);
       if (storedToken && storedAccount) {
         setToken(storedToken);
         setAccount(JSON.parse(storedAccount) as Account);

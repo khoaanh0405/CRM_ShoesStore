@@ -14,18 +14,21 @@ interface AuthState {
   clear: () => void;
 }
 
-const stored = localStorage.getItem('user');
+// Đổi từ localStorage -> sessionStorage: phiên đăng nhập chỉ tồn tại trong
+// tab/trình duyệt hiện tại, tự động "quên" khi đóng trình duyệt — không
+// còn lưu đăng nhập vĩnh viễn như trước.
+const stored = sessionStorage.getItem('user');
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: stored ? JSON.parse(stored) : null,
   roleName: stored ? JSON.parse(stored).role?.roleName ?? null : null,
   setUser: (user) => {
-    localStorage.setItem('user', JSON.stringify(user));
+    sessionStorage.setItem('user', JSON.stringify(user));
     set({ user, roleName: user.role?.roleName ?? null });
   },
   clear: () => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
+    sessionStorage.removeItem('user');
+    sessionStorage.removeItem('token');
     set({ user: null, roleName: null });
   },
 }));

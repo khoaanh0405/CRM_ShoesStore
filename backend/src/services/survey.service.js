@@ -95,15 +95,20 @@ export const surveyService = {
     return surveyRepository.setActive(surveyId, isActive);
   },
 
-  /**
-   * Gửi khảo sát tới danh sách khách hàng (mục 4.1.6). Bỏ qua các customerId
-   * không tồn tại/đã bị soft-delete; skipDuplicates để chạy lại an toàn nếu
-   * một vài khách hàng đã được gán từ trước.
-   */
   async assignToCustomers(surveyId, customerIds = []) {
-    await this.getById(surveyId);
+    const survey = await this.getWithQuestions(surveyId); // đã có sẵn hàm này, trả kèm questions+options
     if (!Array.isArray(customerIds) || customerIds.length === 0) {
       throw new ValidationError('Danh sách khách hàng nhận khảo sát không được trống.');
+    }
+
+    // Chặn gửi nếu còn câu hỏi trắc nghiệm chưa đủ lựa chọn (tối thiểu 2).
+    const invalidQuestion = (survey.questions ?? []).find(
+      (q) => q.questionType === 'SINGLE_CHOICE' && (!q.options || q.options.length < 2)
+    );
+    if (invalidQuestion) {
+      throw new ValidationError(
+        `Câu hỏi "${invalidQuestion.questionContent}" là dạng trắc nghiệm nhưng chưa có đủ lựa chọn (tối thiểu 2). Vui lòng bổ sung trước khi gửi khảo sát.`
+      );
     }
 
     const activeCustomers = await customerRepository.findAll();
@@ -117,7 +122,7 @@ export const surveyService = {
     }
 
     return surveyTargetRepository.createMany(targets);
-  },
+  }
 };
 
 export default surveyService;

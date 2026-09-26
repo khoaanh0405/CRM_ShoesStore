@@ -1,4 +1,5 @@
 import { prisma } from '../config/index.js';
+import { countOnlineCustomers } from '../middleware/index.js';
 
 export const adminController = {
   async getDashboardStats(req, res) {
@@ -34,5 +35,9 @@ export const adminController = {
     } catch (error) {
       res.status(500).json({ message: 'Lỗi lấy thống kê dashboard', error: error.message });
     }
-  }
+  },
+
+  async getOnlineCount(req, res) {
+    res.json({ count: countOnlineCustomers() });
+  },
 };

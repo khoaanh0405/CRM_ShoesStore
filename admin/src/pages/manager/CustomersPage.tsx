@@ -35,23 +35,21 @@ const CustomersPage = () => {
   });
 
   const load = async () => {
-    setLoading(true);
+  setLoading(true);
+  try {
+    const res = await api.get('/customers');
+    setAll(res.data?.data ?? res.data ?? []);
+  } catch (e: any) {
+    toast.error(e.response?.data?.message ?? 'Không tải được khách hàng');
+  } finally {
+    setLoading(false);
+  }
+};
 
-    try {
-      const res = await api.get('/customers');
-      setAll(res.data?.data ?? res.data ?? []);
-    } catch (e: any) {
-      toast.error(
-        e.response?.data?.message ?? 'Không tải được khách hàng'
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-  }, []);
+// ✅ Thêm lại effect này — đây chính là phần bị thiếu
+useEffect(() => {
+  load();
+}, []);
 
   const filtered = useMemo(() => {
     const k = search.trim().toLowerCase();
@@ -72,60 +70,80 @@ const CustomersPage = () => {
     page * ITEMS_PER_PAGE
   );
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(total / ITEMS_PER_PAGE)
-  );
+  const totalPages = Math.max(1, Math.ceil(total / ITEMS_PER_PAGE));
+
+// Thêm: tự lùi trang khi trang hiện tại vượt quá tổng số trang sau khi xóa/lọc
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [totalPages, page]);
 
   const handleAdd = async () => {
-    setSaving(true);
+  // Validate trước khi gọi API, khớp đúng yêu cầu bắt buộc của
+  // backend (account.validator.js#createCustomerByAdmin): username,
+  // password (>=6 ký tự), fullName, dateOfBirth đều required.
+  if (
+    !form.username.trim() ||
+    !form.password ||
+    !form.fullName.trim() ||
+    !form.dateOfBirth
+  ) {
+    toast.error('Vui lòng nhập đầy đủ Username, mật khẩu, họ tên và ngày sinh.');
+    return;
+  }
+  if (form.password.length < 6) {
+    toast.error('Mật khẩu phải có ít nhất 6 ký tự.');
+    return;
+  }
 
-    try {
-      await api.post('/admin/customers', form);
+  setSaving(true);
 
-      toast.success('✅ Đã thêm khách hàng');
+  try {
+    await api.post('/admin/customers', {
+      ...form,
+      username: form.username.trim(),
+      fullName: form.fullName.trim(),
+      phone: form.phone.trim(),
+      address: form.address.trim(),
+    });
 
-      setShowAdd(false);
+    toast.success('✅ Đã thêm khách hàng');
 
-      setForm({
-        username: '',
-        password: '',
-        fullName: '',
-        dateOfBirth: '',
-        gender: '',
-        phone: '',
-        address: '',
-      });
+    setShowAdd(false);
 
-      load();
-    } catch (e: any) {
-      toast.error(
-        e.response?.data?.message ?? 'Thêm thất bại'
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
+    setForm({
+      username: '',
+      password: '',
+      fullName: '',
+      dateOfBirth: '',
+      gender: '',
+      phone: '',
+      address: '',
+    });
+
+    load();
+  } catch (e: any) {
+    toast.error(
+      e.response?.data?.message ?? 'Thêm thất bại'
+    );
+  } finally {
+    setSaving(false);
+  }
+};
+
+  const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
 
   const handleLock = async (c: Customer) => {
-    try {
-      await api.patch(
-        `/accounts/${c.customerId}/${c.isLocked ? 'unlock' : 'lock'}`
-      );
-
-      toast.success(
-        c.isLocked
-          ? '🔓 Đã mở khóa'
-          : '🔒 Đã khóa tài khoản'
-      );
-
-      load();
-    } catch (e: any) {
-      toast.error(
-        e.response?.data?.message ?? 'Thao tác thất bại'
-      );
-    }
-  };
+  setActionLoadingId(c.customerId);
+  try {
+    await api.patch(`/accounts/${c.customerId}/${c.isLocked ? 'unlock' : 'lock'}`);
+    toast.success(c.isLocked ? '🔓 Đã mở khóa' : '🔒 Đã khóa tài khoản');
+    load();
+  } catch (e: any) {
+    toast.error(e.response?.data?.message ?? 'Thao tác thất bại');
+  } finally {
+    setActionLoadingId(null);
+  }
+};
 
   const handleDelete = async (id: number) => {
     if (!confirm('Xóa (mềm) khách hàng này?')) return;
@@ -237,16 +255,11 @@ const CustomersPage = () => {
                       </span>
                     ) : (
                       <div className="pref-badges">
-                        {c.preferences!
-                          .slice(0, 2)
-                          .map((p) => (
-                            <span
-                              key={p.tag}
-                              className="pref-badge"
-                            >
-                              {p.tag}
-                            </span>
-                          ))}
+                        {c.preferences!.slice(0, 2).map((p, idx) => (
+                          <span key={`${c.customerId}-${p.tag}-${idx}`} className="pref-badge">
+                            {p.tag}
+                          </span>
+                        ))}
 
                         {c.preferences!.length > 2 && (
                           <span className="pref-badge more">
@@ -277,10 +290,9 @@ const CustomersPage = () => {
                       <button
                         className="action-btn toggle-off-btn"
                         onClick={() => handleLock(c)}
+                        disabled={actionLoadingId === c.customerId}
                       >
-                        {c.isLocked
-                          ? 'Mở khóa'
-                          : 'Khóa'}
+                        {c.isLocked ? 'Mở khóa' : 'Khóa'}
                       </button>
 
                       <button
@@ -401,20 +413,16 @@ const CustomersPage = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">
-                  Giới tính
-                </label>
-
-                <input
+                <label className="form-label">Giới tính</label>
+                <select
                   className="form-input"
                   value={form.gender}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      gender: e.target.value,
-                    })
-                  }
-                />
+                  onChange={(e) => setForm({ ...form, gender: e.target.value })}
+                >
+                  <option value="">-- Chọn --</option>
+                  <option value="Nam">Nam</option>
+                  <option value="Nữ">Nữ</option>
+                </select>
               </div>
 
               <div className="form-group">

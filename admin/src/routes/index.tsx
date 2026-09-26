@@ -9,7 +9,6 @@ import { ROLE_NAMES } from '../config/constants';
 import AccountManagement from '../pages/admin/AccountManagement';
 import ProductsPage from '../pages/admin/ProductsPage';
 import ProfilePage from '../pages/login/ProfilePage';
-import ReportsPage from '../pages/admin/ReportsPage';
 
 import CustomersPage from '../pages/manager/CustomersPage';
 import FeedbacksPage from '../pages/manager/FeedbacksPage';
@@ -29,7 +28,6 @@ const router = createBrowserRouter([
           { path: 'profile', element: <ProfilePage /> },
           { path: 'accounts', element: <RoleGuard allow={[ROLE_NAMES.ADMIN]}><AccountManagement /></RoleGuard> },
           { path: 'products', element: <RoleGuard allow={[ROLE_NAMES.ADMIN]}><ProductsPage /></RoleGuard> },
-          { path: 'reports', element: <RoleGuard allow={[ROLE_NAMES.ADMIN]}><ReportsPage /></RoleGuard> },   // ← thêm dòng này
           { path: 'customers', element: <RoleGuard allow={[ROLE_NAMES.MANAGER]}><CustomersPage /></RoleGuard> },
           { path: 'feedbacks', element: <RoleGuard allow={[ROLE_NAMES.MANAGER]}><FeedbacksPage /></RoleGuard> },
           { path: 'surveys', element: <RoleGuard allow={[ROLE_NAMES.MANAGER]}><SurveysPage /></RoleGuard> },

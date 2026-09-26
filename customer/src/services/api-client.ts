@@ -9,7 +9,7 @@ export const apiClient = axios.create({
 
 /** Tự gắn header Authorization từ localStorage (thay cho expo-secure-store ở bản mobile). */
 apiClient.interceptors.request.use((reqConfig) => {
-  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+  const token = sessionStorage.getItem(AUTH_TOKEN_KEY); // đổi từ localStorage
   if (token) {
     reqConfig.headers.Authorization = `Bearer ${token}`;
   }

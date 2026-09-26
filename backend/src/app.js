@@ -1,6 +1,7 @@
 import express from 'express';
-import { cors, notFound, errorHandler } from './middleware/index.js';
+import { cors, notFound, errorHandler, softIdentify } from './middleware/index.js';
 import routes from './routes/index.js';
+
 
 const app = express();
 
@@ -9,6 +10,7 @@ app.use(express.json());
 
 // CORS — cho phép React Web / React Native gọi vào.
 app.use(cors);
+app.use(softIdentify);
 
 /** Route test nhanh để kiểm tra server sống — gọi trong Insomnia: GET /health */
 app.get('/health', (req, res) => {

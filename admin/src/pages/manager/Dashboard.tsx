@@ -4,6 +4,7 @@ import { Users, Wifi, Star, FileText, X } from 'lucide-react';
 import { getCustomers, getFeedbacks, getSurveys, getCustomerReport } from '../../services/api';
 import DonutChart from '../../components/DonutChart';
 import { useNavigate } from 'react-router-dom';
+import { getOnlineCustomerCount } from '../../services/api';
 import './Dashboard.css';
 
 const AGE_BUCKETS = [
@@ -29,6 +30,7 @@ const ManagerDashboard: React.FC = () => {
   const [surveys, setSurveys] = useState<any[]>([]);
   const [preferences, setPreferences] = useState<{ tag: string; count: number }[]>([]);
   const [detailTag, setDetailTag] = useState<string | null>(null);
+  const [onlineCount, setOnlineCount] = useState<number | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -46,6 +48,10 @@ const ManagerDashboard: React.FC = () => {
         setLoading(false);
       }
     })();
+  }, []);
+
+  useEffect(() => {
+    getOnlineCustomerCount().then(setOnlineCount);
   }, []);
 
   const totalCustomers = customers.length;
@@ -96,7 +102,7 @@ const ManagerDashboard: React.FC = () => {
             <span className="stat-label">Đang online</span>
             <span className="stat-icon-box green"><Wifi size={18} /></span>
           </div>
-          <div className="stat-value">—</div>
+          <div className="stat-value">{onlineCount ?? '—'}</div>
           <div className="stat-foot success">● Khách hàng đang hoạt động</div>
         </div>
         <div className="stat-card-v2">
