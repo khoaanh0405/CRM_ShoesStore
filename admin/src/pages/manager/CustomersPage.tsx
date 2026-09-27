@@ -19,10 +19,23 @@ const ITEMS_PER_PAGE = 10;
 const CustomersPage = () => {
   const [all, setAll] = useState<Customer[]>([]);
   const [search, setSearch] = useState('');
+  const [searchDraft, setSearchDraft] = useState('');
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const handleApplySearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSearch(searchDraft);
+    setPage(1);
+  };
+
+  const handleClearSearch = () => {
+    setSearchDraft('');
+    setSearch('');
+    setPage(1);
+  };
 
   const [form, setForm] = useState({
     username: '',
@@ -183,34 +196,35 @@ useEffect(() => {
         </button>
       </div>
 
-      <div className="search-box-enhanced">
-        <Search
-          size={16}
-          className="search-icon"
-        />
+      <form className="customer-search-toolbar" onSubmit={handleApplySearch}>
+        <label className="customer-search">
+          <Search size={16} className="customer-search__icon" />
 
-        <input
-          className="search-input"
-          placeholder="Tìm theo tên/SĐT..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-        />
+          <input
+            type="text"
+            className="customer-search__input"
+            placeholder="Tìm kiếm tên khách hàng hoặc SĐT..."
+            value={searchDraft}
+            onChange={(e) => setSearchDraft(e.target.value)}
+          />
 
-        {search && (
-          <button
-            className="search-clear-btn"
-            onClick={() => {
-              setSearch('');
-              setPage(1);
-            }}
-          >
-            <X size={14} />
-          </button>
-        )}
-      </div>
+          {searchDraft && (
+            <button
+              type="button"
+              className="customer-search__reset"
+              onClick={handleClearSearch}
+              title="Xóa từ khóa"
+            >
+              <X size={13} />
+            </button>
+          )}
+        </label>
+
+        <button type="submit" className="customer-search__submit">
+          <Search size={16} />
+          Tìm kiếm
+        </button>
+      </form>
 
       {loading ? (
         <div className="loading-state">

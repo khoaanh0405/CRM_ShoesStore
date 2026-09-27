@@ -1,3 +1,15 @@
+:root {
+  /* ===== Bảng màu tím nhạt - trắng (được ghi đè cho toàn bộ giao diện) ===== */
+  --color-primary: #8B5CF6;
+  --color-primary-dark: #7C3AED;
+  --color-success: #16A34A;
+  --color-bg: #F6F4FE;
+  --color-surface: #FFFFFF;
+  --color-border: #E6DEFB;
+  --color-text-main: #2E1A47;
+  --color-text-muted: #8A7AA6;
+}
+
 .admin-dashboard { padding: 28px 32px; }
 .db-title { font-size: 22px; font-weight: 700; color: var(--color-text-main); }
 .db-subtitle { font-size: 14px; color: var(--color-text-muted); margin-bottom: 20px; }
@@ -16,7 +28,7 @@
   border: 1px solid var(--color-border);
   border-radius: 14px;
   padding: 18px 20px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  box-shadow: 0 1px 3px rgba(124, 58, 237, 0.05);
 }
 .stat-card-v2.clickable {
   cursor: pointer;
@@ -24,7 +36,7 @@
 }
 .stat-card-v2.clickable:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+  box-shadow: 0 6px 16px rgba(124, 58, 237, 0.08);
   border-color: var(--color-primary);
 }
 .stat-foot-link {
@@ -40,7 +52,7 @@
   width: 32px; height: 32px; border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
 }
-.stat-icon-box.blue { background: #DBEAFE; color: #2563EB; }
+.stat-icon-box.blue { background: #EDE4FD; color: #7C3AED; }
 .stat-icon-box.green { background: #D1FAE5; color: #059669; }
 .stat-icon-box.red { background: #FEE2E2; color: #DC2626; }
 .stat-icon-box.purple { background: #EDE9FE; color: #7C3AED; }
@@ -76,7 +88,7 @@
 
 .mini-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .mini-table th { text-align: left; color: var(--color-text-muted); font-weight: 600; padding: 6px 4px; border-bottom: 1px solid var(--color-border); }
-.mini-table td { padding: 7px 4px; border-bottom: 1px solid #f1f5f9; color: var(--color-text-main); }
+.mini-table td { padding: 7px 4px; border-bottom: 1px solid #f1ebfc; color: var(--color-text-main); }
 .empty-hint { font-size: 13px; color: var(--color-text-muted); }
 
 .crm-summary-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; font-size: 13px; color: var(--color-text-muted); }
@@ -125,7 +137,7 @@
 .bar-row-track {
   height: 8px;
   border-radius: 999px;
-  background: #f1f5f9;
+  background: #f1ebfc;
   overflow: hidden;
 }
 

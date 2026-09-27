@@ -426,10 +426,33 @@ const ProductsPage: React.FC = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Search & Filter
+  // Search & Filter — các giá trị ĐÃ ÁP DỤNG, dùng để lọc danh sách thật sự
   const [searchTerm, setSearchTerm] = useState('');
   const [supplierFilter, setSupplierFilter] = useState<number | 'ALL'>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
+  const [stockFilter, setStockFilter] = useState<'ALL' | 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK'>('ALL');
+  const [sortBy, setSortBy] = useState<'NEWEST' | 'NAME_ASC' | 'PRICE_ASC' | 'PRICE_DESC' | 'STOCK_ASC' | 'STOCK_DESC'>('NEWEST');
+  const [supplierSortBy, setSupplierSortBy] = useState<'NAME_ASC' | 'NAME_DESC' | 'PRODUCTS_DESC' | 'PRODUCTS_ASC'>('NAME_ASC');
+
+  // Giá trị đang nhập/chọn trên thanh công cụ — chưa lọc dữ liệu.
+  // Chỉ khi bấm nút "Tìm kiếm" hoặc nhấn Enter mới đẩy sang các state phía trên.
+  const [searchDraft, setSearchDraft] = useState('');
+  const [supplierDraft, setSupplierDraft] = useState<number | 'ALL'>('ALL');
+  const [statusDraft, setStatusDraft] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
+  const [stockDraft, setStockDraft] = useState<'ALL' | 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK'>('ALL');
+
+  const handleApplySearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSearchTerm(searchDraft);
+    setSupplierFilter(supplierDraft);
+    setStatusFilter(statusDraft);
+    setStockFilter(stockDraft);
+  };
+
+  const handleClearSearch = () => {
+    setSearchDraft('');
+    setSearchTerm('');
+  };
 
   // Modals
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -464,18 +487,41 @@ const ProductsPage: React.FC = () => {
   }, []);
 
   // Filter products
-  const filteredProducts = products.filter((p) => {
-    const matchSearch =
-      p.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.brand ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.category ?? '').toLowerCase().includes(searchTerm.toLowerCase());
-    const matchSupplier = supplierFilter === 'ALL' || p.supplierId === supplierFilter;
-    const matchStatus =
-      statusFilter === 'ALL' ||
-      (statusFilter === 'ACTIVE' && p.isActive) ||
-      (statusFilter === 'INACTIVE' && !p.isActive);
-    return matchSearch && matchSupplier && matchStatus;
-  });
+  const filteredProducts = products
+    .filter((p) => {
+      const matchSearch =
+        p.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.brand ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.category ?? '').toLowerCase().includes(searchTerm.toLowerCase());
+      const matchSupplier = supplierFilter === 'ALL' || p.supplierId === supplierFilter;
+      const matchStatus =
+        statusFilter === 'ALL' ||
+        (statusFilter === 'ACTIVE' && p.isActive) ||
+        (statusFilter === 'INACTIVE' && !p.isActive);
+      const matchStock =
+        stockFilter === 'ALL' ||
+        (stockFilter === 'OUT_OF_STOCK' && p.stockQuantity === 0) ||
+        (stockFilter === 'LOW_STOCK' && p.stockQuantity > 0 && p.stockQuantity < 10) ||
+        (stockFilter === 'IN_STOCK' && p.stockQuantity >= 10);
+      return matchSearch && matchSupplier && matchStatus && matchStock;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'NAME_ASC':
+          return a.productName.localeCompare(b.productName);
+        case 'PRICE_ASC':
+          return (parseFloat(a.price as unknown as string) || 0) - (parseFloat(b.price as unknown as string) || 0);
+        case 'PRICE_DESC':
+          return (parseFloat(b.price as unknown as string) || 0) - (parseFloat(a.price as unknown as string) || 0);
+        case 'STOCK_ASC':
+          return a.stockQuantity - b.stockQuantity;
+        case 'STOCK_DESC':
+          return b.stockQuantity - a.stockQuantity;
+        case 'NEWEST':
+        default:
+          return (b.productId || 0) - (a.productId || 0);
+      }
+    });
 
   // Pagination for products (15 items per page)
   const PRODUCTS_PER_PAGE = 15;
@@ -483,7 +529,7 @@ const ProductsPage: React.FC = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, supplierFilter, statusFilter, activeTab]);
+  }, [searchTerm, supplierFilter, statusFilter, stockFilter, sortBy, supplierSortBy, activeTab]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE));
   const paginatedProducts = filteredProducts.slice(
@@ -491,12 +537,29 @@ const ProductsPage: React.FC = () => {
     currentPage * PRODUCTS_PER_PAGE
   );
 
-  // Filter suppliers
-  const filteredSuppliers = suppliers.filter((s) =>
-    s.supplierName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (s.phone ?? '').includes(searchTerm) ||
-    (s.email ?? '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter + sort suppliers
+  const supplierProductCount = (s: Supplier) =>
+    s._count?.products !== undefined ? s._count.products : products.filter((p) => p.supplierId === s.supplierId).length;
+
+  const filteredSuppliers = suppliers
+    .filter((s) =>
+      s.supplierName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.phone ?? '').includes(searchTerm) ||
+      (s.email ?? '').toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => {
+      switch (supplierSortBy) {
+        case 'NAME_DESC':
+          return b.supplierName.localeCompare(a.supplierName);
+        case 'PRODUCTS_DESC':
+          return supplierProductCount(b) - supplierProductCount(a);
+        case 'PRODUCTS_ASC':
+          return supplierProductCount(a) - supplierProductCount(b);
+        case 'NAME_ASC':
+        default:
+          return a.supplierName.localeCompare(b.supplierName);
+      }
+    });
 
   const handleToggleProductActive = async (p: Product) => {
     setActionLoadingId(p.productId);
@@ -611,25 +674,39 @@ const ProductsPage: React.FC = () => {
         </button>
       </div>
 
-      {/* Filter / Search Bar */}
-      <div className="filter-bar">
-        <div className="search-box-enhanced">
-          <Search size={16} className="search-icon" />
+      {/* Thanh tìm kiếm & lọc — bấm "Tìm kiếm" hoặc Enter mới ra kết quả */}
+      <form className="pp-toolbar" onSubmit={handleApplySearch}>
+        <label className="pp-toolbar__search">
+          <Search size={16} className="pp-toolbar__search-icon" />
           <input
             type="text"
-            className="search-input"
-            placeholder={activeTab === 'products' ? 'Tìm theo tên sản phẩm, thương hiệu...' : 'Tìm theo tên nhà cung cấp, SĐT, email...'}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pp-toolbar__search-input"
+            placeholder={
+              activeTab === 'products'
+                ? 'Tìm theo tên sản phẩm, thương hiệu...'
+                : 'Tìm theo tên nhà cung cấp, SĐT, email...'
+            }
+            value={searchDraft}
+            onChange={(e) => setSearchDraft(e.target.value)}
           />
-        </div>
+          {searchDraft && (
+            <button
+              type="button"
+              className="pp-toolbar__search-reset"
+              onClick={handleClearSearch}
+              title="Xóa từ khóa"
+            >
+              <X size={13} />
+            </button>
+          )}
+        </label>
 
         {activeTab === 'products' && (
-          <div className="filter-selects">
+          <>
             <select
               className="form-select"
-              value={supplierFilter}
-              onChange={(e) => setSupplierFilter(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
+              value={supplierDraft}
+              onChange={(e) => setSupplierDraft(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
             >
               <option value="ALL">Tất cả nhà cung cấp</option>
               {suppliers.map((s) => (
@@ -639,16 +716,58 @@ const ProductsPage: React.FC = () => {
 
             <select
               className="form-select"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
+              value={statusDraft}
+              onChange={(e) => setStatusDraft(e.target.value as any)}
             >
               <option value="ALL">Tất cả trạng thái</option>
               <option value="ACTIVE">Đang kinh doanh</option>
               <option value="INACTIVE">Đã ẩn</option>
             </select>
-          </div>
+
+            <select
+              className="form-select"
+              value={stockDraft}
+              onChange={(e) => setStockDraft(e.target.value as any)}
+            >
+              <option value="ALL">Tất cả tồn kho</option>
+              <option value="IN_STOCK">Còn hàng (≥10)</option>
+              <option value="LOW_STOCK">Sắp hết (&lt;10)</option>
+              <option value="OUT_OF_STOCK">Hết hàng</option>
+            </select>
+
+            <select
+              className="form-select"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+            >
+              <option value="NEWEST">Mới nhất</option>
+              <option value="NAME_ASC">Tên A-Z</option>
+              <option value="PRICE_ASC">Giá tăng dần</option>
+              <option value="PRICE_DESC">Giá giảm dần</option>
+              <option value="STOCK_ASC">Tồn kho tăng dần</option>
+              <option value="STOCK_DESC">Tồn kho giảm dần</option>
+            </select>
+          </>
         )}
-      </div>
+
+        {activeTab === 'suppliers' && (
+          <select
+            className="form-select"
+            value={supplierSortBy}
+            onChange={(e) => setSupplierSortBy(e.target.value as any)}
+          >
+            <option value="NAME_ASC">Tên A-Z</option>
+            <option value="NAME_DESC">Tên Z-A</option>
+            <option value="PRODUCTS_DESC">Nhiều sản phẩm nhất</option>
+            <option value="PRODUCTS_ASC">Ít sản phẩm nhất</option>
+          </select>
+        )}
+
+        <button type="submit" className="pp-toolbar__submit">
+          <Search size={16} />
+          Tìm kiếm
+        </button>
+      </form>
 
       {/* TAB CONTENT 1: SẢN PHẨM */}
       {activeTab === 'products' && (

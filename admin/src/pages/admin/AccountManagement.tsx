@@ -14,6 +14,29 @@ interface Account {
 const AccountManagement: React.FC = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'ALL' | 'Admin' | 'Manager' | 'Customer'>('ALL');
+  const [statusFilterAcc, setStatusFilterAcc] = useState<'ALL' | 'ACTIVE' | 'LOCKED'>('ALL');
+  const [sortByAcc, setSortByAcc] = useState<'NEWEST' | 'OLDEST' | 'USERNAME_ASC'>('NEWEST');
+
+  // Giá trị đang gõ/chọn trên thanh công cụ — CHƯA áp dụng vào bảng.
+  // Chỉ khi bấm "Tìm kiếm" hoặc nhấn Enter (submit form) thì mới copy
+  // sang các state phía trên để lọc lại danh sách.
+  const [searchDraft, setSearchDraft] = useState('');
+  const [roleDraft, setRoleDraft] = useState<'ALL' | 'Admin' | 'Manager' | 'Customer'>('ALL');
+  const [statusDraft, setStatusDraft] = useState<'ALL' | 'ACTIVE' | 'LOCKED'>('ALL');
+
+  const handleApplyFilters = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSearchTerm(searchDraft);
+    setRoleFilter(roleDraft);
+    setStatusFilterAcc(statusDraft);
+  };
+
+  const handleClearSearch = () => {
+    setSearchDraft('');
+    setSearchTerm('');
+  };
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
@@ -46,6 +69,17 @@ const AccountManagement: React.FC = () => {
 
   // Confirm Modal state
   const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, accountId: number | null}>({isOpen: false, accountId: null});
+
+  // Confirm Role Change Modal state
+  const [roleChangeModal, setRoleChangeModal] = useState<{
+    isOpen: boolean;
+    account: Account | null;
+    newRole: string;
+  }>({
+    isOpen: false,
+    account: null,
+    newRole: ''
+  });
   
   // Toast state
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error', id: number}[]>([]);
@@ -80,14 +114,42 @@ const AccountManagement: React.FC = () => {
 
   const ROLE_OPTIONS = ['Admin', 'Manager', 'Customer'];
 
-const changeRole = async (account: Account, newRole: string) => {
+const getRoleLabel = (roleName?: string) => {
+  switch (roleName) {
+    case 'Admin':
+      return 'Quản trị viên';
+    case 'Manager':
+      return 'Quản lý';
+    case 'Customer':
+      return 'Khách hàng';
+    default:
+      return roleName || 'Không xác định';
+  }
+};
+
+const requestChangeRole = (account: Account, newRole: string) => {
   if (newRole === account.role?.roleName) return;
+
+  setRoleChangeModal({
+    isOpen: true,
+    account,
+    newRole
+  });
+};
+
+const executeChangeRole = async () => {
+  if (!roleChangeModal.account || !roleChangeModal.newRole) return;
+
+  const account = roleChangeModal.account;
+  const newRole = roleChangeModal.newRole;
+
   try {
     await api.patch(`/accounts/${account.accountId}/role`, { roleName: newRole });
-    showToast(`Đã đổi quyền thành ${newRole}`, 'success');
+    showToast(`Đã đổi vai trò thành ${getRoleLabel(newRole)}`, 'success');
+    setRoleChangeModal({ isOpen: false, account: null, newRole: '' });
     fetchAccounts();
   } catch (err: any) {
-    showToast(err.response?.data?.message || 'Đổi quyền thất bại', 'error');
+    showToast(err.response?.data?.message || 'Đổi vai trò thất bại', 'error');
   }
 };
 
@@ -195,13 +257,40 @@ const changeRole = async (account: Account, newRole: string) => {
     }
   };
 
-  const filteredAccounts = accounts.filter(acc => {
-    const searchLower = searchTerm.trim().toLowerCase();
-    const isUsernameMatch = acc.username.toLowerCase().includes(searchLower);
-    const isExactIdMatch = searchTerm.trim() !== '' && !isNaN(Number(searchTerm)) && acc.accountId.toString() === searchTerm.trim();
-    
-    return isUsernameMatch || isExactIdMatch;
-  });
+  const filteredAccounts = accounts
+    .filter(acc => {
+      const searchLower = searchTerm.trim().toLowerCase();
+      const isUsernameMatch = acc.username.toLowerCase().includes(searchLower);
+      const isExactIdMatch = searchTerm.trim() !== '' && !isNaN(Number(searchTerm)) && acc.accountId.toString() === searchTerm.trim();
+      const matchSearch = searchLower === '' || isUsernameMatch || isExactIdMatch;
+
+      const matchRole = roleFilter === 'ALL' || acc.role?.roleName === roleFilter;
+      const matchStatus =
+        statusFilterAcc === 'ALL' ||
+        (statusFilterAcc === 'ACTIVE' && !acc.isLocked) ||
+        (statusFilterAcc === 'LOCKED' && acc.isLocked);
+
+      return matchSearch && matchRole && matchStatus;
+    })
+    .sort((a, b) => {
+      // Luôn ưu tiên nhóm theo vai trò: Admin → Manager → Customer.
+      const ROLE_PRIORITY: Record<string, number> = { Admin: 0, Manager: 1, Customer: 2 };
+      const roleDiff =
+        (ROLE_PRIORITY[a.role?.roleName ?? ''] ?? 99) -
+        (ROLE_PRIORITY[b.role?.roleName ?? ''] ?? 99);
+      if (roleDiff !== 0) return roleDiff;
+
+      // Trong cùng một vai trò, áp dụng tiêu chí sắp xếp đang chọn.
+      switch (sortByAcc) {
+        case 'OLDEST':
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        case 'USERNAME_ASC':
+          return a.username.localeCompare(b.username);
+        case 'NEWEST':
+        default:
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+    });
 
   return (
     <div className="account-management">
@@ -224,26 +313,70 @@ const changeRole = async (account: Account, newRole: string) => {
       {error && <div className="error-message" style={{marginBottom: 16}}>{error}</div>}
 
       <div className="table-card">
-        <div className="table-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="table-toolbar">
           <button className="btn-primary" onClick={() => setIsAddModalOpen(true)} title="Thêm khách hàng">
             <Plus size={18} />
             Thêm mới
           </button>
-          
-          <div className="search-box enhanced">
-            <Search size={16} className="search-icon" />
-            <input 
-              type="text" 
-              placeholder="Tìm kiếm username hoặc ID..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            {searchTerm && (
-              <button className="search-clear" onClick={() => setSearchTerm('')}>
-                <X size={14} />
-              </button>
-            )}
-          </div>
+
+          <form className="acc-toolbar" onSubmit={handleApplyFilters}>
+            <label className="acc-toolbar__search">
+              <Search size={16} className="acc-toolbar__search-icon" />
+              <input
+                type="text"
+                className="acc-toolbar__search-input"
+                placeholder="Tìm kiếm tên đăng nhập hoặc ID..."
+                value={searchDraft}
+                onChange={(e) => setSearchDraft(e.target.value)}
+              />
+              {searchDraft && (
+                <button
+                  type="button"
+                  className="acc-toolbar__search-reset"
+                  onClick={handleClearSearch}
+                  title="Xóa từ khóa"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </label>
+
+            <select
+              className="form-select"
+              value={roleDraft}
+              onChange={(e) => setRoleDraft(e.target.value as any)}
+            >
+              <option value="ALL">Tất cả vai trò</option>
+              {ROLE_OPTIONS.map((r) => (
+                <option key={r} value={r}>{getRoleLabel(r)}</option>
+              ))}
+            </select>
+
+            <select
+              className="form-select"
+              value={statusDraft}
+              onChange={(e) => setStatusDraft(e.target.value as any)}
+            >
+              <option value="ALL">Tất cả trạng thái</option>
+              <option value="ACTIVE">Đang hoạt động</option>
+              <option value="LOCKED">Đã khóa</option>
+            </select>
+
+            <select
+              className="form-select"
+              value={sortByAcc}
+              onChange={(e) => setSortByAcc(e.target.value as any)}
+            >
+              <option value="NEWEST">Mới nhất</option>
+              <option value="OLDEST">Cũ nhất</option>
+              <option value="USERNAME_ASC">Tên đăng nhập A-Z</option>
+            </select>
+
+            <button type="submit" className="acc-toolbar__submit">
+              <Search size={16} />
+              Tìm kiếm
+            </button>
+          </form>
         </div>
 
         <div className="table-responsive">
@@ -251,8 +384,8 @@ const changeRole = async (account: Account, newRole: string) => {
             <thead>
               <tr>
                 <th>ID</th>
-                <th>Username</th>
-                <th>Role</th>
+                <th>Tên đăng nhập</th>
+                <th>Vai trò</th>
                 <th>Trạng thái</th>
                 <th>Ngày tạo</th>
                 <th className="text-right">Hành động</th>
@@ -267,10 +400,12 @@ const changeRole = async (account: Account, newRole: string) => {
                     <select
                       className={`role-badge role-${account.role?.roleName.toLowerCase()}`}
                       value={account.role?.roleName}
-                      onChange={(e) => changeRole(account, e.target.value)}
+                      onChange={(e) => requestChangeRole(account, e.target.value)}
                       style={{ border: 'none', cursor: 'pointer' }}
                     >
-                      {ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                      {ROLE_OPTIONS.map((r) => (
+                <option key={r} value={r}>{getRoleLabel(r)}</option>
+              ))}
                     </select>
                   </td>
                   <td>
@@ -399,6 +534,70 @@ const changeRole = async (account: Account, newRole: string) => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Xác nhận Đổi Vai trò */}
+      {roleChangeModal.isOpen && roleChangeModal.account && (
+        <div className="modal-overlay">
+          <div className="modal-content role-confirm-modal">
+            <div className="modal-header">
+              <h2>Xác nhận đổi vai trò</h2>
+              <button
+                className="close-btn"
+                onClick={() => setRoleChangeModal({ isOpen: false, account: null, newRole: '' })}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="modal-body role-confirm-body">
+              <div className="role-confirm-icon">
+                <AlertCircle size={24} />
+              </div>
+
+              <p className="role-confirm-message">
+                Bạn có chắc chắn muốn thay đổi vai trò của tài khoản này không?
+              </p>
+
+              <div className="role-confirm-info">
+                <div className="role-confirm-row">
+                  <span>Tên đăng nhập</span>
+                  <strong>{roleChangeModal.account.username}</strong>
+                </div>
+                <div className="role-confirm-row">
+                  <span>Vai trò hiện tại</span>
+                  <strong>{getRoleLabel(roleChangeModal.account.role?.roleName)}</strong>
+                </div>
+                <div className="role-confirm-row">
+                  <span>Vai trò mới</span>
+                  <strong className="role-confirm-new">
+                    {getRoleLabel(roleChangeModal.newRole)}
+                  </strong>
+                </div>
+              </div>
+
+              <p className="role-confirm-warning">
+                Thay đổi này sẽ có hiệu lực ngay sau khi bạn xác nhận.
+              </p>
+            </div>
+
+            <div className="modal-footer">
+              <button
+                type="button"
+                onClick={() => setRoleChangeModal({ isOpen: false, account: null, newRole: '' })}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="btn-role-confirm"
+                onClick={executeChangeRole}
+              >
+                Xác nhận đổi vai trò
+              </button>
+            </div>
           </div>
         </div>
       )}

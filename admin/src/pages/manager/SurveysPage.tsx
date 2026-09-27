@@ -104,6 +104,17 @@ const SurveysPage: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchDraft, setSearchDraft] = useState('');
+
+  const handleApplySearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSearchTerm(searchDraft);
+  };
+
+  const handleClearSearch = () => {
+    setSearchDraft('');
+    setSearchTerm('');
+  };
 
   const loadSurveys = async () => {
     setLoading(true);
@@ -147,7 +158,7 @@ const SurveysPage: React.FC = () => {
 
   const activeSurveys = surveys.filter((s) => s.isActive);
   const inactiveSurveys = surveys.filter((s) => !s.isActive);
-  
+
   const filteredSurveys = surveys.filter((s) =>
     s.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (s.description ?? '').toLowerCase().includes(searchTerm.toLowerCase())
@@ -178,21 +189,33 @@ const SurveysPage: React.FC = () => {
 
       {/* Toolbar: Search bar & Create button on the SAME row */}
       <div className="surveys-toolbar">
-        <div className="survey-search-bar">
-          <Search size={16} className="survey-search-icon" />
-          <input
-            type="text"
-            className="survey-search-input"
-            placeholder="Tìm kiếm khảo sát theo tên, mô tả..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          {searchTerm && (
-            <button className="survey-search-clear" onClick={() => setSearchTerm('')}>
-              <X size={14} />
-            </button>
-          )}
-        </div>
+        <form className="survey-search-form" onSubmit={handleApplySearch}>
+          <label className="survey-search-bar">
+            <Search size={16} className="survey-search-icon" />
+            <input
+              type="text"
+              className="survey-search-input"
+              placeholder="Tìm kiếm khảo sát theo tên, mô tả..."
+              value={searchDraft}
+              onChange={(e) => setSearchDraft(e.target.value)}
+            />
+            {searchDraft && (
+              <button
+                type="button"
+                className="survey-search-clear"
+                onClick={handleClearSearch}
+                title="Xóa từ khóa"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </label>
+
+          <button type="submit" className="survey-search-submit">
+            <Search size={16} />
+            Tìm kiếm
+          </button>
+        </form>
 
         <button
           id="create-survey-btn"

@@ -358,7 +358,10 @@
   height: 32px;
   border-radius: 8px;
   color: var(--color-text-muted);
+  background: none;
+  border: none;
   transition: background 0.15s;
+  cursor: pointer;
 }
 
 .modal-close-btn:hover {
@@ -414,12 +417,6 @@
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-}
-
-.form-hint {
-  font-size: 12px;
-  color: var(--color-text-muted);
-  margin-top: 2px;
 }
 
 /* Toggle switch */
@@ -487,61 +484,121 @@
   flex-shrink: 0 !important;
 }
 
-/* Survey search bar */
-.survey-search-bar {
+/* Search — đồng bộ giao diện AccountManagement */
+.survey-search-form {
   display: flex;
   align-items: center;
-  background: var(--color-surface);
-  border: 1.5px solid var(--color-border);
-  border-radius: 8px;
-  padding: 0 12px;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.survey-search-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
   height: 40px;
-  width: 360px;
-  max-width: 100%;
-  gap: 8px;
-  margin-bottom: 0;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  flex: 1;
+  min-width: 200px;
+  background-color: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0 14px 0 38px;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 
 .survey-search-bar:focus-within {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(30, 173, 93, 0.1);
+  background-color: #FCFAFF;
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.14);
 }
 
 .survey-search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
   color: var(--color-text-muted);
-  flex-shrink: 0;
+  pointer-events: none;
 }
 
 .survey-search-input {
   flex: 1;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
   border: none;
-  background: transparent;
   outline: none;
-  font-size: 14px;
+  background: transparent;
+  font-size: 13.5px;
   color: var(--color-text-main);
 }
 
 .survey-search-input::placeholder {
-  color: #94a3b8;
+  color: #AFA1CC;
 }
 
 .survey-search-clear {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  background-color: var(--color-border);
-  color: var(--color-text-muted);
+  background-color: #C4B5FD;
+  color: #fff;
   border: none;
+  margin-left: 6px;
   cursor: pointer;
   flex-shrink: 0;
-  transition: all 0.15s;
+  transition: background-color 0.15s ease;
 }
 
 .survey-search-clear:hover {
-  background-color: #E5E7EB;
-  color: var(--color-text-main);
+  background-color: var(--color-primary);
+}
+
+.survey-search-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  color: #fff;
+  font-weight: 700;
+  font-size: 13.5px;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.25);
+  transition: box-shadow 0.15s ease, transform 0.15s ease, filter 0.15s ease;
+}
+
+.survey-search-submit:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 6px 16px rgba(124, 58, 237, 0.32);
+}
+
+.survey-search-submit:active {
+  transform: translateY(1px);
+}
+
+@media (max-width: 760px) {
+  .surveys-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .survey-search-form {
+    flex-basis: 100%;
+  }
+
+  .surveys-toolbar .create-btn {
+    width: 100% !important;
+    max-width: none !important;
+    justify-content: center;
+  }
 }
