@@ -39,32 +39,32 @@ export default function LoginPage() {
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{ flex: 1, background: AuthColors.background, display: 'flex', flexDirection: 'column' }}>
-      <AuthBanner />
-      <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
-        <AuthSegmentedTabs active="login" />
-        <div>
-          <h1 style={{ color: AuthColors.textPrimary, fontSize: 30, fontWeight: 800, lineHeight: '36px' }}>Chào mừng<br />trở lại.</h1>
-          <p style={{ color: AuthColors.textSecondary, fontSize: 14, marginTop: 6 }}>Đăng nhập để tiếp tục mua sắm.</p>
-        </div>
+    <form onSubmit={handleSubmit} className="auth-form" style={{ background: AuthColors.background }}>
+  <AuthBanner />
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 22, paddingTop: 24 }}>
+    <AuthSegmentedTabs active="login" />
+    <div>
+      <h1 style={{ color: AuthColors.textPrimary, fontSize: 28, fontWeight: 800, lineHeight: '34px' }}>Chào mừng<br />trở lại.</h1>
+      <p style={{ color: AuthColors.textSecondary, fontSize: 13.5, marginTop: 6 }}>Đăng nhập để tiếp tục mua sắm.</p>
+    </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <AuthTextField label="Tên đăng nhập" placeholder="ten_dang_nhap" autoCapitalize="none" autoCorrect="off" value={username} onChangeText={setUsername} error={errors.username} />
-          <AuthTextField
-            label="Mật khẩu" placeholder="••••••••" type="password" secureToggle value={password} onChangeText={setPassword} error={errors.password}
-            rightAction={{ label: 'Quên?', onClick: () => alert('Tính năng khôi phục mật khẩu đang được phát triển. Vui lòng liên hệ quản trị viên để được hỗ trợ đặt lại mật khẩu.') }}
-          />
-        </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <AuthTextField label="Tên đăng nhập" placeholder="ten_dang_nhap" autoCapitalize="none" autoCorrect="off" value={username} onChangeText={setUsername} error={errors.username} />
+      <AuthTextField
+        label="Mật khẩu" placeholder="••••••••" type="password" secureToggle value={password} onChangeText={setPassword} error={errors.password}
+        rightAction={{ label: 'Quên?', onClick: () => alert('Tính năng khôi phục mật khẩu đang được phát triển. Vui lòng liên hệ quản trị viên để được hỗ trợ đặt lại mật khẩu.') }}
+      />
+    </div>
 
-        {formError ? <div style={{ color: AuthColors.danger, fontSize: 13 }}>{formError}</div> : null}
+    {formError ? <div style={{ color: AuthColors.danger, fontSize: 13 }}>{formError}</div> : null}
 
-        <AuthButton label="Đăng nhập" type="submit" onClick={() => {}} loading={submitting} />
+    <AuthButton label="Đăng nhập" type="submit" onClick={() => {}} loading={submitting} />
 
-        <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 4 }}>
-          <span style={{ color: AuthColors.textSecondary, fontSize: 13 }}>Chưa có tài khoản? </span>
-          <Link to="/auth/register" replace style={{ color: AuthColors.accent, fontSize: 13, fontWeight: 700, marginLeft: 4 }}>Đăng ký</Link>
-        </div>
-      </div>
-    </form>
+    <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 4 }}>
+      <span style={{ color: AuthColors.textSecondary, fontSize: 13 }}>Chưa có tài khoản? </span>
+      <Link to="/auth/register" replace style={{ color: AuthColors.accent, fontSize: 13, fontWeight: 700, marginLeft: 4 }}>Đăng ký</Link>
+    </div>
+  </div>
+</form>
   );
 }

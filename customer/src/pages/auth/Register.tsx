@@ -59,7 +59,8 @@ export default function RegisterPage() {
   };
 
   return (
-    <form onSubmit={handleSubmit} style={{ flex: 1, background: AuthColors.background, display: 'flex', flexDirection: 'column' }}>
+    // Register.tsx — tương tự
+<form onSubmit={handleSubmit} className="auth-form" style={{ flex: 1, background: AuthColors.background, display: 'flex', flexDirection: 'column' }}>
       <AuthBanner />
       <div style={{ padding: '24px 24px 48px', display: 'flex', flexDirection: 'column', gap: 24 }}>
         <AuthSegmentedTabs active="register" />

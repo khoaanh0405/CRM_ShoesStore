@@ -37,8 +37,10 @@ export default function ProfilePage() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [saving, setSaving] = useState(false);
 
-  const [newTag, setNewTag] = useState('');
-  const [addingTag, setAddingTag] = useState(false);
+  // Sở thích: chỉ chọn/bỏ chọn trong danh sách PREFERENCE_SUGGESTIONS có sẵn,
+  // không còn ô nhập tự do. savingTag lưu tag đang xử lý để disable đúng
+  // chip đó khi đang gọi API, tránh bấm nhiều lần.
+  const [savingTag, setSavingTag] = useState<string | null>(null);
 
   const [pwOpen, setPwOpen] = useState(false);
   const [pw, setPw] = useState(EMPTY_PASSWORD);
@@ -73,21 +75,23 @@ export default function ProfilePage() {
     } finally { setSaving(false); }
   };
 
-  const addTag = async (raw: string) => {
+  /** Bấm vào 1 chip trong danh sách có sẵn: chưa chọn -> thêm; đã chọn -> gỡ. */
+  const toggleTag = async (tag: string) => {
     if (customerId == null) return;
-    const tag = raw.trim();
-    if (!tag) return;
-    if (tag.length > 100) { alert('Sở thích quá dài. Tối đa 100 ký tự.'); return; }
-    if (preferences.some((p) => p.preferenceTag.toLowerCase() === tag.toLowerCase())) { alert(`"${tag}" đã nằm trong danh sách của bạn.`); return; }
-    setAddingTag(true);
-    try { await customerService.addPreference(customerId, tag); setNewTag(''); await reload(); }
-    catch (e) { alert('Không thêm được sở thích: ' + getApiErrorMessage(e, 'Vui lòng thử lại sau.')); }
-    finally { setAddingTag(false); }
-  };
-
-  const removeTag = async (preferenceId: number) => {
-    try { await customerService.removePreference(preferenceId); await reload(); }
-    catch (e) { alert('Không xóa được sở thích: ' + getApiErrorMessage(e, 'Vui lòng thử lại sau.')); }
+    const existing = preferences.find((p) => p.preferenceTag === tag);
+    setSavingTag(tag);
+    try {
+      if (existing) {
+        await customerService.removePreference(existing.preferenceId);
+      } else {
+        await customerService.addPreference(customerId, tag);
+      }
+      await reload();
+    } catch (e) {
+      alert('Không cập nhật được sở thích: ' + getApiErrorMessage(e, 'Vui lòng thử lại sau.'));
+    } finally {
+      setSavingTag(null);
+    }
   };
 
   const changePassword = async () => {
@@ -111,8 +115,6 @@ export default function ProfilePage() {
   };
 
   const handleLogout = () => { if (confirm('Bạn có chắc muốn đăng xuất?')) logout(); };
-
-  const availableSuggestions = PREFERENCE_SUGGESTIONS.filter((s) => !preferences.some((p) => p.preferenceTag.toLowerCase() === s.toLowerCase()));
 
   return (
     <div>
@@ -165,30 +167,32 @@ export default function ProfilePage() {
         <Card style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
             <span style={{ color: AppColors.textPrimary, fontSize: 17, fontWeight: 800 }}>Sở thích mua sắm</span>
-            <div style={{ color: AppColors.textSecondary, fontSize: 12, marginTop: 2 }}>Dùng để gợi ý sản phẩm phù hợp ở Trang chủ.</div>
+            <div style={{ color: AppColors.textSecondary, fontSize: 12, marginTop: 2 }}>
+              Chọn loại giày bạn thích để nhận gợi ý sản phẩm phù hợp ở Trang chủ.
+            </div>
           </div>
 
-          {preferences.length > 0 ? (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {preferences.map((p) => <Chip key={p.preferenceId} label={p.preferenceTag} selected onRemove={() => removeTag(p.preferenceId)} />)}
-            </div>
-          ) : <span style={{ color: AppColors.textSecondary, fontSize: 12 }}>Bạn chưa chọn sở thích nào.</span>}
+          {/* Toàn bộ danh sách sở thích cho phép: bấm để chọn, bấm lại để bỏ.
+              Không còn ô nhập tự do — khách chỉ được chọn trong các loại giày
+              hệ thống đã cung cấp sẵn (PREFERENCE_SUGGESTIONS). */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {PREFERENCE_SUGGESTIONS.map((tag) => {
+              const selected = preferences.some((p) => p.preferenceTag === tag);
+              const isSaving = savingTag === tag;
+              return (
+                <Chip
+                  key={tag}
+                  label={isSaving ? '...' : tag}
+                  selected={selected}
+                  onClick={() => { if (!isSaving) toggleTag(tag); }}
+                />
+              );
+            })}
+          </div>
 
-          {availableSuggestions.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <span style={{ color: AppColors.textPrimary, fontSize: 13, fontWeight: 600 }}>Gợi ý nhanh</span>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {availableSuggestions.map((s) => <Chip key={s} label={`+ ${s}`} onClick={() => addTag(s)} />)}
-              </div>
-            </div>
+          {preferences.length === 0 ? (
+            <span style={{ color: AppColors.textSecondary, fontSize: 12 }}>Bạn chưa chọn sở thích nào.</span>
           ) : null}
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ flex: 1 }}>
-              <AppTextField placeholder="Nhập sở thích khác" value={newTag} onChangeText={setNewTag} maxLength={100} onKeyDown={(e: any) => { if (e.key === 'Enter') { e.preventDefault(); addTag(newTag); } }} />
-            </div>
-            <AppButton label="Thêm" compact onClick={() => addTag(newTag)} loading={addingTag} disabled={!newTag.trim()} />
-          </div>
         </Card>
 
         <Card style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

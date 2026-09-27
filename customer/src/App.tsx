@@ -19,11 +19,20 @@ const AuthLayout = ({ children }: { children: ReactNode }) => (
   <div className="auth-wrap"><div className="auth-card">{children}</div></div>
 );
 
+// Trang cần đăng nhập (đánh giá, khảo sát, hồ sơ...)
 const guard = (page: ReactNode, narrow = false) => (
   <RequireAuth>
     <TabBar />
     <main className={`container${narrow ? ' narrow' : ''}`}>{page}</main>
   </RequireAuth>
+);
+
+// Trang công khai: ai cũng xem được, không cần đăng nhập (duyệt web, xem sản phẩm)
+const open = (page: ReactNode, narrow = false) => (
+  <>
+    <TabBar />
+    <main className={`container${narrow ? ' narrow' : ''}`}>{page}</main>
+  </>
 );
 
 export default function App() {
@@ -36,13 +45,15 @@ export default function App() {
           <Route path="/auth/login" element={<RequireGuest><AuthLayout><LoginPage /></AuthLayout></RequireGuest>} />
           <Route path="/auth/register" element={<RequireGuest><AuthLayout><RegisterPage /></AuthLayout></RequireGuest>} />
 
-          <Route path="/tabs" element={guard(<HomePage />)} />
-          <Route path="/tabs/products" element={guard(<ProductsPage />)} />
+          {/* Công khai — không cần đăng nhập */}
+          <Route path="/tabs" element={open(<HomePage />)} />
+          <Route path="/tabs/products" element={open(<ProductsPage />)} />
+          <Route path="/product/:id" element={open(<ProductDetailPage />)} />
+
+          {/* Cần đăng nhập — thao tác của riêng khách hàng */}
           <Route path="/tabs/surveys" element={guard(<SurveysPage />, true)} />
           <Route path="/tabs/feedbacks" element={guard(<FeedbacksPage />, true)} />
           <Route path="/tabs/profile" element={guard(<ProfilePage />, true)} />
-
-          <Route path="/product/:id" element={guard(<ProductDetailPage />)} />
           <Route path="/survey/:id" element={guard(<SurveyFormPage />, true)} />
           <Route path="/feedback/create" element={guard(<FeedbackCreatePage />, true)} />
           <Route path="/notifications" element={guard(<NotificationsPage />, true)} />

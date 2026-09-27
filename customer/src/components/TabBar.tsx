@@ -1,7 +1,7 @@
 import { AppColors } from '@/constants/appTheme';
 import { useAuth } from '@/context/AuthContext';
 import { initialOf } from '@/utils/format';
-import { Clipboard, Grid, Home, MessageCircle, User } from 'lucide-react';
+import { Clipboard, Grid, Home, LogIn, MessageCircle, User, UserPlus } from 'lucide-react';
 import { Link, NavLink } from 'react-router-dom';
 import { NotificationBell } from './NotificationBell';
 
@@ -15,8 +15,10 @@ const TABS = [
 const cls = ({ isActive }: { isActive: boolean }) => 'nav-link' + (isActive ? ' active' : '');
 
 export function TabBar() {
-  const { account } = useAuth();
+  const { account, status } = useAuth();
+  const signedIn = status === 'signedIn';
   const name = account?.customer?.fullName ?? account?.username ?? '';
+
   return (
     <>
       <header className="nav-top">
@@ -28,11 +30,30 @@ export function TabBar() {
             ))}
           </nav>
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <NotificationBell />
-            <Link to="/tabs/profile" aria-label="Trang cá nhân" style={{
-              width: 40, height: 40, borderRadius: 20, background: AppColors.accent, color: AppColors.accentText,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800,
-            }}>{initialOf(name)}</Link>
+            {signedIn ? (
+              <>
+                <NotificationBell />
+                <Link to="/tabs/profile" aria-label="Trang cá nhân" style={{
+                  width: 40, height: 40, borderRadius: 20, background: AppColors.accent, color: AppColors.accentText,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800,
+                }}>{initialOf(name)}</Link>
+              </>
+            ) : (
+              <>
+                <Link to="/auth/register" style={{
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 20,
+                  border: `1px solid ${AppColors.border}`, color: AppColors.textPrimary, fontWeight: 700, fontSize: 14,
+                }}>
+                  <UserPlus size={16} /> Đăng ký
+                </Link>
+                <Link to="/auth/login" style={{
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 20,
+                  background: AppColors.accent, color: AppColors.accentText, fontWeight: 700, fontSize: 14,
+                }}>
+                  <LogIn size={16} /> Đăng nhập
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>

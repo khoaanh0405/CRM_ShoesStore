@@ -14,24 +14,28 @@ export function AuthTextField({ label, error, secureToggle, rightAction, type, v
   const [hidden, setHidden] = useState(type === 'password');
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ color: AuthColors.textSecondary, fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', fontWeight: 600 }}>{label}</span>
+        <span style={{ color: AuthColors.textSecondary, fontSize: 13, fontWeight: 600 }}>{label}</span>
         {rightAction ? (
           <button onClick={rightAction.onClick} style={{ background: 'none', border: 'none', color: AuthColors.accent, fontSize: 12, fontWeight: 700 }}>{rightAction.label}</button>
         ) : null}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', background: AuthColors.surface, borderRadius: 14, border: `1px solid ${error ? AuthColors.danger : AuthColors.surfaceBorder}`, padding: '0 16px' }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', background: '#fff', borderRadius: 12,
+        border: `1.5px solid ${error ? AuthColors.danger : AuthColors.surfaceBorder}`, padding: '0 14px',
+        transition: 'border-color .15s',
+      }}>
         <input
           {...rest}
           type={secureToggle ? (hidden ? 'password' : 'text') : type}
           value={value}
           onChange={(e) => onChangeText?.(e.target.value)}
           placeholder={rest.placeholder}
-          style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: AuthColors.textPrimary, fontSize: 15, padding: '14px 0' }}
+          style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: AuthColors.textPrimary, fontSize: 14.5, padding: '13px 0' }}
         />
         {secureToggle ? (
-          <button type="button" onClick={() => setHidden((v) => !v)} style={{ background: 'none', border: 'none', fontSize: 16, paddingLeft: 8 }}>
+          <button type="button" onClick={() => setHidden((v) => !v)} style={{ background: 'none', border: 'none', fontSize: 15, paddingLeft: 8, opacity: 0.6 }}>
             {hidden ? '👁️' : '🙈'}
           </button>
         ) : null}

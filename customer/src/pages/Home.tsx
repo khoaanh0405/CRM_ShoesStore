@@ -1,4 +1,3 @@
-import { NotificationBell } from '@/components/NotificationBell';
 import { ProductCard } from '@/components/ProductCard';
 import { SectionTitle } from '@/components/SectionTitle';
 import { ErrorView, LoadingView } from '@/components/StateViews';
@@ -15,7 +14,7 @@ import type { Product } from '@/types/product';
 import type { SurveyTarget } from '@/types/survey';
 import { givenNameOf, initialOf } from '@/utils/format';
 import { recommendProducts } from '@/utils/recommend';
-import { ClipboardList, ChevronRight, Grid, Edit3, User, Heart } from 'lucide-react';
+import { ClipboardList, ChevronRight, Grid, Edit3, User, Heart, LogIn } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const QUICK_ACTIONS = [
@@ -27,19 +26,24 @@ const QUICK_ACTIONS = [
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { account } = useAuth();
+  const { account, status } = useAuth();
   const customerId = useCustomerId();
+  const signedIn = status === 'signedIn';
 
+  // Khách chưa đăng nhập: chỉ tải danh sách sản phẩm (public). Đã đăng nhập:
+  // tải thêm hồ sơ, khảo sát đang chờ, sở thích để cá nhân hoá trang chủ.
   const { data, loading, error, reload } = useApi(async () => {
-    if (customerId == null) throw new Error('Không xác định được tài khoản khách hàng.');
-    const [products, profile, surveys, preferences] = await Promise.all([
-      productService.list(),
+    const products = await productService.list();
+    if (!signedIn || customerId == null) {
+      return { products, profile: null, surveys: [] as SurveyTarget[], preferences: [] as CustomerPreference[] };
+    }
+    const [profile, surveys, preferences] = await Promise.all([
       customerService.getProfile(customerId).catch(() => null),
       surveyService.listByCustomer(customerId).catch(() => [] as SurveyTarget[]),
       customerService.listPreferences(customerId).catch(() => [] as CustomerPreference[]),
     ]);
     return { products, profile, surveys, preferences };
-  }, [customerId]);
+  }, [customerId, signedIn]);
 
   if (loading && !data) return <LoadingView />;
   if (!data) return <ErrorView message={error ?? 'Vui lòng thử lại.'} onRetry={reload} />;
@@ -49,7 +53,7 @@ export default function HomePage() {
   const tags = preferences.map((p) => p.preferenceTag);
   const pendingSurveys = surveys.filter((t) => !t.isCompleted && t.survey.isActive);
   const categories = Array.from(new Set(products.map((p) => p.category).filter((c): c is string => !!c)));
-  const recommended = recommendProducts(products, tags).slice(0, 8);
+  const recommended = signedIn ? recommendProducts(products, tags).slice(0, 8) : [];
   const newest = [...products].sort((a, b) => b.productId - a.productId).slice(0, 8);
   const openProduct = (p: Product) => navigate(`/product/${p.productId}`);
   const openCategory = (category: string) => navigate(`/tabs/products?category=${encodeURIComponent(category)}`);
@@ -58,28 +62,43 @@ export default function HomePage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingBottom: 32 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: `12px ${SCREEN_PADDING}px 0` }}>
         <div>
-          <div style={{ color: AppColors.textSecondary, fontSize: 14 }}>Xin chào,</div>
-          <div style={{ color: AppColors.textPrimary, fontSize: 30, fontWeight: 800 }}>{givenNameOf(fullName) || 'bạn'}</div>
+          <div style={{ color: AppColors.textSecondary, fontSize: 14 }}>{signedIn ? 'Xin chào,' : 'Chào mừng đến với'}</div>
+          <div style={{ color: AppColors.textPrimary, fontSize: 30, fontWeight: 800 }}>
+            {signedIn ? (givenNameOf(fullName) || 'bạn') : 'CRM ShoesStore'}
+          </div>
         </div>
       </div>
 
-      <div onClick={() => navigate('/tabs/surveys')} style={{
-        display: 'flex', alignItems: 'center', gap: 12, margin: `0 ${SCREEN_PADDING}px`, padding: 14,
-        borderRadius: Radius.lg, background: AppColors.surface, border: `1px solid ${AppColors.border}`, cursor: 'pointer',
-      }}>
-        <div style={{ width: 44, height: 44, borderRadius: Radius.md, display: 'flex', alignItems: 'center', justifyContent: 'center', background: AppColors.accent }}>
-          <ClipboardList size={22} color={AppColors.accentText} />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ color: AppColors.textPrimary, fontSize: 15, fontWeight: 700 }}>
-            {pendingSurveys.length > 0 ? `Bạn có ${pendingSurveys.length} khảo sát đang chờ` : 'Bạn đã hoàn thành mọi khảo sát'}
+      {!signedIn ? (
+        <div onClick={() => navigate('/auth/login')} style={{
+          display: 'flex', alignItems: 'center', gap: 12, margin: `0 ${SCREEN_PADDING}px`, padding: 14,
+          borderRadius: Radius.lg, background: AppColors.accent, cursor: 'pointer',
+        }}>
+          <LogIn size={22} color={AppColors.accentText} />
+          <div style={{ flex: 1 }}>
+            <div style={{ color: AppColors.accentText, fontSize: 15, fontWeight: 700 }}>Đăng nhập để nhận gợi ý riêng, gửi đánh giá & làm khảo sát</div>
           </div>
-          <div style={{ color: AppColors.textSecondary, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {pendingSurveys.length > 0 ? pendingSurveys[0].survey.title : 'Khảo sát mới sẽ xuất hiện tại đây.'}
-          </div>
+          <ChevronRight size={20} color={AppColors.accentText} />
         </div>
-        <ChevronRight size={20} color={AppColors.textSecondary} />
-      </div>
+      ) : (
+        <div onClick={() => navigate('/tabs/surveys')} style={{
+          display: 'flex', alignItems: 'center', gap: 12, margin: `0 ${SCREEN_PADDING}px`, padding: 14,
+          borderRadius: Radius.lg, background: AppColors.surface, border: `1px solid ${AppColors.border}`, cursor: 'pointer',
+        }}>
+          <div style={{ width: 44, height: 44, borderRadius: Radius.md, display: 'flex', alignItems: 'center', justifyContent: 'center', background: AppColors.accent }}>
+            <ClipboardList size={22} color={AppColors.accentText} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ color: AppColors.textPrimary, fontSize: 15, fontWeight: 700 }}>
+              {pendingSurveys.length > 0 ? `Bạn có ${pendingSurveys.length} khảo sát đang chờ` : 'Bạn đã hoàn thành mọi khảo sát'}
+            </div>
+            <div style={{ color: AppColors.textSecondary, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {pendingSurveys.length > 0 ? pendingSurveys[0].survey.title : 'Khảo sát mới sẽ xuất hiện tại đây.'}
+            </div>
+          </div>
+          <ChevronRight size={20} color={AppColors.textSecondary} />
+        </div>
+      )}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', padding: `0 ${SCREEN_PADDING}px` }}>
         {QUICK_ACTIONS.map((action) => (
@@ -101,12 +120,12 @@ export default function HomePage() {
         </div>
       ) : null}
 
-      {recommended.length > 0 ? (
+      {signedIn && recommended.length > 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <SectionTitle title="Gợi ý cho bạn" subtitle={`Theo sở thích: ${tags.slice(0, 3).join(', ')}`} actionLabel="Xem tất cả" onAction={() => navigate('/tabs/products')} />
           <ProductRow products={recommended} onOpen={openProduct} />
         </div>
-      ) : (
+      ) : signedIn ? (
         <div onClick={() => navigate('/tabs/profile')} style={{
           display: 'flex', alignItems: 'center', gap: 12, margin: `0 ${SCREEN_PADDING}px`, padding: 14,
           borderRadius: Radius.lg, border: `1px dashed ${AppColors.border}`, cursor: 'pointer',
@@ -118,7 +137,7 @@ export default function HomePage() {
           </div>
           <ChevronRight size={18} color={AppColors.textSecondary} />
         </div>
-      )}
+      ) : null}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <SectionTitle title="Sản phẩm mới" actionLabel="Xem tất cả" onAction={() => navigate('/tabs/products')} />

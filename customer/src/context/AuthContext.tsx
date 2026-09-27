@@ -16,20 +16,24 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+// Đổi từ sessionStorage -> localStorage: khách đóng tab/tắt trình duyệt rồi
+// mở lại vẫn còn đăng nhập, chỉ mất phiên khi bấm "Đăng xuất" tường minh.
 function persistSession(token: string, account: Account) {
-  sessionStorage.setItem(AUTH_TOKEN_KEY, token);
-  sessionStorage.setItem(AUTH_ACCOUNT_KEY, JSON.stringify(account));
+  localStorage.setItem(AUTH_TOKEN_KEY, token);
+  localStorage.setItem(AUTH_ACCOUNT_KEY, JSON.stringify(account));
 }
 
 function clearSession() {
-  sessionStorage.removeItem(AUTH_TOKEN_KEY);
-  sessionStorage.removeItem(AUTH_ACCOUNT_KEY);
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem(AUTH_ACCOUNT_KEY);
 }
 
 /**
  * Quản lý phiên đăng nhập của khách hàng cho toàn app web (mục 4.3.1/4.3.2).
- * Token JWT + account lưu trong localStorage (thay cho expo-secure-store ở
- * bản mobile) — services/api-client.ts tự đọc token gắn vào header Authorization.
+ * Token JWT + account lưu trong localStorage để giữ phiên xuyên suốt các lần
+ * mở lại trình duyệt (khác sessionStorage — mất khi đóng tab). Chỉ mất phiên
+ * khi gọi logout() tường minh. services/api-client.ts đọc cùng key này để
+ * gắn Authorization header.
  */
 export function AuthProvider({ children }: PropsWithChildren) {
   const [status, setStatus] = useState<AuthStatus>('loading');
@@ -38,8 +42,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     try {
-      const storedToken = sessionStorage.getItem(AUTH_TOKEN_KEY);
-      const storedAccount = sessionStorage.getItem(AUTH_ACCOUNT_KEY);
+      const storedToken = localStorage.getItem(AUTH_TOKEN_KEY);
+      const storedAccount = localStorage.getItem(AUTH_ACCOUNT_KEY);
       if (storedToken && storedAccount) {
         setToken(storedToken);
         setAccount(JSON.parse(storedAccount) as Account);
@@ -61,8 +65,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
   };
 
   const register = async (payload: RegisterPayload) => {
-    // POST /accounts/register chỉ tạo tài khoản, không trả token -> đăng nhập
-    // luôn bằng username/password vừa nhập để vào thẳng app.
     await authService.register(payload);
     await login({ username: payload.username, password: payload.password });
   };
