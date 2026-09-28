@@ -12,7 +12,7 @@ import { feedbackService } from '@/services/feedback.service';
 import { productService } from '@/services/product.service';
 import type { Feedback, FeedbackStatus } from '@/types/feedback';
 import { formatDate } from '@/utils/format';
-import { Plus, MessageCircle, Filter } from 'lucide-react';
+import { Plus, MessageCircle, Filter, PenLine } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -30,7 +30,13 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: FEEDBACK_STATUS.REJECTED, label: STATUS_META.Rejected.label },
 ];
 
-/** Tab Đánh giá (mục 4.3.3): lịch sử phản hồi + lối vào màn viết đánh giá mới. */
+const TIPS = [
+  'Nêu rõ chất liệu, độ vừa chân, độ êm khi sử dụng.',
+  'Cho biết bạn dùng giày vào mục đích nào (đi làm, chạy bộ, chơi thể thao...).',
+  'Góp ý thẳng thắn giúp cửa hàng cải thiện sản phẩm mới.',
+];
+
+/** Tab Đánh giá (mục 4.3.3): lịch sử phản hồi bên trái, thống kê + mẹo bên phải. */
 export default function FeedbacksPage() {
   const navigate = useNavigate();
   const customerId = useCustomerId();
@@ -48,27 +54,55 @@ export default function FeedbacksPage() {
 
   const items = (data?.feedbacks ?? []).filter((f) => filter === 'all' || f.status === filter);
   const openCreate = () => navigate('/feedback/create');
+  const all = data?.feedbacks ?? [];
+  const avg = all.length ? all.reduce((s, f) => s + f.rating, 0) / all.length : 0;
+  const count = (s: FeedbackStatus) => all.filter((f) => f.status === s).length;
 
   return (
     <div>
       <ScreenHeader title="Đánh giá" subtitle={data ? `${data.feedbacks.length} phản hồi đã gửi` : undefined}
         right={<AppButton label="Viết đánh giá" icon={Plus} compact onClick={openCreate} />} />
 
-      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: `0 ${SCREEN_PADDING}px 12px` }}>
-        {FILTERS.map((f) => <Chip key={f.key} label={f.label} selected={filter === f.key} onClick={() => setFilter(f.key)} />)}
-      </div>
-
       {loading && !data ? <LoadingView /> : !data ? <ErrorView message={error ?? 'Vui lòng thử lại.'} onRetry={reload} /> : (
-        <div className="card-grid" style={{ padding: `0 ${SCREEN_PADDING}px 24px` }}>
-          {items.length === 0 ? (
-            data.feedbacks.length === 0 ? (
-              <EmptyView icon={MessageCircle} title="Bạn chưa gửi đánh giá nào" message="Chia sẻ cảm nhận về đôi giày bạn đã mua để giúp người khác chọn tốt hơn." actionLabel="Viết đánh giá đầu tiên" onAction={openCreate} />
-            ) : (
-              <EmptyView icon={Filter} title="Không có phản hồi nào ở trạng thái này" />
-            )
-          ) : items.map((item) => (
-            <FeedbackCard key={item.feedbackId} feedback={item} productName={data.productNames.get(item.productId) ?? `Sản phẩm #${item.productId}`} onOpenProduct={() => navigate(`/product/${item.productId}`)} />
-          ))}
+        <div className="page-split">
+          <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto' }}>
+              {FILTERS.map((f) => <Chip key={f.key} label={f.label} selected={filter === f.key} onClick={() => setFilter(f.key)} />)}
+            </div>
+            <div className="card-grid">
+              {items.length === 0 ? (
+                <div style={{ gridColumn: '1 / -1', background: '#fff', border: `1px solid ${AppColors.border}`, borderRadius: Radius.lg }}>
+                  {data.feedbacks.length === 0 ? (
+                    <EmptyView icon={MessageCircle} title="Bạn chưa gửi đánh giá nào" message="Chia sẻ cảm nhận về đôi giày bạn đã mua để giúp người khác chọn tốt hơn." actionLabel="Viết đánh giá đầu tiên" onAction={openCreate} />
+                  ) : (
+                    <EmptyView icon={Filter} title="Không có phản hồi nào ở trạng thái này" />
+                  )}
+                </div>
+              ) : items.map((item) => (
+                <FeedbackCard key={item.feedbackId} feedback={item} productName={data.productNames.get(item.productId) ?? `Sản phẩm #${item.productId}`} onOpenProduct={() => navigate(`/product/${item.productId}`)} />
+              ))}
+            </div>
+          </div>
+
+          <aside className="side-stack">
+            <div className="panel">
+              <div className="panel-title" style={{ marginBottom: 12 }}>Thống kê đánh giá</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                <span style={{ fontSize: 34, fontWeight: 800, lineHeight: 1 }}>{all.length ? avg.toFixed(1) : '—'}</span>
+                <RatingStars value={avg} size={18} />
+              </div>
+              <div className="stat-row"><span style={{ color: AppColors.textSecondary, fontSize: 14 }}>Đã duyệt</span><b>{count('Approved')}</b></div>
+              <div className="stat-row"><span style={{ color: AppColors.textSecondary, fontSize: 14 }}>Chờ duyệt</span><b>{count('Pending')}</b></div>
+              <div className="stat-row"><span style={{ color: AppColors.textSecondary, fontSize: 14 }}>Không được duyệt</span><b>{count('Rejected')}</b></div>
+            </div>
+            <div className="panel">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <PenLine size={20} />
+                <div className="panel-title" style={{ fontSize: 16 }}>Mẹo viết đánh giá hữu ích</div>
+              </div>
+              <ul className="tip-list">{TIPS.map((t) => <li key={t}><span>•</span><span>{t}</span></li>)}</ul>
+            </div>
+          </aside>
         </div>
       )}
     </div>
@@ -78,7 +112,7 @@ export default function FeedbacksPage() {
 function FeedbackCard({ feedback, productName, onOpenProduct }: { feedback: Feedback; productName: string; onOpenProduct: () => void; }) {
   const meta = STATUS_META[feedback.status] ?? STATUS_META.Pending;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 16, borderRadius: Radius.lg, border: `1px solid ${AppColors.border}`, background: AppColors.surface }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 18, borderRadius: Radius.lg, border: `1px solid ${AppColors.border}`, background: AppColors.surface }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
         <button onClick={onOpenProduct} style={{ flex: 1, minWidth: 0, background: 'none', border: 'none', textAlign: 'left' }}>
           <span style={{ color: AppColors.accent, fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{productName}</span>

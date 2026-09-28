@@ -5,7 +5,7 @@ import { Bell } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-/** Chuông thông báo ở Trang chủ — đếm lại số chưa đọc mỗi khi tab được focus. */
+/** Chuông thông báo — đếm lại số chưa đọc mỗi khi tab được focus. */
 export function NotificationBell() {
   const navigate = useNavigate();
   const customerId = useCustomerId();
@@ -23,16 +23,13 @@ export function NotificationBell() {
   }, [customerId]);
 
   return (
-    <button onClick={() => navigate('/notifications')} aria-label="Xem thông báo" style={{
-      position: 'relative', width: 40, height: 40, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: AppColors.surface, border: `1px solid ${AppColors.border}`,
-    }}>
-      <Bell size={22} color={AppColors.textPrimary} />
+    <button className="icon-btn" onClick={() => navigate('/notifications')} aria-label="Xem thông báo">
+      <Bell size={22} />
       {unreadCount > 0 ? (
         <span style={{
-          position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 8, padding: '0 3px',
+          position: 'absolute', top: -3, right: -3, minWidth: 18, height: 18, borderRadius: 9, padding: '0 4px',
           display: 'flex', alignItems: 'center', justifyContent: 'center', background: AppColors.danger,
-          border: `1px solid ${AppColors.background}`, color: '#fff', fontSize: 9, fontWeight: 800,
+          border: '2px solid #fff', color: '#fff', fontSize: 10, fontWeight: 800,
         }}>{unreadCount > 9 ? '9+' : unreadCount}</span>
       ) : null}
     </button>

@@ -5,6 +5,7 @@ import { RatingStars } from '@/components/RatingStars';
 import { ErrorView, LoadingView } from '@/components/StateViews';
 import { StatusBadge, type BadgeTone } from '@/components/StatusBadge';
 import { AppColors } from '@/constants/appTheme';
+import { SITE } from '@/constants/site';
 import { GENDER_OPTIONS, PREFERENCE_SUGGESTIONS } from '@/constants/domain';
 import { useAuth } from '@/context/AuthContext';
 import { useApi } from '@/hooks/useApi';
@@ -18,9 +19,10 @@ import type { CustomerProfile } from '@/types/customer';
 import type { Feedback, FeedbackStatus } from '@/types/feedback';
 import type { Product } from '@/types/product';
 import type { SurveyTarget } from '@/types/survey';
-import { formatDate, formatDateOnly, toDateInput } from '@/utils/format';
+import { formatDate, formatDateOnly, formatPrice, toDateInput } from '@/utils/format';
+import { recommendProducts } from '@/utils/recommend';
 import { validateDateOfBirth, validateFullName, validatePassword, validatePhone } from '@/utils/validation';
-import { ClipboardList, Edit3, Heart, History, Key, LayoutGrid, LogOut, MessageCircle, User, type LucideIcon } from 'lucide-react';
+import { Award, Check, ClipboardList, Edit3, Gift, Grid, Heart, History, ImageOff, Key, LayoutGrid, LogOut, MessageCircle, Phone, ShieldCheck, Trophy, Truck, User, type LucideIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
@@ -43,11 +45,33 @@ const STATUS_META: Record<FeedbackStatus, { label: string; tone: BadgeTone }> = 
   Rejected: { label: 'Không được duyệt', tone: 'danger' },
 };
 
-/** Hồ sơ người dùng: menu bên trái, nội dung bên phải. */
+const PREF_DESC: Record<string, string> = {
+  'Giày Sneaker': 'Năng động, dễ phối đồ',
+  'Giày Chạy Bộ': 'Nhẹ, êm, thoáng khí',
+  'Giày Bóng Rổ': 'Bám sân, hỗ trợ cổ chân',
+  'Giày Thể Thao': 'Luyện tập mọi bộ môn',
+  'Giày Cao Gót': 'Thanh lịch, sang trọng',
+  'Giày Sandal': 'Thoáng mát ngày hè',
+  'Giày Da': 'Lịch sự cho công sở',
+};
+
+const TIERS = [
+  { name: 'Thành viên mới', min: 0 },
+  { name: 'Thân thiết', min: 100 },
+  { name: 'VIP', min: 300 },
+];
+
+const PASSWORD_TIPS = [
+  'Dùng ít nhất 6 ký tự, nên kết hợp chữ hoa, chữ thường và số.',
+  'Không dùng lại mật khẩu của các tài khoản khác.',
+  'Không chia sẻ mật khẩu cho bất kỳ ai, kể cả nhân viên cửa hàng.',
+];
+
+/** Hồ sơ người dùng: menu bên trái, nội dung bên phải (mỗi mục đều có cột phụ để không bị trống). */
 export default function ProfilePage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { logout } = useAuth();
+  const { logout, account } = useAuth();
   const customerId = useCustomerId();
 
   const { data, loading, error, reload } = useApi(async () => {
@@ -79,16 +103,48 @@ export default function ProfilePage() {
 
   const { profile, preferences, surveys, feedbacks, products } = data;
   const productNames = new Map(products.map((p) => [p.productId, p.productName]));
+  const tags = preferences.map((p) => p.preferenceTag);
 
-  // Số liệu cho tổng quan / lịch sử
-  const filled = [profile.fullName, profile.dateOfBirth, profile.gender, profile.phone, profile.address].filter((v) => !!v && String(v).trim()).length;
+  const profileFields: [string, string | null | undefined][] = [
+    ['Họ và tên', profile.fullName], ['Ngày sinh', profile.dateOfBirth], ['Giới tính', profile.gender], ['Số điện thoại', profile.phone], ['Địa chỉ', profile.address],
+  ];
+  const filled = profileFields.filter(([, v]) => !!v && String(v).trim()).length;
   const profilePercent = Math.round((filled / 5) * 100);
   const completedSurveys = surveys.filter((t) => t.isCompleted).length;
   const surveyPercent = surveys.length ? Math.round((completedSurveys / surveys.length) * 100) : 0;
   const approvedCount = feedbacks.filter((f) => f.status === 'Approved').length;
   const feedbackPercent = feedbacks.length ? Math.round((approvedCount / feedbacks.length) * 100) : 0;
   const prefPercent = Math.round((preferences.length / PREFERENCE_SUGGESTIONS.length) * 100);
-  const recentFeedbacks = [...feedbacks].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
+  const recentFeedbacks = [...feedbacks].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 3);
+  const recentSurveys = [...surveys].sort((a, b) => new Date(b.survey.createdAt).getTime() - new Date(a.survey.createdAt).getTime()).slice(0, 3);
+  const matched = recommendProducts(products, tags).slice(0, 4);
+
+  // Hạng thành viên: điểm tính từ hoạt động thật của khách hàng
+  const points = approvedCount * 20 + completedSurveys * 30 + feedbacks.length * 5 + preferences.length * 5;
+  const tierIdx = TIERS.reduce((i, tr, k) => (points >= tr.min ? k : i), 0);
+  const tier = TIERS[tierIdx];
+  const nextTier = TIERS[tierIdx + 1];
+  const tierPercent = nextTier ? Math.round(((points - tier.min) / (nextTier.min - tier.min)) * 100) : 100;
+  const avgRating = feedbacks.length ? (feedbacks.reduce((sum, f) => sum + f.rating, 0) / feedbacks.length).toFixed(1) : '—';
+  const allMatched = recommendProducts(products, tags);
+  const avgMatchedPrice = allMatched.length ? allMatched.reduce((sum, p) => sum + Number(p.price), 0) / allMatched.length : null;
+  const brandCount = new Map<string, number>();
+  allMatched.forEach((p) => { if (p.brand) brandCount.set(p.brand, (brandCount.get(p.brand) ?? 0) + 1); });
+  const topBrand = [...brandCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '—';
+  const badges = [
+    { label: 'Người đánh giá đầu tiên', on: feedbacks.length >= 1, icon: MessageCircle },
+    { label: 'Chuyên gia khảo sát', on: completedSurveys >= 3, icon: ClipboardList },
+    { label: 'Có gu riêng', on: preferences.length >= 1, icon: Heart },
+    { label: 'Hồ sơ hoàn chỉnh', on: profilePercent === 100, icon: Check },
+  ];
+  const pwRules: [string, boolean][] = [
+    ['Ít nhất 6 ký tự', pw.newPassword.length >= 6],
+    ['Có chữ hoa', /[A-Z]/.test(pw.newPassword)],
+    ['Có chữ số', /\d/.test(pw.newPassword)],
+    ['Có ký tự đặc biệt', /[^A-Za-z0-9]/.test(pw.newPassword)],
+  ];
+  const pwScore = pwRules.filter(([, ok]) => ok).length;
+  const pwLabel = pw.newPassword ? ['Yếu', 'Yếu', 'Trung bình', 'Khá', 'Mạnh'][pwScore] : '—';
 
   const startEditing = (p: CustomerProfile) => {
     setForm({ fullName: p.fullName, dateOfBirth: toDateInput(p.dateOfBirth), gender: p.gender ?? '', phone: p.phone ?? '', address: p.address ?? '' });
@@ -113,7 +169,6 @@ export default function ProfilePage() {
     } finally { setSaving(false); }
   };
 
-  /** Chọn/bỏ 1 sở thích trong danh sách có sẵn. */
   const toggleTag = async (tag: string) => {
     if (customerId == null) return;
     const existing = preferences.find((p) => p.preferenceTag === tag);
@@ -150,7 +205,6 @@ export default function ProfilePage() {
 
   return (
     <div className="account-layout">
-      {/* ===== Menu bên trái ===== */}
       <aside className="account-side">
         <div className="account-user">
           <div className="account-avatar"><User size={40} /></div>
@@ -161,16 +215,14 @@ export default function ProfilePage() {
         </div>
         <nav className="account-menu">
           {MENU.map(({ key, label, icon: Icon }) => (
-            <button key={key} className={section === key ? 'active' : ''} onClick={() => setSection(key)}>
-              <Icon size={18} />{label}
-            </button>
+            <button key={key} className={section === key ? 'active' : ''} onClick={() => setSection(key)}><Icon size={18} />{label}</button>
           ))}
           <button className="danger" onClick={handleLogout}><LogOut size={18} />Đăng xuất</button>
         </nav>
       </aside>
 
-      {/* ===== Nội dung bên phải ===== */}
       <div className="account-content">
+        {/* ===== Tổng quan ===== */}
         {section === 'overview' ? (
           <div className="ov-grid">
             <OverviewCard icon={User} percent={profilePercent}
@@ -188,106 +240,262 @@ export default function ProfilePage() {
           </div>
         ) : null}
 
+        {/* ===== Thông tin tài khoản ===== */}
         {section === 'info' ? (
-          <div className="panel">
-            <div className="panel-head">
-              <div className="panel-title">Thông tin tài khoản</div>
-              {!editing ? <AppButton label="Chỉnh sửa" icon={Edit3} variant="secondary" compact onClick={() => startEditing(profile)} /> : null}
-            </div>
-            {editing ? (
-              <>
-                <div className="form-grid">
-                  <AppTextField label="Họ và tên" value={form.fullName} onChangeText={setField('fullName')} error={errors.fullName} />
-                  <AppTextField label="Ngày sinh" placeholder="YYYY-MM-DD (vd: 2003-05-20)" value={form.dateOfBirth} onChangeText={setField('dateOfBirth')} error={errors.dateOfBirth} />
-                  <div className="full" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <span style={{ color: AppColors.textPrimary, fontSize: 13, fontWeight: 600 }}>Giới tính</span>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                      {GENDER_OPTIONS.map((g) => <Chip key={g} label={g} selected={form.gender === g} onClick={() => setField('gender')(form.gender === g ? '' : g)} />)}
-                    </div>
-                  </div>
-                  <AppTextField label="Số điện thoại" value={form.phone} onChangeText={setField('phone')} error={errors.phone} />
-                  <AppTextField label="Địa chỉ" value={form.address} onChangeText={setField('address')} />
-                </div>
-                <div style={{ display: 'flex', gap: 12, marginTop: 20, maxWidth: 360 }}>
-                  <AppButton label="Hủy" variant="secondary" style={{ flex: 1 }} onClick={() => setEditing(false)} />
-                  <AppButton label="Lưu thay đổi" style={{ flex: 1 }} onClick={saveProfile} loading={saving} />
-                </div>
-              </>
-            ) : (
-              <div className="info-grid">
-                <InfoRow label="Họ và tên" value={profile.fullName} />
-                <InfoRow label="Ngày sinh" value={formatDateOnly(profile.dateOfBirth)} />
-                <InfoRow label="Giới tính" value={profile.gender} />
-                <InfoRow label="Số điện thoại" value={profile.phone} />
-                <InfoRow label="Địa chỉ" value={profile.address} />
-              </div>
-            )}
-          </div>
-        ) : null}
-
-        {section === 'prefs' ? (
-          <div className="panel">
-            <div className="panel-head">
-              <div>
-                <div className="panel-title">Sở thích mua sắm</div>
-                <div className="panel-sub">Chọn loại giày bạn thích để nhận gợi ý sản phẩm phù hợp ở Trang chủ.</div>
-              </div>
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-              {PREFERENCE_SUGGESTIONS.map((tag) => {
-                const selected = preferences.some((p) => p.preferenceTag === tag);
-                const isSaving = savingTag === tag;
-                return <Chip key={tag} label={isSaving ? '...' : tag} selected={selected} onClick={() => { if (!isSaving) toggleTag(tag); }} />;
-              })}
-            </div>
-            {preferences.length === 0 ? <div style={{ color: AppColors.textSecondary, fontSize: 13, marginTop: 14 }}>Bạn chưa chọn sở thích nào.</div> : null}
-          </div>
-        ) : null}
-
-        {section === 'history' ? (
           <div className="two-col">
             <div className="panel">
               <div className="panel-head">
-                <div className="panel-title">Phản hồi gần đây</div>
-                <button onClick={() => navigate('/tabs/feedbacks')} style={{ background: 'none', border: 'none', color: AppColors.textPrimary, fontSize: 13, fontWeight: 700, textDecoration: 'underline' }}>Xem tất cả</button>
+                <div className="panel-title">Thông tin tài khoản</div>
+                {!editing ? <AppButton label="Chỉnh sửa" icon={Edit3} variant="secondary" compact onClick={() => startEditing(profile)} /> : null}
               </div>
-              {recentFeedbacks.length === 0 ? (
-                <div style={{ color: AppColors.textSecondary, fontSize: 13 }}>Bạn chưa gửi đánh giá nào.</div>
-              ) : recentFeedbacks.map((f) => {
-                const meta = STATUS_META[f.status] ?? STATUS_META.Pending;
-                return (
-                  <div key={f.feedbackId} className="list-row">
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                      <span style={{ fontSize: 14.5, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{productNames.get(f.productId) ?? `Sản phẩm #${f.productId}`}</span>
-                      <StatusBadge label={meta.label} tone={meta.tone} />
+              {editing ? (
+                <>
+                  <div className="form-grid">
+                    <AppTextField label="Họ và tên" value={form.fullName} onChangeText={setField('fullName')} error={errors.fullName} />
+                    <AppTextField label="Ngày sinh" placeholder="YYYY-MM-DD (vd: 2003-05-20)" value={form.dateOfBirth} onChangeText={setField('dateOfBirth')} error={errors.dateOfBirth} />
+                    <div className="full" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <span style={{ color: AppColors.textPrimary, fontSize: 13, fontWeight: 600 }}>Giới tính</span>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                        {GENDER_OPTIONS.map((g) => <Chip key={g} label={g} selected={form.gender === g} onClick={() => setField('gender')(form.gender === g ? '' : g)} />)}
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <RatingStars value={f.rating} size={14} />
-                      <span style={{ fontSize: 12, color: AppColors.textSecondary }}>{formatDate(f.createdAt)}</span>
-                    </div>
+                    <AppTextField label="Số điện thoại" value={form.phone} onChangeText={setField('phone')} error={errors.phone} />
+                    <AppTextField label="Địa chỉ" value={form.address} onChangeText={setField('address')} />
                   </div>
-                );
-              })}
+                  <div style={{ display: 'flex', gap: 12, marginTop: 20, maxWidth: 360 }}>
+                    <AppButton label="Hủy" variant="secondary" style={{ flex: 1 }} onClick={() => setEditing(false)} />
+                    <AppButton label="Lưu thay đổi" style={{ flex: 1 }} onClick={saveProfile} loading={saving} />
+                  </div>
+                </>
+              ) : (
+                <div className="info-grid">
+                  <InfoRow label="Họ và tên" value={profile.fullName} />
+                  <InfoRow label="Ngày sinh" value={formatDateOnly(profile.dateOfBirth)} />
+                  <InfoRow label="Giới tính" value={profile.gender} />
+                  <InfoRow label="Số điện thoại" value={profile.phone} />
+                  <InfoRow label="Địa chỉ" value={profile.address} />
+                  <InfoRow label="Tên đăng nhập" value={`@${profile.username}`} />
+                  <InfoRow label="Trạng thái" value={profile.isLocked ? 'Đã khóa' : 'Đang hoạt động'} />
+                </div>
+              )}
+              {!editing ? (
+                <div className="member-card">
+                  <div className="member-top">
+                    <div>
+                      <div className="member-sub">Hạng thành viên</div>
+                      <div className="member-tier">{tier.name}</div>
+                    </div>
+                    <Award size={34} />
+                  </div>
+                  <div className="member-bar"><span style={{ width: `${tierPercent}%` }} /></div>
+                  <div className="member-sub">
+                    {points} điểm · {nextTier ? `còn ${nextTier.min - points} điểm để lên ${nextTier.name}` : 'Bạn đã đạt hạng cao nhất'}
+                    {account?.createdAt ? ` · Thành viên từ ${formatDate(account.createdAt)}` : ''}
+                  </div>
+                </div>
+              ) : null}
             </div>
 
-            <div className="panel">
-              <div className="panel-head"><div className="panel-title">Thống kê của bạn</div></div>
-              <StatRow label="Đánh giá đã gửi" value={feedbacks.length} />
-              <StatRow label="Đánh giá đã được duyệt" value={approvedCount} />
-              <StatRow label="Khảo sát đã hoàn thành" value={completedSurveys} />
-              <StatRow label="Sở thích đã chọn" value={preferences.length} />
+            <div className="col-stack">
+              <div className="panel">
+                <div className="panel-title" style={{ marginBottom: 12 }}>Mức độ hoàn thiện hồ sơ</div>
+                <div style={{ fontSize: 32, fontWeight: 800, lineHeight: 1 }}>{profilePercent}%</div>
+                <div className="ov-bar" style={{ margin: '12px 0' }}><span style={{ width: `${profilePercent}%` }} /></div>
+                {profileFields.map(([label, value]) => {
+                  const ok = !!value && String(value).trim();
+                  return (
+                    <div key={label} className="check-row">
+                      <span className={`check-dot${ok ? ' on' : ''}`}>{ok ? <Check size={14} /> : null}</span>
+                      <span style={{ color: ok ? AppColors.textPrimary : AppColors.textSecondary }}>{label}</span>
+                    </div>
+                  );
+                })}
+                <div style={{ marginTop: 'auto', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div className="side-title" style={{ padding: 0 }}>Ưu đãi dành cho bạn</div>
+                  <div className="voucher">
+                    <span className="voucher-icon"><Gift size={18} /></span>
+                    <span><b>Giảm 10% đơn đầu tiên</b><small>Mã OURAN10 · HSD 31/12/2026</small></span>
+                  </div>
+                  <div className="voucher">
+                    <span className="voucher-icon"><Truck size={18} /></span>
+                    <span><b>Miễn phí vận chuyển</b><small>Đơn từ 500.000₫</small></span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         ) : null}
 
+        {/* ===== Sở thích ===== */}
+        {section === 'prefs' ? (
+          <div className="two-col">
+            <div className="panel">
+              <div className="panel-head">
+                <div>
+                  <div className="panel-title">Sở thích mua sắm</div>
+                  <div className="panel-sub">Chọn loại giày bạn thích để nhận gợi ý sản phẩm phù hợp ở Trang chủ.</div>
+                </div>
+              </div>
+              <div className="pref-grid">
+                {PREFERENCE_SUGGESTIONS.map((tag) => {
+                  const selected = preferences.some((p) => p.preferenceTag === tag);
+                  const isSaving = savingTag === tag;
+                  return (
+                    <button key={tag} className={`pref-tile${selected ? ' on' : ''}`} onClick={() => { if (!isSaving) toggleTag(tag); }}>
+                      <Heart size={20} fill={selected ? '#fff' : 'none'} />
+                      <span style={{ flex: 1 }}>{isSaving ? '...' : tag}<small>{PREF_DESC[tag] ?? ''}</small></span>
+                      {selected ? <Check size={16} /> : null}
+                    </button>
+                  );
+                })}
+              </div>
+              {preferences.length === 0 ? <div style={{ color: AppColors.textSecondary, fontSize: 13, marginTop: 14 }}>Bạn chưa chọn sở thích nào.</div> : null}
+              <div className="mini-stats">
+                <div className="mini-stat"><small>Sản phẩm phù hợp</small><b>{allMatched.length}</b></div>
+                <div className="mini-stat"><small>Giá trung bình</small><b>{avgMatchedPrice != null ? formatPrice(avgMatchedPrice) : '—'}</b></div>
+                <div className="mini-stat"><small>Thương hiệu nổi bật</small><b>{topBrand}</b></div>
+              </div>
+            </div>
+
+            <div className="panel">
+              <div className="panel-title" style={{ marginBottom: 4 }}>Sản phẩm phù hợp với bạn</div>
+              <div className="panel-sub" style={{ marginBottom: 14 }}>Cập nhật ngay theo sở thích đã chọn.</div>
+              {matched.length === 0 ? (
+                <div style={{ color: AppColors.textSecondary, fontSize: 13 }}>{preferences.length === 0 ? 'Hãy chọn ít nhất một sở thích để xem gợi ý.' : 'Chưa có sản phẩm nào khớp với sở thích của bạn.'}</div>
+              ) : matched.map((p) => (
+                <div key={p.productId} className="mini-prod" onClick={() => navigate(`/product/${p.productId}`)}>
+                  <div style={{ width: 52, height: 52, borderRadius: 12, overflow: 'hidden', background: AppColors.background, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    {p.imageUrl ? <img src={p.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ImageOff size={18} color={AppColors.textSecondary} />}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14.5, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.productName}</div>
+                    <div style={{ fontSize: 13, color: AppColors.textSecondary }}>{formatPrice(p.price)}</div>
+                  </div>
+                </div>
+              ))}
+              <div style={{ marginTop: 'auto', paddingTop: 16 }}>
+                <AppButton label="Xem tất cả sản phẩm" icon={Grid} variant="secondary" compact style={{ width: '100%' }} onClick={() => navigate('/tabs/products')} />
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {/* ===== Lịch sử ===== */}
+        {section === 'history' ? (
+          <div className="two-col">
+            <div className="col-stack">
+              <div className="panel">
+                <div className="panel-head">
+                  <div className="panel-title">Phản hồi gần đây</div>
+                  <button onClick={() => navigate('/tabs/feedbacks')} style={{ background: 'none', border: 'none', color: AppColors.textPrimary, fontSize: 13, fontWeight: 700, textDecoration: 'underline' }}>Xem tất cả</button>
+                </div>
+                {recentFeedbacks.length === 0 ? (
+                  <div style={{ color: AppColors.textSecondary, fontSize: 13 }}>Bạn chưa gửi đánh giá nào.</div>
+                ) : recentFeedbacks.map((f) => {
+                  const meta = STATUS_META[f.status] ?? STATUS_META.Pending;
+                  return (
+                    <div key={f.feedbackId} className="list-row">
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                        <span style={{ fontSize: 14.5, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{productNames.get(f.productId) ?? `Sản phẩm #${f.productId}`}</span>
+                        <StatusBadge label={meta.label} tone={meta.tone} />
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <RatingStars value={f.rating} size={14} />
+                        <span style={{ fontSize: 12, color: AppColors.textSecondary }}>{formatDate(f.createdAt)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="panel">
+                <div className="panel-head">
+                  <div className="panel-title">Khảo sát gần đây</div>
+                  <button onClick={() => navigate('/tabs/surveys')} style={{ background: 'none', border: 'none', color: AppColors.textPrimary, fontSize: 13, fontWeight: 700, textDecoration: 'underline' }}>Xem tất cả</button>
+                </div>
+                {recentSurveys.length === 0 ? (
+                  <div style={{ color: AppColors.textSecondary, fontSize: 13 }}>Chưa có khảo sát nào được gửi cho bạn.</div>
+                ) : recentSurveys.map((t) => (
+                  <div key={t.surveyId} className="list-row">
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                      <span style={{ fontSize: 14.5, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.survey.title}</span>
+                      <StatusBadge label={t.isCompleted ? 'Đã hoàn thành' : 'Cần làm'} tone={t.isCompleted ? 'success' : 'warning'} />
+                    </div>
+                    <span style={{ fontSize: 12, color: AppColors.textSecondary }}>{formatDate(t.survey.createdAt)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="col-stack">
+              <div className="panel">
+                <div className="panel-head"><div className="panel-title">Thống kê của bạn</div></div>
+                <StatRow label="Đánh giá đã gửi" value={feedbacks.length} />
+                <StatRow label="Đánh giá đã được duyệt" value={approvedCount} />
+                <StatRow label="Khảo sát đã hoàn thành" value={completedSurveys} />
+                <StatRow label="Điểm bạn chấm trung bình" value={avgRating} />
+                <div style={{ marginTop: 'auto', paddingTop: 14 }}>
+                  <div className="side-title" style={{ padding: '0 0 8px' }}>Huy hiệu</div>
+                  <div className="badge-row">
+                    {badges.map(({ label, on, icon: Icon }) => (
+                      <span key={label} className={`badge-chip${on ? ' on' : ''}`}><Icon size={13} />{label}</span>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <AppButton label="Viết đánh giá" icon={MessageCircle} variant="secondary" compact style={{ width: '100%' }} onClick={() => navigate('/feedback/create')} />
+                  <AppButton label="Làm khảo sát" icon={ClipboardList} variant="secondary" compact style={{ width: '100%' }} onClick={() => navigate('/tabs/surveys')} />
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {/* ===== Đổi mật khẩu ===== */}
         {section === 'password' ? (
-          <div className="panel" style={{ maxWidth: 520 }}>
-            <div className="panel-head"><div className="panel-title">Đổi mật khẩu</div></div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <AppTextField label="Mật khẩu hiện tại" type="password" value={pw.oldPassword} onChangeText={(v) => setPw((prev) => ({ ...prev, oldPassword: v }))} error={pwErrors.oldPassword} />
-              <AppTextField label="Mật khẩu mới" placeholder="Tối thiểu 6 ký tự" type="password" value={pw.newPassword} onChangeText={(v) => setPw((prev) => ({ ...prev, newPassword: v }))} error={pwErrors.newPassword} />
-              <AppTextField label="Nhập lại mật khẩu mới" type="password" value={pw.confirm} onChangeText={(v) => setPw((prev) => ({ ...prev, confirm: v }))} error={pwErrors.confirm} />
-              <AppButton label="Cập nhật mật khẩu" onClick={changePassword} loading={pwSaving} />
+          <div className="two-col">
+            <div className="panel">
+              <div className="panel-head">
+                <div>
+                  <div className="panel-title">Đổi mật khẩu</div>
+                  <div className="panel-sub">Cập nhật mật khẩu định kỳ để bảo vệ tài khoản của bạn.</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 18, flex: 1 }}>
+                <AppTextField label="Mật khẩu hiện tại" type="password" value={pw.oldPassword} onChangeText={(v) => setPw((prev) => ({ ...prev, oldPassword: v }))} error={pwErrors.oldPassword} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <AppTextField label="Mật khẩu mới" placeholder="Tối thiểu 6 ký tự" type="password" value={pw.newPassword} onChangeText={(v) => setPw((prev) => ({ ...prev, newPassword: v }))} error={pwErrors.newPassword} />
+                  <div className="pw-meter">{[1, 2, 3, 4].map((n) => <span key={n} className={pwScore >= n && pw.newPassword ? 'on' : ''} />)}</div>
+                  <span style={{ fontSize: 12, color: AppColors.textSecondary }}>Độ mạnh mật khẩu: <b style={{ color: AppColors.textPrimary }}>{pwLabel}</b></span>
+                </div>
+                <AppTextField label="Nhập lại mật khẩu mới" type="password" value={pw.confirm} onChangeText={(v) => setPw((prev) => ({ ...prev, confirm: v }))} error={pwErrors.confirm} />
+                <div style={{ marginTop: 'auto' }}>
+                  <AppButton label="Cập nhật mật khẩu" onClick={changePassword} loading={pwSaving} style={{ width: '100%' }} />
+                </div>
+              </div>
+            </div>
+
+            <div className="col-stack">
+              <div className="panel">
+                <div className="panel-title" style={{ marginBottom: 8 }}>Yêu cầu mật khẩu</div>
+                {pwRules.map(([label, ok]) => (
+                  <div key={label} className="check-row">
+                    <span className={`check-dot${ok ? ' on' : ''}`}>{ok ? <Check size={14} /> : null}</span>
+                    <span style={{ color: ok ? AppColors.textPrimary : AppColors.textSecondary }}>{label}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="panel">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <ShieldCheck size={22} />
+                  <div className="panel-title" style={{ fontSize: 16 }}>Lưu ý bảo mật</div>
+                </div>
+                <ul className="tip-list">{PASSWORD_TIPS.map((tip) => <li key={tip}><span>•</span><span>{tip}</span></li>)}</ul>
+                <div className="voucher" style={{ marginTop: 'auto' }}>
+                  <span className="voucher-icon"><Phone size={18} /></span>
+                  <span><b>Cần hỗ trợ? Gọi {SITE.hotline}</b><small>{SITE.hours}</small></span>
+                </div>
+              </div>
             </div>
           </div>
         ) : null}
@@ -312,7 +520,7 @@ function OverviewCard({ icon: Icon, text, actionLabel, onAction, percent }: { ic
   );
 }
 
-function StatRow({ label, value }: { label: string; value: number }) {
+function StatRow({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="stat-row">
       <span style={{ color: AppColors.textSecondary, fontSize: 14 }}>{label}</span>
@@ -323,7 +531,7 @@ function StatRow({ label, value }: { label: string; value: number }) {
 
 function InfoRow({ label, value }: { label: string; value?: ReactNode }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, padding: '10px 0', borderBottom: `1px solid ${AppColors.border}` }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, padding: '16px 0', borderBottom: `1px solid ${AppColors.border}` }}>
       <span style={{ color: AppColors.textSecondary, fontSize: 14 }}>{label}</span>
       <span style={{ color: AppColors.textPrimary, fontSize: 14, fontWeight: 600, textAlign: 'right' }}>{value || '—'}</span>
     </div>

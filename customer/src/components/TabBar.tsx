@@ -1,12 +1,12 @@
 import { AppColors } from '@/constants/appTheme';
 import { SITE } from '@/constants/site';
 import { useAuth } from '@/context/AuthContext';
-import { Clipboard, Grid, Home, LogIn, MessageCircle, Phone, Search, User, UserPlus } from 'lucide-react';
+import { Clipboard, Grid, Home, LogIn, MessageCircle, Phone, RefreshCw, Search, ShieldCheck, Truck, User, UserPlus } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Logo } from './Logo';
 import { NotificationBell } from './NotificationBell';
 
-// Không còn tab "Cá nhân": vào hồ sơ bằng icon user ở góc phải.
 const TABS = [
   { to: '/tabs', label: 'Trang chủ', icon: Home, end: true },
   { to: '/tabs/products', label: 'Sản phẩm', icon: Grid },
@@ -27,57 +27,53 @@ export function TabBar() {
     navigate(k ? `/tabs/products?keyword=${encodeURIComponent(k)}` : '/tabs/products');
   };
 
+  const pill = { display: 'flex', alignItems: 'center', gap: 8, padding: '12px 22px', borderRadius: 999, fontWeight: 700, fontSize: 15 } as const;
+
   return (
     <>
       <header className="nav-top">
         <div className="nav-top-inner">
-          <Link to="/tabs" className="brand">{SITE.name}</Link>
+          <Link to="/tabs" className="brand" aria-label={SITE.name}><Logo height={80} /></Link>
 
           <form className="header-search" onSubmit={handleSearch} role="search">
-            <Search size={18} color={AppColors.textSecondary} />
+            <Search size={20} color={AppColors.textSecondary} />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tìm tên giày, thương hiệu..." aria-label="Tìm kiếm sản phẩm" />
             <button type="submit">Tìm</button>
           </form>
 
           <a className="header-hotline" href={`tel:${SITE.hotlineRaw}`}>
-            <span className="hotline-icon"><Phone size={16} /></span>
+            <span className="hotline-icon"><Phone size={20} /></span>
             <span><small>Hotline</small><strong>{SITE.hotline}</strong></span>
           </a>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div className="header-actions">
             {signedIn ? (
               <>
                 <NotificationBell />
-                <Link to="/tabs/profile" aria-label="Hồ sơ người dùng" title="Hồ sơ người dùng" style={{
-                  width: 40, height: 40, borderRadius: 20, background: AppColors.accent, color: AppColors.accentText,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}><User size={20} /></Link>
+                <Link to="/tabs/profile" className="icon-btn dark" aria-label="Hồ sơ người dùng" title="Hồ sơ người dùng"><User size={22} /></Link>
               </>
             ) : (
               <>
-                <Link to="/auth/register" style={{
-                  display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 20,
-                  border: `1px solid ${AppColors.border}`, color: AppColors.textPrimary, fontWeight: 700, fontSize: 14,
-                }}>
-                  <UserPlus size={16} /> Đăng ký
-                </Link>
-                <Link to="/auth/login" style={{
-                  display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 20,
-                  background: AppColors.accent, color: AppColors.accentText, fontWeight: 700, fontSize: 14,
-                }}>
-                  <LogIn size={16} /> Đăng nhập
-                </Link>
+                <Link to="/auth/register" style={{ ...pill, border: `1px solid ${AppColors.border}`, color: AppColors.textPrimary }}><UserPlus size={18} /> Đăng ký</Link>
+                <Link to="/auth/login" style={{ ...pill, background: AppColors.accent, color: AppColors.accentText }}><LogIn size={18} /> Đăng nhập</Link>
               </>
             )}
           </div>
         </div>
 
         <div className="nav-sub">
-          <nav className="nav-top-links">
-            {TABS.map(({ to, label, icon: Icon, end }) => (
-              <NavLink key={to} to={to} end={end} className={cls}><Icon size={18} />{label}</NavLink>
-            ))}
-          </nav>
+          <div className="nav-sub-inner">
+            <nav className="nav-top-links">
+              {TABS.map(({ to, label, icon: Icon, end }) => (
+                <NavLink key={to} to={to} end={end} className={cls}><Icon size={20} />{label}</NavLink>
+              ))}
+            </nav>
+            <div className="nav-note">
+              <span><ShieldCheck size={16} /> Hàng chính hãng</span>
+              <span><RefreshCw size={16} /> Đổi trả 7 ngày</span>
+              <span><Truck size={16} /> Giao hàng toàn quốc</span>
+            </div>
+          </div>
         </div>
       </header>
 

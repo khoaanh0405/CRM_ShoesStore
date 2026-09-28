@@ -1,13 +1,16 @@
 import { SITE } from '@/constants/site';
 import { Clock, Mail, MapPin, Phone } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { Logo } from './Logo';
 
 export function SiteFooter() {
   return (
     <footer className="site-footer">
       <div className="site-footer-inner">
         <div>
-          <div style={{ color: '#fff', fontSize: 20, fontWeight: 800, marginBottom: 12 }}>{SITE.name}</div>
+          <div style={{ display: 'inline-block', background: '#fff', borderRadius: 14, padding: '8px 14px', marginBottom: 14 }}>
+            <Logo height={64} />
+          </div>
           <p style={{ fontSize: 13.5, lineHeight: '21px', maxWidth: 300 }}>
             Cửa hàng giày chính hãng — khám phá sản phẩm, chia sẻ trải nghiệm và nhận ưu đãi dành riêng cho bạn.
           </p>
