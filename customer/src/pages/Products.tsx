@@ -39,9 +39,9 @@ export default function ProductsPage() {
   const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
-    const c = searchParams.get('category');
-    if (c) setCategory(c);
-  }, [searchParams]);
+  setCategory(searchParams.get('category'));
+  setKeyword(searchParams.get('keyword') ?? '');
+}, [searchParams]);
 
   const debouncedKeyword = useDebouncedValue(keyword.trim(), 350);
 
