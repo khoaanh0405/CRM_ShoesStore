@@ -7,7 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage } from '@/services/api-client';
 import { validatePassword, validateUsername } from '@/utils/validation';
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 /** Đăng nhập khách hàng (mục 4.3.2 Yeu_cau_do_an.docx). */
 export default function LoginPage() {
@@ -40,31 +40,26 @@ export default function LoginPage() {
 
   return (
     <form onSubmit={handleSubmit} className="auth-form" style={{ background: AuthColors.background }}>
-  <AuthBanner />
-  <div style={{ display: 'flex', flexDirection: 'column', gap: 22, paddingTop: 24 }}>
-    <AuthSegmentedTabs active="login" />
-    <div>
-      <h1 style={{ color: AuthColors.textPrimary, fontSize: 28, fontWeight: 800, lineHeight: '34px' }}>Chào mừng<br />trở lại.</h1>
-      <p style={{ color: AuthColors.textSecondary, fontSize: 13.5, marginTop: 6 }}>Đăng nhập để tiếp tục mua sắm.</p>
-    </div>
+      <AuthBanner />
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 22 }}>
+        <AuthSegmentedTabs active="login" />
+        <div>
+          <h1 style={{ color: AuthColors.textPrimary, fontSize: 28, fontWeight: 800, lineHeight: '34px', whiteSpace: 'nowrap' }}>Chào mừng đến với Ouran</h1>
+          <p style={{ color: AuthColors.textSecondary, fontSize: 13.5, marginTop: 6 }}>Đăng nhập để tham gia khảo sát và đánh giá sản phẩm.</p>
+        </div>
 
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <AuthTextField label="Tên đăng nhập" placeholder="ten_dang_nhap" autoCapitalize="none" autoCorrect="off" value={username} onChangeText={setUsername} error={errors.username} />
-      <AuthTextField
-        label="Mật khẩu" placeholder="••••••••" type="password" secureToggle value={password} onChangeText={setPassword} error={errors.password}
-        rightAction={{ label: 'Quên?', onClick: () => alert('Tính năng khôi phục mật khẩu đang được phát triển. Vui lòng liên hệ quản trị viên để được hỗ trợ đặt lại mật khẩu.') }}
-      />
-    </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <AuthTextField label="Tên đăng nhập" placeholder="ten_dang_nhap" autoCapitalize="none" autoCorrect="off" value={username} onChangeText={setUsername} error={errors.username} />
+          <AuthTextField
+            label="Mật khẩu" placeholder="••••••••" type="password" secureToggle value={password} onChangeText={setPassword} error={errors.password}
+            rightAction={{ label: 'Quên mật khẩu?', onClick: () => navigate('/auth/forgot-password') }}
+          />
+        </div>
 
-    {formError ? <div style={{ color: AuthColors.danger, fontSize: 13 }}>{formError}</div> : null}
+        {formError ? <div style={{ color: AuthColors.danger, fontSize: 13 }}>{formError}</div> : null}
 
-    <AuthButton label="Đăng nhập" type="submit" onClick={() => {}} loading={submitting} />
-
-    <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 4 }}>
-      <span style={{ color: AuthColors.textSecondary, fontSize: 13 }}>Chưa có tài khoản? </span>
-      <Link to="/auth/register" replace style={{ color: AuthColors.accent, fontSize: 13, fontWeight: 700, marginLeft: 4 }}>Đăng ký</Link>
-    </div>
-  </div>
-</form>
+        <AuthButton label="Đăng nhập" type="submit" onClick={() => {}} loading={submitting} />
+      </div>
+    </form>
   );
 }

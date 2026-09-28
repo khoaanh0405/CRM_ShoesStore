@@ -61,13 +61,6 @@ export default function HomePage() {
   const openCategory = (category: string) => navigate(`/tabs/products?category=${encodeURIComponent(category)}`);
   const pad = { padding: `0 ${SCREEN_PADDING}px` } as const;
 
-  // Thẻ CTA lấp chỗ trống khi ít sản phẩm — gắn với mục tiêu "thăm dò trước khi ra mắt sản phẩm mới"
-  const launchCta = {
-    title: 'Sắp ra mắt sản phẩm mới',
-    text: 'Chia sẻ ý kiến qua khảo sát để cùng hoàn thiện mẫu giày tiếp theo của cửa hàng.',
-    label: signedIn ? 'Tham gia khảo sát' : 'Đăng ký tham gia',
-    onClick: () => navigate(signedIn ? '/tabs/surveys' : '/auth/register'),
-  };
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 32, paddingBottom: 32, paddingTop: 16 }}>
       <div style={pad}><BannerCarousel /></div>
@@ -144,7 +137,7 @@ export default function HomePage() {
           subtitle={recommended.length > 0 ? `Ưu tiên theo sở thích: ${tags.slice(0, 3).join(', ')}` : undefined}
           actionLabel="Xem tất cả" onAction={() => navigate('/tabs/products')} />
         {featured.length > 0 ? (
-          <div style={pad}><ProductGrid products={featured} onOpen={openProduct} highlightIds={recommendedIds} cta={launchCta} /></div>
+          <div style={pad}><ProductGrid products={featured} onOpen={openProduct} highlightIds={recommendedIds} /></div>
         ) : (
           <span style={{ color: AppColors.textSecondary, fontSize: 13, ...pad }}>Cửa hàng chưa có sản phẩm nào.</span>
         )}

@@ -2,7 +2,6 @@ import { ProductGrid } from '@/components/ProductGrid';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { EmptyView, ErrorView, LoadingView } from '@/components/StateViews';
 import { AppColors, Radius } from '@/constants/appTheme';
-import { useAuth } from '@/context/AuthContext';
 import { useApi } from '@/hooks/useApi';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { productService } from '@/services/product.service';
@@ -29,7 +28,6 @@ const PRICE_RANGES: { key: string; label: string; min?: number; max?: number }[]
 /** Trang Sản phẩm: sidebar bộ lọc cố định bên trái + lưới sản phẩm (GET /products/search). */
 export default function ProductsPage() {
   const navigate = useNavigate();
-  const { status } = useAuth();
   const [searchParams] = useSearchParams();
 
   const [keyword, setKeyword] = useState('');
@@ -68,14 +66,6 @@ export default function ProductsPage() {
   const activeFilterCount = (category ? 1 : 0) + (brand ? 1 : 0) + (priceKey !== 'all' ? 1 : 0) + (sortKey !== 'new' ? 1 : 0);
   const resetFilters = () => { setCategory(null); setBrand(null); setPriceKey('all'); setSortKey('new'); };
   const openProduct = (p: Product) => navigate(`/product/${p.productId}`);
-  const signedIn = status === 'signedIn';
-
-  const cta = {
-    title: 'Sắp ra mắt sản phẩm mới',
-    text: 'Cửa hàng đang chuẩn bị mẫu giày mới. Tham gia khảo sát để góp ý và nhận thông báo sớm nhất.',
-    label: signedIn ? 'Tham gia khảo sát' : 'Đăng ký tham gia',
-    onClick: () => navigate(signedIn ? '/tabs/surveys' : '/auth/register'),
-  };
 
   return (
     <div>
@@ -119,7 +109,7 @@ export default function ProductsPage() {
                 actionLabel={keyword || activeFilterCount > 0 ? 'Xóa tất cả bộ lọc' : undefined}
                 onAction={() => { setKeyword(''); resetFilters(); }} />
             ) : (
-              <ProductGrid products={data} onOpen={openProduct} cta={data.length % 4 !== 0 ? cta : undefined} />
+              <ProductGrid products={data} onOpen={openProduct} />
             )
           )}
         </div>

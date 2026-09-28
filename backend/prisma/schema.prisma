@@ -68,9 +68,6 @@ model Customer {
   gender              String?              @db.VarChar(10)
   phone               String?              @db.VarChar(20)
   address             String?              @db.VarChar(255)
-  // Soft delete cho nghiệp vụ "Xóa khách hàng" (4.1.2) - TÁCH BIỆT với Account.isLocked (4.1.3 "Khóa tài khoản").
-  // isDeleted=true  -> khách hàng biến mất khỏi danh sách hoạt động, KHÔNG xóa Feedback/SurveyResponse liên quan.
-  // Account.isLocked=true -> khách hàng không đăng nhập được, dữ liệu và Customer vẫn nguyên vẹn.
   isDeleted           Boolean              @default(false) @map("is_deleted")
   deletedAt           DateTime?            @map("deleted_at")
   account             Account              @relation(fields: [customerId], references: [accountId], onDelete: Cascade)

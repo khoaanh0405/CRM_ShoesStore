@@ -8,14 +8,14 @@ import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage } from '@/services/api-client';
 import { validateDateOfBirth, validateFullName, validatePassword, validatePhone, validateUsername } from '@/utils/validation';
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 const GENDER_OPTIONS = ['Nam', 'Nữ', 'Khác'];
 
 type RegisterForm = { username: string; password: string; fullName: string; dateOfBirth: string; gender: string; phone: string; address: string; };
 const INITIAL_FORM: RegisterForm = { username: '', password: '', fullName: '', dateOfBirth: '', gender: '', phone: '', address: '' };
 
-/** Khách hàng tự đăng ký tài khoản (mục 4.3.1 Yeu_cau_do_an.docx). */
+/** Khách hàng tự đăng ký tài khoản (mục 4.3.1 Yeu_cau_do_an.docx). Form 2 cột để vừa một màn hình. */
 export default function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -59,43 +59,40 @@ export default function RegisterPage() {
   };
 
   return (
-    // Register.tsx — tương tự
-<form onSubmit={handleSubmit} className="auth-form" style={{ flex: 1, background: AuthColors.background, display: 'flex', flexDirection: 'column' }}>
+    <form onSubmit={handleSubmit} className="auth-form" style={{ background: AuthColors.background }}>
       <AuthBanner />
-      <div style={{ padding: '24px 24px 48px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 18 }}>
         <AuthSegmentedTabs active="register" />
         <div>
-          <h1 style={{ color: AuthColors.textPrimary, fontSize: 28, fontWeight: 800, lineHeight: '34px' }}>Tạo tài khoản<br />mới.</h1>
-          <p style={{ color: AuthColors.textSecondary, fontSize: 14, marginTop: 6 }}>Đăng ký để nhận ưu đãi và theo dõi đơn hàng.</p>
+          <h1 style={{ color: AuthColors.textPrimary, fontSize: 26, fontWeight: 800, lineHeight: '32px' }}>Tạo tài khoản mới.</h1>
+          <p style={{ color: AuthColors.textSecondary, fontSize: 13.5, marginTop: 4 }}>Đăng ký để tham gia khảo sát và gửi đánh giá sản phẩm.</p>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="auth-grid">
+          <AuthTextField label="Họ và tên" placeholder="Nguyễn Văn A" value={form.fullName} onChangeText={setField('fullName')} error={errors.fullName} />
+          <AuthTextField label="Ngày sinh" type="date" max={new Date().toISOString().slice(0, 10)} value={form.dateOfBirth} onChangeText={setField('dateOfBirth')} error={errors.dateOfBirth} />
+
           <AuthTextField label="Tên đăng nhập" placeholder="ten_dang_nhap" autoCapitalize="none" autoCorrect="off" value={form.username} onChangeText={setField('username')} error={errors.username} />
           <AuthTextField label="Mật khẩu" placeholder="Tối thiểu 6 ký tự" type="password" secureToggle value={form.password} onChangeText={setField('password')} error={errors.password} />
-          <AuthTextField label="Họ và tên" placeholder="Nguyễn Văn A" value={form.fullName} onChangeText={setField('fullName')} error={errors.fullName} />
-          <AuthTextField label="Ngày sinh" placeholder="YYYY-MM-DD (vd: 2003-05-20)" value={form.dateOfBirth} onChangeText={setField('dateOfBirth')} error={errors.dateOfBirth} />
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <span style={{ color: AuthColors.textSecondary, fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', fontWeight: 600 }}>Giới tính (không bắt buộc)</span>
-            <div style={{ display: 'flex', gap: 8 }}>
+          <AuthTextField label="Số điện thoại" placeholder="Không bắt buộc" value={form.phone} onChangeText={setField('phone')} error={errors.phone} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={{ color: AuthColors.textSecondary, fontSize: 13, fontWeight: 600 }}>Giới tính</span>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', minHeight: 46 }}>
               {GENDER_OPTIONS.map((option) => (
                 <Chip key={option} label={option} selected={form.gender === option} onClick={() => setField('gender')(form.gender === option ? '' : option)} />
               ))}
             </div>
           </div>
 
-          <AuthTextField label="Số điện thoại (không bắt buộc)" placeholder="09xx xxx xxx" value={form.phone} onChangeText={setField('phone')} error={errors.phone} />
-          <AuthTextField label="Địa chỉ (không bắt buộc)" placeholder="Số nhà, đường, quận/huyện..." value={form.address} onChangeText={setField('address')} />
+          <div className="full">
+            <AuthTextField label="Địa chỉ" placeholder="Không bắt buộc (số nhà, đường, quận/huyện...)" value={form.address} onChangeText={setField('address')} />
+          </div>
         </div>
 
         {formError ? <div style={{ color: AuthColors.danger, fontSize: 13 }}>{formError}</div> : null}
 
         <AuthButton label="Tạo tài khoản" type="submit" onClick={() => {}} loading={submitting} />
-
-        <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 4 }}>
-          <span style={{ color: AuthColors.textSecondary, fontSize: 13 }}>Đã có tài khoản? </span>
-          <Link to="/auth/login" replace style={{ color: AuthColors.accent, fontSize: 13, fontWeight: 700, marginLeft: 4 }}>Đăng nhập</Link>
-        </div>
       </div>
     </form>
   );

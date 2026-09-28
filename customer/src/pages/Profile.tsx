@@ -22,17 +22,16 @@ import type { SurveyTarget } from '@/types/survey';
 import { formatDate, formatDateOnly, formatPrice, toDateInput } from '@/utils/format';
 import { recommendProducts } from '@/utils/recommend';
 import { validateDateOfBirth, validateFullName, validatePassword, validatePhone } from '@/utils/validation';
-import { Award, Check, ClipboardList, Edit3, Gift, Grid, Heart, History, ImageOff, Key, LayoutGrid, LogOut, MessageCircle, Phone, ShieldCheck, Trophy, Truck, User, type LucideIcon } from 'lucide-react';
+import { Check, ClipboardList, Edit3, Grid, Heart, History, ImageOff, Key, LogOut, MessageCircle, Phone, ShieldCheck, User, type LucideIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
-type Section = 'overview' | 'info' | 'prefs' | 'history' | 'password';
+type Section = 'info' | 'prefs' | 'history' | 'password';
 type ProfileForm = { fullName: string; dateOfBirth: string; gender: string; phone: string; address: string };
 type FormErrors = Partial<Record<keyof ProfileForm, string | null>>;
 const EMPTY_PASSWORD = { oldPassword: '', newPassword: '', confirm: '' };
 
 const MENU: { key: Section; label: string; icon: LucideIcon }[] = [
-  { key: 'overview', label: 'Tổng quan tài khoản', icon: LayoutGrid },
   { key: 'info', label: 'Thông tin tài khoản', icon: User },
   { key: 'prefs', label: 'Sở thích mua sắm', icon: Heart },
   { key: 'history', label: 'Lịch sử', icon: History },
@@ -54,12 +53,6 @@ const PREF_DESC: Record<string, string> = {
   'Giày Sandal': 'Thoáng mát ngày hè',
   'Giày Da': 'Lịch sự cho công sở',
 };
-
-const TIERS = [
-  { name: 'Thành viên mới', min: 0 },
-  { name: 'Thân thiết', min: 100 },
-  { name: 'VIP', min: 300 },
-];
 
 const PASSWORD_TIPS = [
   'Dùng ít nhất 6 ký tự, nên kết hợp chữ hoa, chữ thường và số.',
@@ -87,7 +80,7 @@ export default function ProfilePage() {
   }, [customerId]);
 
   const initialTab = params.get('tab') as Section | null;
-  const [section, setSection] = useState<Section>(MENU.some((m) => m.key === initialTab) ? (initialTab as Section) : 'overview');
+  const [section, setSection] = useState<Section>(MENU.some((m) => m.key === initialTab) ? (initialTab as Section) : 'info');
 
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<ProfileForm>({ fullName: '', dateOfBirth: '', gender: '', phone: '', address: '' });
@@ -105,38 +98,21 @@ export default function ProfilePage() {
   const productNames = new Map(products.map((p) => [p.productId, p.productName]));
   const tags = preferences.map((p) => p.preferenceTag);
 
-  const profileFields: [string, string | null | undefined][] = [
-    ['Họ và tên', profile.fullName], ['Ngày sinh', profile.dateOfBirth], ['Giới tính', profile.gender], ['Số điện thoại', profile.phone], ['Địa chỉ', profile.address],
-  ];
-  const filled = profileFields.filter(([, v]) => !!v && String(v).trim()).length;
-  const profilePercent = Math.round((filled / 5) * 100);
   const completedSurveys = surveys.filter((t) => t.isCompleted).length;
-  const surveyPercent = surveys.length ? Math.round((completedSurveys / surveys.length) * 100) : 0;
   const approvedCount = feedbacks.filter((f) => f.status === 'Approved').length;
-  const feedbackPercent = feedbacks.length ? Math.round((approvedCount / feedbacks.length) * 100) : 0;
-  const prefPercent = Math.round((preferences.length / PREFERENCE_SUGGESTIONS.length) * 100);
   const recentFeedbacks = [...feedbacks].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 3);
   const recentSurveys = [...surveys].sort((a, b) => new Date(b.survey.createdAt).getTime() - new Date(a.survey.createdAt).getTime()).slice(0, 3);
   const matched = recommendProducts(products, tags).slice(0, 4);
 
-  // Hạng thành viên: điểm tính từ hoạt động thật của khách hàng
-  const points = approvedCount * 20 + completedSurveys * 30 + feedbacks.length * 5 + preferences.length * 5;
-  const tierIdx = TIERS.reduce((i, tr, k) => (points >= tr.min ? k : i), 0);
-  const tier = TIERS[tierIdx];
-  const nextTier = TIERS[tierIdx + 1];
-  const tierPercent = nextTier ? Math.round(((points - tier.min) / (nextTier.min - tier.min)) * 100) : 100;
   const avgRating = feedbacks.length ? (feedbacks.reduce((sum, f) => sum + f.rating, 0) / feedbacks.length).toFixed(1) : '—';
   const allMatched = recommendProducts(products, tags);
   const avgMatchedPrice = allMatched.length ? allMatched.reduce((sum, p) => sum + Number(p.price), 0) / allMatched.length : null;
   const brandCount = new Map<string, number>();
   allMatched.forEach((p) => { if (p.brand) brandCount.set(p.brand, (brandCount.get(p.brand) ?? 0) + 1); });
   const topBrand = [...brandCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '—';
-  const badges = [
-    { label: 'Người đánh giá đầu tiên', on: feedbacks.length >= 1, icon: MessageCircle },
-    { label: 'Chuyên gia khảo sát', on: completedSurveys >= 3, icon: ClipboardList },
-    { label: 'Có gu riêng', on: preferences.length >= 1, icon: Heart },
-    { label: 'Hồ sơ hoàn chỉnh', on: profilePercent === 100, icon: Check },
-  ];
+
+  const ratingDist = [5, 4, 3, 2, 1].map((star) => ({ star, n: feedbacks.filter((f) => f.rating === star).length }));
+
   const pwRules: [string, boolean][] = [
     ['Ít nhất 6 ký tự', pw.newPassword.length >= 6],
     ['Có chữ hoa', /[A-Z]/.test(pw.newPassword)],
@@ -222,52 +198,37 @@ export default function ProfilePage() {
       </aside>
 
       <div className="account-content">
-        {/* ===== Tổng quan ===== */}
-        {section === 'overview' ? (
-          <div className="ov-grid">
-            <OverviewCard icon={User} percent={profilePercent}
-              text={profilePercent === 100 ? 'Hồ sơ của bạn đã đầy đủ thông tin.' : 'Bạn chưa cập nhật đủ thông tin cá nhân.'}
-              actionLabel="Cập nhật ngay" onAction={() => { setSection('info'); startEditing(profile); }} />
-            <OverviewCard icon={ClipboardList} percent={surveyPercent}
-              text={`Bạn đã hoàn thành ${completedSurveys}/${surveys.length} khảo sát.`}
-              actionLabel="Làm khảo sát" onAction={() => navigate('/tabs/surveys')} />
-            <OverviewCard icon={MessageCircle} percent={feedbackPercent}
-              text={`Bạn đã gửi ${feedbacks.length} đánh giá, ${approvedCount} đã được duyệt.`}
-              actionLabel="Viết đánh giá" onAction={() => navigate('/feedback/create')} />
-            <OverviewCard icon={Heart} percent={prefPercent}
-              text={`Bạn đã chọn ${preferences.length}/${PREFERENCE_SUGGESTIONS.length} sở thích mua sắm.`}
-              actionLabel="Chọn sở thích" onAction={() => setSection('prefs')} />
-          </div>
-        ) : null}
-
         {/* ===== Thông tin tài khoản ===== */}
         {section === 'info' ? (
-          <div className="two-col">
-            <div className="panel">
-              <div className="panel-head">
+          <div className="panel">
+            <div className="panel-head">
+              <div>
                 <div className="panel-title">Thông tin tài khoản</div>
-                {!editing ? <AppButton label="Chỉnh sửa" icon={Edit3} variant="secondary" compact onClick={() => startEditing(profile)} /> : null}
+                <div className="panel-sub">Thông tin cá nhân bạn đã đăng ký với cửa hàng.</div>
               </div>
-              {editing ? (
-                <>
-                  <div className="form-grid">
-                    <AppTextField label="Họ và tên" value={form.fullName} onChangeText={setField('fullName')} error={errors.fullName} />
-                    <AppTextField label="Ngày sinh" placeholder="YYYY-MM-DD (vd: 2003-05-20)" value={form.dateOfBirth} onChangeText={setField('dateOfBirth')} error={errors.dateOfBirth} />
-                    <div className="full" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <span style={{ color: AppColors.textPrimary, fontSize: 13, fontWeight: 600 }}>Giới tính</span>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                        {GENDER_OPTIONS.map((g) => <Chip key={g} label={g} selected={form.gender === g} onClick={() => setField('gender')(form.gender === g ? '' : g)} />)}
-                      </div>
+              {!editing ? <AppButton label="Chỉnh sửa" icon={Edit3} variant="secondary" compact onClick={() => startEditing(profile)} /> : null}
+            </div>
+            {editing ? (
+              <>
+                <div className="form-grid">
+                  <AppTextField label="Họ và tên" value={form.fullName} onChangeText={setField('fullName')} error={errors.fullName} />
+                  <AppTextField label="Ngày sinh" placeholder="YYYY-MM-DD (vd: 2003-05-20)" value={form.dateOfBirth} onChangeText={setField('dateOfBirth')} error={errors.dateOfBirth} />
+                  <div className="full" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <span style={{ color: AppColors.textPrimary, fontSize: 13, fontWeight: 600 }}>Giới tính</span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {GENDER_OPTIONS.map((g) => <Chip key={g} label={g} selected={form.gender === g} onClick={() => setField('gender')(form.gender === g ? '' : g)} />)}
                     </div>
-                    <AppTextField label="Số điện thoại" value={form.phone} onChangeText={setField('phone')} error={errors.phone} />
-                    <AppTextField label="Địa chỉ" value={form.address} onChangeText={setField('address')} />
                   </div>
-                  <div style={{ display: 'flex', gap: 12, marginTop: 20, maxWidth: 360 }}>
-                    <AppButton label="Hủy" variant="secondary" style={{ flex: 1 }} onClick={() => setEditing(false)} />
-                    <AppButton label="Lưu thay đổi" style={{ flex: 1 }} onClick={saveProfile} loading={saving} />
-                  </div>
-                </>
-              ) : (
+                  <AppTextField label="Số điện thoại" value={form.phone} onChangeText={setField('phone')} error={errors.phone} />
+                  <AppTextField label="Địa chỉ" value={form.address} onChangeText={setField('address')} />
+                </div>
+                <div style={{ display: 'flex', gap: 12, marginTop: 20, maxWidth: 360 }}>
+                  <AppButton label="Hủy" variant="secondary" style={{ flex: 1 }} onClick={() => setEditing(false)} />
+                  <AppButton label="Lưu thay đổi" style={{ flex: 1 }} onClick={saveProfile} loading={saving} />
+                </div>
+              </>
+            ) : (
+              <>
                 <div className="info-grid">
                   <InfoRow label="Họ và tên" value={profile.fullName} />
                   <InfoRow label="Ngày sinh" value={formatDateOnly(profile.dateOfBirth)} />
@@ -275,54 +236,16 @@ export default function ProfilePage() {
                   <InfoRow label="Số điện thoại" value={profile.phone} />
                   <InfoRow label="Địa chỉ" value={profile.address} />
                   <InfoRow label="Tên đăng nhập" value={`@${profile.username}`} />
+                  <InfoRow label="Ngày tạo tài khoản" value={account?.createdAt ? formatDate(account.createdAt) : null} />
                   <InfoRow label="Trạng thái" value={profile.isLocked ? 'Đã khóa' : 'Đang hoạt động'} />
                 </div>
-              )}
-              {!editing ? (
-                <div className="member-card">
-                  <div className="member-top">
-                    <div>
-                      <div className="member-sub">Hạng thành viên</div>
-                      <div className="member-tier">{tier.name}</div>
-                    </div>
-                    <Award size={34} />
-                  </div>
-                  <div className="member-bar"><span style={{ width: `${tierPercent}%` }} /></div>
-                  <div className="member-sub">
-                    {points} điểm · {nextTier ? `còn ${nextTier.min - points} điểm để lên ${nextTier.name}` : 'Bạn đã đạt hạng cao nhất'}
-                    {account?.createdAt ? ` · Thành viên từ ${formatDate(account.createdAt)}` : ''}
-                  </div>
+                <div className="mini-stats">
+                  <div className="mini-stat"><small>Khảo sát đã nộp</small><b>{completedSurveys}/{surveys.length}</b></div>
+                  <div className="mini-stat"><small>Đánh giá đã gửi</small><b>{feedbacks.length}</b></div>
+                  <div className="mini-stat"><small>Điểm chấm trung bình</small><b>{avgRating}</b></div>
                 </div>
-              ) : null}
-            </div>
-
-            <div className="col-stack">
-              <div className="panel">
-                <div className="panel-title" style={{ marginBottom: 12 }}>Mức độ hoàn thiện hồ sơ</div>
-                <div style={{ fontSize: 32, fontWeight: 800, lineHeight: 1 }}>{profilePercent}%</div>
-                <div className="ov-bar" style={{ margin: '12px 0' }}><span style={{ width: `${profilePercent}%` }} /></div>
-                {profileFields.map(([label, value]) => {
-                  const ok = !!value && String(value).trim();
-                  return (
-                    <div key={label} className="check-row">
-                      <span className={`check-dot${ok ? ' on' : ''}`}>{ok ? <Check size={14} /> : null}</span>
-                      <span style={{ color: ok ? AppColors.textPrimary : AppColors.textSecondary }}>{label}</span>
-                    </div>
-                  );
-                })}
-                <div style={{ marginTop: 'auto', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <div className="side-title" style={{ padding: 0 }}>Ưu đãi dành cho bạn</div>
-                  <div className="voucher">
-                    <span className="voucher-icon"><Gift size={18} /></span>
-                    <span><b>Giảm 10% đơn đầu tiên</b><small>Mã OURAN10 · HSD 31/12/2026</small></span>
-                  </div>
-                  <div className="voucher">
-                    <span className="voucher-icon"><Truck size={18} /></span>
-                    <span><b>Miễn phí vận chuyển</b><small>Đơn từ 500.000₫</small></span>
-                  </div>
-                </div>
-              </div>
-            </div>
+              </>
+            )}
           </div>
         ) : null}
 
@@ -435,12 +358,14 @@ export default function ProfilePage() {
                 <StatRow label="Khảo sát đã hoàn thành" value={completedSurveys} />
                 <StatRow label="Điểm bạn chấm trung bình" value={avgRating} />
                 <div style={{ marginTop: 'auto', paddingTop: 14 }}>
-                  <div className="side-title" style={{ padding: '0 0 8px' }}>Huy hiệu</div>
-                  <div className="badge-row">
-                    {badges.map(({ label, on, icon: Icon }) => (
-                      <span key={label} className={`badge-chip${on ? ' on' : ''}`}><Icon size={13} />{label}</span>
-                    ))}
-                  </div>
+                  <div className="side-title" style={{ padding: '0 0 6px' }}>Phân bố số sao bạn đã chấm</div>
+                  {ratingDist.map(({ star, n }) => (
+                    <div key={star} className="dist-row">
+                      <span style={{ width: 28 }}>{star}★</span>
+                      <div className="ov-bar"><span style={{ width: `${feedbacks.length ? (n / feedbacks.length) * 100 : 0}%` }} /></div>
+                      <b style={{ width: 20, textAlign: 'right' }}>{n}</b>
+                    </div>
+                  ))}
                 </div>
                 <div style={{ paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <AppButton label="Viết đánh giá" icon={MessageCircle} variant="secondary" compact style={{ width: '100%' }} onClick={() => navigate('/feedback/create')} />
@@ -499,22 +424,6 @@ export default function ProfilePage() {
             </div>
           </div>
         ) : null}
-      </div>
-    </div>
-  );
-}
-
-function OverviewCard({ icon: Icon, text, actionLabel, onAction, percent }: { icon: LucideIcon; text: string; actionLabel: string; onAction: () => void; percent: number }) {
-  return (
-    <div className="ov-card">
-      <div className="ov-body">
-        <div className="ov-icon"><Icon size={20} /></div>
-        <p>{text}</p>
-        <AppButton label={actionLabel} compact onClick={onAction} />
-      </div>
-      <div className="ov-foot">
-        <div className="ov-bar"><span style={{ width: `${percent}%` }} /></div>
-        <b>{percent}%</b>
       </div>
     </div>
   );

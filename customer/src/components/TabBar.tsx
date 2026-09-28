@@ -1,7 +1,7 @@
 import { AppColors } from '@/constants/appTheme';
 import { SITE } from '@/constants/site';
 import { useAuth } from '@/context/AuthContext';
-import { Clipboard, Grid, Home, LogIn, MessageCircle, Phone, RefreshCw, Search, ShieldCheck, Truck, User, UserPlus } from 'lucide-react';
+import { Clipboard, Grid, Home, LogIn, MessageCircle, Phone, Search, User, UserPlus } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { Logo } from './Logo';
@@ -65,14 +65,9 @@ export function TabBar() {
           <div className="nav-sub-inner">
             <nav className="nav-top-links">
               {TABS.map(({ to, label, icon: Icon, end }) => (
-                <NavLink key={to} to={to} end={end} className={cls}><Icon size={20} />{label}</NavLink>
+                <NavLink key={to} to={to} end={end} className={cls}><Icon size={22} />{label}</NavLink>
               ))}
             </nav>
-            <div className="nav-note">
-              <span><ShieldCheck size={16} /> Hàng chính hãng</span>
-              <span><RefreshCw size={16} /> Đổi trả 7 ngày</span>
-              <span><Truck size={16} /> Giao hàng toàn quốc</span>
-            </div>
           </div>
         </div>
       </header>

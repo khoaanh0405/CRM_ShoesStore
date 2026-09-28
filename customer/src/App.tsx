@@ -2,6 +2,7 @@ import { RequireAuth, RequireGuest } from '@/components/AuthGate';
 import { SiteLayout } from '@/components/SiteLayout';
 import { AuthProvider } from '@/context/AuthContext';
 import LoginPage from '@/pages/auth/Login';
+import ForgotPasswordPage from '@/pages/auth/ForgotPassword';
 import RegisterPage from '@/pages/auth/Register';
 import FeedbackCreatePage from '@/pages/FeedbackCreate';
 import FeedbacksPage from '@/pages/Feedbacks';
@@ -40,6 +41,7 @@ export default function App() {
 
           <Route path="/auth/login" element={<RequireGuest><AuthLayout><LoginPage /></AuthLayout></RequireGuest>} />
           <Route path="/auth/register" element={<RequireGuest><AuthLayout><RegisterPage /></AuthLayout></RequireGuest>} />
+          <Route path="/auth/forgot-password" element={<RequireGuest><AuthLayout><ForgotPasswordPage /></AuthLayout></RequireGuest>} />
 
           <Route path="/tabs" element={open(<HomePage />)} />
           <Route path="/tabs/products" element={open(<ProductsPage />)} />

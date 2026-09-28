@@ -18,7 +18,12 @@ export function AuthTextField({ label, error, secureToggle, rightAction, type, v
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ color: AuthColors.textSecondary, fontSize: 13, fontWeight: 600 }}>{label}</span>
         {rightAction ? (
-          <button onClick={rightAction.onClick} style={{ background: 'none', border: 'none', color: AuthColors.accent, fontSize: 12, fontWeight: 700 }}>{rightAction.label}</button>
+          <button
+            type="button"
+            onClick={rightAction.onClick}
+            style={{ background: 'none', border: 'none', padding: 0, color: AuthColors.accent, fontSize: 13, fontWeight: 700, textDecoration: 'underline', textUnderlineOffset: 3 }}>
+            {rightAction.label}
+          </button>
         ) : null}
       </div>
       <div style={{
@@ -32,7 +37,7 @@ export function AuthTextField({ label, error, secureToggle, rightAction, type, v
           value={value}
           onChange={(e) => onChangeText?.(e.target.value)}
           placeholder={rest.placeholder}
-          style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: AuthColors.textPrimary, fontSize: 14.5, padding: '13px 0' }}
+          style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: AuthColors.textPrimary, fontSize: 14.5, padding: '13px 0' }}
         />
         {secureToggle ? (
           <button type="button" onClick={() => setHidden((v) => !v)} style={{ background: 'none', border: 'none', fontSize: 15, paddingLeft: 8, opacity: 0.6 }}>
