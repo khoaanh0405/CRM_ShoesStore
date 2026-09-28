@@ -1,27 +1,25 @@
 import { AppColors } from '@/constants/appTheme';
 import { SITE } from '@/constants/site';
 import { useAuth } from '@/context/AuthContext';
-import { initialOf } from '@/utils/format';
 import { Clipboard, Grid, Home, LogIn, MessageCircle, Phone, Search, User, UserPlus } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { NotificationBell } from './NotificationBell';
 
+// Không còn tab "Cá nhân": vào hồ sơ bằng icon user ở góc phải.
 const TABS = [
   { to: '/tabs', label: 'Trang chủ', icon: Home, end: true },
   { to: '/tabs/products', label: 'Sản phẩm', icon: Grid },
   { to: '/tabs/surveys', label: 'Khảo sát', icon: Clipboard },
   { to: '/tabs/feedbacks', label: 'Đánh giá', icon: MessageCircle },
-  { to: '/tabs/profile', label: 'Cá nhân', icon: User },
 ];
 const cls = ({ isActive }: { isActive: boolean }) => 'nav-link' + (isActive ? ' active' : '');
 
 export function TabBar() {
-  const { account, status } = useAuth();
+  const { status } = useAuth();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const signedIn = status === 'signedIn';
-  const name = account?.customer?.fullName ?? account?.username ?? '';
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
@@ -50,10 +48,10 @@ export function TabBar() {
             {signedIn ? (
               <>
                 <NotificationBell />
-                <Link to="/tabs/profile" aria-label="Trang cá nhân" style={{
+                <Link to="/tabs/profile" aria-label="Hồ sơ người dùng" title="Hồ sơ người dùng" style={{
                   width: 40, height: 40, borderRadius: 20, background: AppColors.accent, color: AppColors.accentText,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800,
-                }}>{initialOf(name)}</Link>
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}><User size={20} /></Link>
               </>
             ) : (
               <>

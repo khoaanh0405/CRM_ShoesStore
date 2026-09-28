@@ -59,7 +59,7 @@ export default function FeedbacksPage() {
       </div>
 
       {loading && !data ? <LoadingView /> : !data ? <ErrorView message={error ?? 'Vui lòng thử lại.'} onRetry={reload} /> : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: `0 ${SCREEN_PADDING}px 24px` }}>
+        <div className="card-grid" style={{ padding: `0 ${SCREEN_PADDING}px 24px` }}>
           {items.length === 0 ? (
             data.feedbacks.length === 0 ? (
               <EmptyView icon={MessageCircle} title="Bạn chưa gửi đánh giá nào" message="Chia sẻ cảm nhận về đôi giày bạn đã mua để giúp người khác chọn tốt hơn." actionLabel="Viết đánh giá đầu tiên" onAction={openCreate} />

@@ -45,9 +45,9 @@ export default function App() {
           <Route path="/tabs/products" element={open(<ProductsPage />)} />
           <Route path="/product/:id" element={open(<ProductDetailPage />)} />
 
-          <Route path="/tabs/surveys" element={guard(<SurveysPage />, true)} />
-          <Route path="/tabs/feedbacks" element={guard(<FeedbacksPage />, true)} />
-          <Route path="/tabs/profile" element={guard(<ProfilePage />, true)} />
+          <Route path="/tabs/surveys" element={guard(<SurveysPage />)} />
+          <Route path="/tabs/feedbacks" element={guard(<FeedbacksPage />)} />
+          <Route path="/tabs/profile" element={guard(<ProfilePage />)} />
           <Route path="/survey/:id" element={guard(<SurveyFormPage />, true)} />
           <Route path="/feedback/create" element={guard(<FeedbackCreatePage />, true)} />
           <Route path="/notifications" element={guard(<NotificationsPage />, true)} />

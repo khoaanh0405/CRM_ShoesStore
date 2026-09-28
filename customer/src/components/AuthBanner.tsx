@@ -16,12 +16,12 @@ export function AuthBanner() {
   return (
     <div style={{
       position: 'relative', height: '100%', minHeight: 320,
-      background: `radial-gradient(120% 100% at 20% 0%, #4B3FA8 0%, #241D4D 55%, #14102B 100%)`,
+      background: `radial-gradient(120% 100% at 20% 0%, #3F3F46 0%, #1C1C1F 55%, #0B0B0C 100%)`,
       display: 'flex', flexDirection: 'column', justifyContent: 'space-between', overflow: 'hidden',
     }}>
       <div style={{
         position: 'absolute', top: -60, right: -60, width: 220, height: 220, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(124,111,232,0.5), transparent 70%)',
+        background: 'radial-gradient(circle, rgba(255,255,255,0.14), transparent 70%)',
       }} />
       <div style={{
         position: 'absolute', bottom: -80, left: -40, width: 260, height: 260, borderRadius: '50%',
@@ -52,7 +52,7 @@ export function AuthBanner() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 18 }}>
           {HIGHLIGHTS.map((h) => (
             <div key={h} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ width: 5, height: 5, borderRadius: 3, background: AuthColors.accent, flexShrink: 0 }} />
+              <span style={{ width: 5, height: 5, borderRadius: 3, background: '#fff', flexShrink: 0 }} />
               <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12 }}>{h}</span>
             </div>
           ))}
@@ -61,7 +61,7 @@ export function AuthBanner() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{
-              width: 30, height: 30, borderRadius: 15, background: AuthColors.accent,
+              width: 30, height: 30, borderRadius: 15, background: 'rgba(255,255,255,0.18)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 12,
             }}>👟</div>
             <div>

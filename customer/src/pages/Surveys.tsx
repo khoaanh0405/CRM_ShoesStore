@@ -34,7 +34,7 @@ export default function SurveysPage() {
   return (
     <div>
       <ScreenHeader title="Khảo sát" subtitle="Chia sẻ ý kiến để chúng tôi phục vụ bạn tốt hơn" />
-      <div style={{ padding: `0 ${SCREEN_PADDING}px 12px` }}>
+      <div className="state-empty" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: 32, textAlign: 'center' }}>
         <SegmentedControl value={tab} onChange={setTab} options={[
           { key: 'todo', label: 'Cần làm', count: todo.length },
           { key: 'done', label: 'Đã hoàn thành', count: done.length },
@@ -42,7 +42,7 @@ export default function SurveysPage() {
       </div>
 
       {loading && !data ? <LoadingView /> : !data ? <ErrorView message={error ?? 'Vui lòng thử lại.'} onRetry={reload} /> : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: `0 ${SCREEN_PADDING}px 24px` }}>
+        <div className="card-grid" style={{ padding: `0 ${SCREEN_PADDING}px 24px` }}>
           {items.length === 0 ? (
             tab === 'todo' ? (
               <EmptyView icon={CheckCheck} title="Không có khảo sát nào cần làm" message="Khi cửa hàng gửi khảo sát mới, nó sẽ xuất hiện ở đây." />
