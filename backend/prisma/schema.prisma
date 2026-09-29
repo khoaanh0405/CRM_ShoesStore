@@ -156,11 +156,12 @@ model SurveyQuestionOption {
 }
 
 model SurveyTarget {
-  surveyId    Int      @map("survey_id")
-  customerId  Int      @map("customer_id")
-  isCompleted Boolean  @default(false) @map("is_completed")
-  survey      Survey   @relation(fields: [surveyId], references: [surveyId], onDelete: Cascade)
-  customer    Customer @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
+  surveyId      Int      @map("survey_id")
+  customerId    Int      @map("customer_id")
+  isCompleted   Boolean  @default(false) @map("is_completed")
+  sentSignature String?  @map("sent_signature") @db.VarChar(64)
+  survey        Survey   @relation(fields: [surveyId], references: [surveyId], onDelete: Cascade)
+  customer      Customer @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
 
   @@id([surveyId, customerId])
   @@map("survey_targets")

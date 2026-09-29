@@ -1,6 +1,7 @@
 /**
  * Repository cho model SurveyTarget (bảng survey_targets).
  * PK composite (survey_id, customer_id) -> where dùng surveyId_customerId.
+ * sentSignature: "chữ ký" nội dung khảo sát tại thời điểm gửi, dùng để chặn gửi trùng.
  */
 import prisma from '../config/database.js';
 
@@ -23,6 +24,13 @@ export const surveyTargetRepository = {
     });
   },
 
+  /** Lấy các target đã có của 1 nhóm khách hàng trong 1 khảo sát. */
+  findBySurveyAndCustomers(surveyId, customerIds) {
+    return prisma.surveyTarget.findMany({
+      where: { surveyId, customerId: { in: customerIds } },
+    });
+  },
+
   findBySurvey(surveyId) {
     return prisma.surveyTarget.findMany({ where: { surveyId }, include: { customer: true } });
   },
@@ -35,12 +43,20 @@ export const surveyTargetRepository = {
     });
   },
 
-  create({ surveyId, customerId, isCompleted = false }) {
-    return prisma.surveyTarget.create({ data: { surveyId, customerId, isCompleted } });
+  create({ surveyId, customerId, isCompleted = false, sentSignature = null }) {
+    return prisma.surveyTarget.create({ data: { surveyId, customerId, isCompleted, sentSignature } });
   },
 
   createMany(targets) {
     return prisma.surveyTarget.createMany({ data: targets, skipDuplicates: true });
+  },
+
+  /** Cập nhật chữ ký đã gửi cho nhiều khách hàng cùng lúc. */
+  updateSignature(surveyId, customerIds, sentSignature) {
+    return prisma.surveyTarget.updateMany({
+      where: { surveyId, customerId: { in: customerIds } },
+      data: { sentSignature },
+    });
   },
 
   markCompleted(surveyId, customerId) {

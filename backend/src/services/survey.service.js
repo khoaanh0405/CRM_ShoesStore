@@ -1,7 +1,11 @@
 /**
  * Service cho Survey. Khảo sát có thể gắn (tùy chọn) với 1 sản phẩm qua productId.
  * KHÔNG có hard delete — dùng setActive() để đóng khảo sát.
+ *
+ * assignToCustomers(): gửi khảo sát + tạo thông báo cho khách hàng + chặn gửi
+ * trùng (nội dung khảo sát chưa đổi thì không gửi lại cho người đã nhận).
  */
+import { createHash } from 'node:crypto';
 import prisma from '../config/database.js';
 import {
   surveyRepository,
@@ -9,8 +13,10 @@ import {
   customerRepository,
   productRepository,
 } from '../repositories/index.js';
-import { NotFoundError, ValidationError } from '../errors/AppError.js';
+import { notificationService } from './notification.service.js';
+import { NotFoundError, ValidationError, ConflictError } from '../errors/AppError.js';
 import { QUESTION_TYPE_LIST, MIN_SURVEY_QUESTIONS, MESSAGES } from '../constants/index.js';
+import { NOTIFICATION_TYPE, NOTIFICATION_REF_TYPE } from '../constants/notification.constant.js';
 
 /** productId rỗng => khảo sát chung (null). Có giá trị => phải là sản phẩm tồn tại. */
 async function resolveProductId(productId) {
@@ -20,6 +26,22 @@ async function resolveProductId(productId) {
   const product = await productRepository.findById(id);
   if (!product) throw new NotFoundError(MESSAGES.NOT_FOUND.PRODUCT);
   return id;
+}
+
+/** Chữ ký nội dung khảo sát: đổi tiêu đề/mô tả/câu hỏi/lựa chọn thì chữ ký đổi. */
+function surveySignature(survey) {
+  const questions = [...(survey.questions ?? [])]
+    .sort((a, b) => a.questionId - b.questionId)
+    .map((q) => [
+      q.questionId,
+      q.questionContent,
+      q.questionType,
+      [...(q.options ?? [])]
+        .sort((a, b) => a.optionId - b.optionId)
+        .map((o) => [o.optionId, o.optionText]),
+    ]);
+  const raw = JSON.stringify({ t: survey.title, d: survey.description ?? '', q: questions });
+  return createHash('sha1').update(raw).digest('hex');
 }
 
 export const surveyService = {
@@ -103,6 +125,14 @@ export const surveyService = {
     return surveyRepository.setActive(surveyId, isActive);
   },
 
+  /**
+   * Gửi khảo sát cho khách hàng.
+   * - Chưa nhận bao giờ            -> tạo target + gửi thông báo "khảo sát mới".
+   * - Đã nhận, nội dung đã đổi     -> cập nhật chữ ký + thông báo "khảo sát được cập nhật"
+   *                                   (nếu chưa làm xong).
+   * - Đã nhận, nội dung KHÔNG đổi  -> bỏ qua (chặn gửi trùng).
+   * Nếu không còn ai cần gửi -> 409 với thông báo rõ ràng.
+   */
   async assignToCustomers(surveyId, customerIds = []) {
     const survey = await this.getWithQuestions(surveyId);
     if (!Array.isArray(customerIds) || customerIds.length === 0) {
@@ -120,15 +150,72 @@ export const surveyService = {
 
     const activeCustomers = await customerRepository.findAll();
     const validIds = new Set(activeCustomers.map((c) => c.customerId));
-    const targets = [...new Set(customerIds)]
-      .filter((id) => validIds.has(id))
-      .map((customerId) => ({ surveyId, customerId }));
-
-    if (targets.length === 0) {
+    const ids = [...new Set(customerIds)].filter((id) => validIds.has(id));
+    if (ids.length === 0) {
       throw new ValidationError('Không có khách hàng hợp lệ nào để gán khảo sát.');
     }
 
-    return surveyTargetRepository.createMany(targets);
+    const signature = surveySignature(survey);
+    const existing = await surveyTargetRepository.findBySurveyAndCustomers(surveyId, ids);
+    const existingMap = new Map(existing.map((t) => [t.customerId, t]));
+
+    const toCreate = [];
+    const toUpdate = [];
+    const toBackfill = []; // cập nhật chữ ký âm thầm, không thông báo
+
+    for (const id of ids) {
+      const t = existingMap.get(id);
+      if (!t) toCreate.push(id);
+      else if (t.sentSignature === signature) continue;
+      else if (t.sentSignature === null || t.isCompleted) toBackfill.push(id);
+      else toUpdate.push(id);
+    }
+
+    if (toBackfill.length) {
+      await surveyTargetRepository.updateSignature(surveyId, toBackfill, signature);
+    }
+
+    if (toCreate.length === 0 && toUpdate.length === 0) {
+      throw new ConflictError(
+        'Khảo sát chưa có thay đổi mới và đã được gửi cho những khách hàng này rồi.'
+      );
+    }
+
+    if (toCreate.length) {
+      await surveyTargetRepository.createMany(
+        toCreate.map((customerId) => ({ surveyId, customerId, sentSignature: signature }))
+      );
+      await notificationService.createMany(
+        toCreate.map((customerId) => ({
+          customerId,
+          type: NOTIFICATION_TYPE.SURVEY_ASSIGNED,
+          title: 'Bạn có khảo sát mới',
+          message: `Bạn vừa nhận được khảo sát "${survey.title}". Hãy hoàn thành để giúp chúng tôi cải thiện dịch vụ.`,
+          refType: NOTIFICATION_REF_TYPE.SURVEY,
+          refId: surveyId,
+        }))
+      );
+    }
+
+    if (toUpdate.length) {
+      await surveyTargetRepository.updateSignature(surveyId, toUpdate, signature);
+      await notificationService.createMany(
+        toUpdate.map((customerId) => ({
+          customerId,
+          type: NOTIFICATION_TYPE.SURVEY_ASSIGNED,
+          title: 'Khảo sát đã được cập nhật',
+          message: `Khảo sát "${survey.title}" vừa được cập nhật nội dung. Hãy xem lại và hoàn thành nhé.`,
+          refType: NOTIFICATION_REF_TYPE.SURVEY,
+          refId: surveyId,
+        }))
+      );
+    }
+
+    return {
+      sent: toCreate.length,
+      updated: toUpdate.length,
+      skipped: ids.length - toCreate.length - toUpdate.length,
+    };
   },
 };
 

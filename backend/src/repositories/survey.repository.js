@@ -32,12 +32,17 @@ export const surveyRepository = {
     });
   },
 
+  /** Kèm _count.surveyResponses để FE biết khảo sát đã có người trả lời (khóa cấu trúc). */
   findByIdWithQuestions(surveyId) {
     return prisma.survey.findUnique({
       where: { surveyId },
       include: {
         product: { select: PRODUCT_SELECT },
-        questions: { include: { options: { orderBy: { sortOrder: 'asc' } } } },
+        questions: {
+          orderBy: { questionId: 'asc' },
+          include: { options: { orderBy: { sortOrder: 'asc' } } },
+        },
+        _count: { select: { surveyTargets: true, surveyResponses: true } },
       },
     });
   },

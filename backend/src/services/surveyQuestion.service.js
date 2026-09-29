@@ -2,18 +2,21 @@ import {
   surveyQuestionRepository,
   surveyRepository,
   surveyQuestionOptionRepository,
-  surveyTargetRepository,
+  surveyResponseRepository,
 } from '../repositories/index.js';
 import { NotFoundError, ValidationError, ConflictError } from '../errors/AppError.js';
 import { QUESTION_TYPE_LIST, MESSAGES } from '../constants/index.js';
 import { isForeignKeyError } from '../utils/index.js';
 
-/** Chặn sửa/xoá/thêm câu hỏi nếu khảo sát đã gửi cho ít nhất 1 khách hàng. */
-async function ensureSurveyNotSent(surveyId) {
-  const targets = await surveyTargetRepository.findBySurvey(surveyId);
-  if (targets.length > 0) {
+/**
+ * Chỉ chặn sửa/xóa/thêm câu hỏi khi đã có khách hàng NỘP BÀI (sửa sẽ làm sai
+ * lệch kết quả). Khảo sát mới chỉ "gửi" mà chưa ai nộp thì vẫn được chỉnh sửa.
+ */
+async function ensureNoResponses(surveyId) {
+  const responses = await surveyResponseRepository.findBySurvey(surveyId);
+  if (responses.length > 0) {
     throw new ConflictError(
-      'Khảo sát này đã được gửi tới khách hàng nên không thể chỉnh sửa câu hỏi. Vui lòng tạo một khảo sát mới nếu cần thay đổi nội dung.'
+      'Khảo sát này đã có khách hàng nộp bài nên không thể chỉnh sửa câu hỏi. Vui lòng tạo khảo sát mới nếu cần thay đổi nội dung.'
     );
   }
 }
@@ -32,7 +35,7 @@ export const surveyQuestionService = {
   async create({ surveyId, questionContent, questionType, options = [] }) {
     const survey = await surveyRepository.findById(surveyId);
     if (!survey) throw new NotFoundError(MESSAGES.NOT_FOUND.SURVEY);
-    await ensureSurveyNotSent(surveyId);
+    await ensureNoResponses(surveyId);
 
     if (!questionContent?.trim()) throw new ValidationError('Nội dung câu hỏi không được để trống.');
     if (!QUESTION_TYPE_LIST.includes(questionType)) {
@@ -62,7 +65,7 @@ export const surveyQuestionService = {
 
   async update(questionId, { questionContent, questionType }) {
     const question = await this.getById(questionId);
-    await ensureSurveyNotSent(question.surveyId);
+    await ensureNoResponses(question.surveyId);
     if (questionContent !== undefined && !questionContent.trim()) {
       throw new ValidationError('Nội dung câu hỏi không được để trống.');
     }
@@ -77,7 +80,7 @@ export const surveyQuestionService = {
 
   async remove(questionId) {
     const question = await this.getById(questionId);
-    await ensureSurveyNotSent(question.surveyId);
+    await ensureNoResponses(question.surveyId);
     try {
       return await surveyQuestionRepository.remove(questionId);
     } catch (err) {
