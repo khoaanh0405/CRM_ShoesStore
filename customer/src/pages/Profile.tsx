@@ -177,7 +177,17 @@ export default function ProfilePage() {
     } finally { setPwSaving(false); }
   };
 
-  const handleLogout = () => { if (confirm('Bạn có chắc muốn đăng xuất?')) logout(); };
+  /**
+   * Đăng xuất xong đưa khách về trang chủ ở trạng thái CHƯA đăng nhập (giao
+   * diện khách vãng lai bình thường), thay vì rơi vào trang đăng nhập —
+   * logout() trước rồi mới navigate để lúc điều hướng, AuthProvider đã ở
+   * trạng thái signedOut, /tabs vẫn là trang công khai nên vào thẳng được.
+   */
+  const handleLogout = () => {
+    if (!confirm('Bạn có chắc muốn đăng xuất?')) return;
+    logout();
+    navigate('/tabs', { replace: true });
+  };
 
   return (
     <div className="account-layout">

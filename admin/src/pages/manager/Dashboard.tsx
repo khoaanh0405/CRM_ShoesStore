@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Users, Wifi, Star, FileText, X } from 'lucide-react';
-import { getCustomers, getFeedbacks, getSurveys, getCustomerReport } from '../../services/api';
+import { getCustomers, getFeedbacks, getSurveys, getCustomerReport, getOnlineCustomerCount } from '../../services/api';
 import DonutChart from '../../components/DonutChart';
 import { useNavigate } from 'react-router-dom';
-import { getOnlineCustomerCount } from '../../services/api';
 import './Dashboard.css';
 
 const AGE_BUCKETS = [
@@ -15,6 +14,9 @@ const AGE_BUCKETS = [
 ];
 
 const REPORT_COLORS = ['#7C3AED', '#F59E0B', '#059669', '#2563EB', '#DC2626', '#14B8A6'];
+
+// Làm mới số khách hàng online mỗi 5 giây (real-time)
+const ONLINE_POLL_MS = 5000;
 
 const getAge = (dob?: string) => {
   if (!dob) return null;
@@ -50,8 +52,16 @@ const ManagerDashboard: React.FC = () => {
     })();
   }, []);
 
+  // Polling số khách online, tự dừng khi rời trang
   useEffect(() => {
-    getOnlineCustomerCount().then(setOnlineCount);
+    let alive = true;
+    const load = () =>
+      Promise.resolve(getOnlineCustomerCount())
+        .then((n: any) => { if (alive && typeof n === 'number') setOnlineCount(n); })
+        .catch(() => {});
+    load();
+    const timer = setInterval(load, ONLINE_POLL_MS);
+    return () => { alive = false; clearInterval(timer); };
   }, []);
 
   const totalCustomers = customers.length;
@@ -77,7 +87,6 @@ const ManagerDashboard: React.FC = () => {
   const totalPreferenceVotes = preferences.reduce((sum, p) => sum + p.count, 0);
   const prefPct = (n: number) => (totalPreferenceVotes ? Math.round((n / totalPreferenceVotes) * 1000) / 10 : 0);
 
-  // Khách hàng nào có sở thích chứa tag đang xem chi tiết (dựa vào c.preferences[].tag)
   const customersWithTag = (tag: string) =>
     customers.filter((c) => (c.preferences ?? []).some((p: any) => (p.tag ?? p) === tag));
 
@@ -215,7 +224,6 @@ const ManagerDashboard: React.FC = () => {
         )}
       </div>
 
-      {/* Modal: nhóm khách hàng theo sở thích */}
       {detailTag && (
         <div className="modal-overlay" onClick={() => setDetailTag(null)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
@@ -223,7 +231,7 @@ const ManagerDashboard: React.FC = () => {
               <h3>Khách hàng thích "{detailTag}"</h3>
               <button className="modal-close-btn" onClick={() => setDetailTag(null)}><X size={20} /></button>
             </div>
-                        <div className="modal-body">
+            <div className="modal-body">
               <div className="pref-tag-tabs">
                 {preferences.map((p) => (
                   <button

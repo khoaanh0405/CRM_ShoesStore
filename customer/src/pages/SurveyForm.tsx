@@ -3,6 +3,7 @@ import { AppTextField } from '@/components/AppTextField';
 import { Card } from '@/components/Card';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { EmptyView, ErrorView, LoadingView } from '@/components/StateViews';
+import { SurveyProductBanner } from '@/components/SurveyProductBanner';
 import { AppColors, Radius, SCREEN_PADDING } from '@/constants/appTheme';
 import { QUESTION_TYPES } from '@/constants/domain';
 import { useApi } from '@/hooks/useApi';
@@ -14,11 +15,9 @@ import { Check, Lock, Send } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-
-
 type DraftAnswer = { value: string; optionId?: number };
 
-/** Làm khảo sát (mục 4.3.4). Chỉ render TEXT và SINGLE_CHOICE. Backend yêu cầu trả lời đủ mọi câu. */
+/** Làm khảo sát (mục 4.3.4). Hiển thị sản phẩm nếu khảo sát gắn với 1 mẫu giày cụ thể. */
 export default function SurveyFormPage() {
   const navigate = useNavigate();
   const customerId = useCustomerId();
@@ -57,6 +56,7 @@ export default function SurveyFormPage() {
     return (
       <div>
         <ScreenHeader title={survey.title} onBack={goBack} />
+        {survey.product ? <div style={{ padding: `0 ${SCREEN_PADDING}px 8px` }}><SurveyProductBanner product={survey.product} /></div> : null}
         <EmptyView icon={blocked.icon} title={blocked.title} message={blocked.message} actionLabel="Quay lại" onAction={goBack} />
       </div>
     );
@@ -70,24 +70,24 @@ export default function SurveyFormPage() {
   const setChoice = (q: SurveyQuestion, optionId: number, optionText: string) => setAnswers((prev) => ({ ...prev, [q.questionId]: { value: optionText, optionId } }));
 
   const doSubmit = async () => {
-  if (customerId == null || lockRef.current) return;
-  lockRef.current = true;
-  const payload: SubmitAnswer[] = questions.map((q) => {
-    const a = answers[q.questionId];
-    return { questionId: q.questionId, answerValue: a.value.trim(), ...(a.optionId !== undefined && { optionId: a.optionId }) };
-  });
-  setSubmitting(true);
-  try {
-    await surveyService.submit(surveyId, { customerId, answers: payload });
-    alert('Đã nộp khảo sát. Cảm ơn bạn đã chia sẻ ý kiến!');
-    goBack();
-  } catch (e) {
-    alert('Không nộp được khảo sát: ' + getApiErrorMessage(e, 'Vui lòng thử lại sau.'));
-  } finally {
-    setSubmitting(false);
-    lockRef.current = false;
-  }
-};
+    if (customerId == null || lockRef.current) return;
+    lockRef.current = true;
+    const payload: SubmitAnswer[] = questions.map((q) => {
+      const a = answers[q.questionId];
+      return { questionId: q.questionId, answerValue: a.value.trim(), ...(a.optionId !== undefined && { optionId: a.optionId }) };
+    });
+    setSubmitting(true);
+    try {
+      await surveyService.submit(surveyId, { customerId, answers: payload });
+      alert('Đã nộp khảo sát. Cảm ơn bạn đã chia sẻ ý kiến!');
+      goBack();
+    } catch (e) {
+      alert('Không nộp được khảo sát: ' + getApiErrorMessage(e, 'Vui lòng thử lại sau.'));
+    } finally {
+      setSubmitting(false);
+      lockRef.current = false;
+    }
+  };
 
   const handleSubmit = () => {
     setShowErrors(true);
@@ -102,6 +102,12 @@ export default function SurveyFormPage() {
   return (
     <div>
       <ScreenHeader title={survey.title} subtitle={`${questions.length} câu hỏi`} onBack={goBack} />
+
+      {survey.product ? (
+        <div style={{ padding: `0 ${SCREEN_PADDING}px 12px` }}>
+          <SurveyProductBanner product={survey.product} />
+        </div>
+      ) : null}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: `0 ${SCREEN_PADDING}px 8px` }}>
         <div style={{ height: 6, borderRadius: 3, overflow: 'hidden', background: AppColors.surface, border: `1px solid ${AppColors.border}` }}>

@@ -2,6 +2,7 @@ import { ScreenHeader } from '@/components/ScreenHeader';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { EmptyView, ErrorView, LoadingView } from '@/components/StateViews';
 import { StatusBadge } from '@/components/StatusBadge';
+import { SurveyProductBanner } from '@/components/SurveyProductBanner';
 import { AppColors, Radius } from '@/constants/appTheme';
 import { useApi } from '@/hooks/useApi';
 import { useCustomerId } from '@/hooks/useCustomerId';
@@ -86,17 +87,18 @@ function SurveyCard({ target, onClick }: { target: SurveyTarget; onClick: () => 
   const { survey, isCompleted } = target;
   const closed = !survey.isActive && !isCompleted;
   return (
-    <button onClick={onClick} style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 18, borderRadius: Radius.lg, border: `1px solid ${AppColors.border}`, background: AppColors.surface, textAlign: 'left' }}>
+    <div role="button" tabIndex={0} onClick={onClick} onKeyDown={(e) => e.key === 'Enter' && onClick()} style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 18, borderRadius: Radius.lg, border: `1px solid ${AppColors.border}`, background: AppColors.surface, textAlign: 'left', cursor: 'pointer' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <StatusBadge label={isCompleted ? 'Đã hoàn thành' : closed ? 'Đã đóng' : 'Đang mở'} tone={isCompleted ? 'success' : closed ? 'neutral' : 'warning'} />
         <span style={{ color: AppColors.textSecondary, fontSize: 12 }}>{formatDate(survey.createdAt)}</span>
       </div>
       <span style={{ color: AppColors.textPrimary, fontSize: 17, fontWeight: 800 }}>{survey.title}</span>
+      {survey.product ? <SurveyProductBanner product={survey.product} compact /> : null}
       {survey.description ? <span style={{ color: AppColors.textSecondary, fontSize: 13, lineHeight: '19px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{survey.description}</span> : null}
       <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginTop: 2 }}>
         <span style={{ color: AppColors.accent, fontSize: 13, fontWeight: 700 }}>{isCompleted ? 'Xem lại' : closed ? 'Xem chi tiết' : 'Làm khảo sát'}</span>
         <ChevronRight size={16} color={AppColors.accent} />
       </div>
-    </button>
+    </div>
   );
 }

@@ -17,6 +17,9 @@ function getTrail(pathname: string): Crumb[] {
   if (pathname === '/feedback/create') return [HOME, { label: 'Đánh giá', to: '/tabs/feedbacks' }, { label: 'Viết đánh giá' }];
   if (pathname === '/tabs/profile') return [HOME, { label: 'Cá nhân' }];
   if (pathname === '/notifications') return [HOME, { label: 'Thông báo' }];
+  if (pathname === '/auth/login') return [HOME, { label: 'Đăng nhập' }];
+  if (pathname === '/auth/register') return [HOME, { label: 'Đăng ký' }];
+  if (pathname === '/auth/forgot-password') return [HOME, { label: 'Đăng nhập', to: '/auth/login' }, { label: 'Quên mật khẩu' }];
   return [];
 }
 

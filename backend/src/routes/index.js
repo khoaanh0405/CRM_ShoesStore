@@ -1,10 +1,5 @@
 /**
- * Gom toàn bộ route con vào 1 router duy nhất, được app.js mount tại '/api'.
- * => URL cuối cùng = '/api' + prefix bên dưới + path trong từng file route.
- *    Ví dụ: '/api' + '/surveys' + '/:surveyId/submit'
- *           = POST /api/surveys/3/submit
- *    '/api' + '/admin' + '/customers' = POST /api/admin/customers
- *    (endpoint riêng cho Admin thêm khách hàng — xem admin.routes.js)
+ * Gom toàn bộ route con, app.js mount tại '/api'.
  */
 import { Router } from 'express';
 import roleRoutes from './role.routes.js';
@@ -20,6 +15,8 @@ import surveyQuestionRoutes from './surveyQuestion.routes.js';
 import surveyQuestionOptionRoutes from './surveyQuestionOption.routes.js';
 import surveyResponseRoutes from './surveyResponse.routes.js';
 import notificationRoutes from './notification.routes.js';
+import presenceRoutes from './presence.routes.js';
+
 const router = Router();
 router.use('/roles', roleRoutes);
 router.use('/accounts', accountRoutes);
@@ -34,4 +31,5 @@ router.use('/questions', surveyQuestionRoutes);
 router.use('/options', surveyQuestionOptionRoutes);
 router.use('/responses', surveyResponseRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/presence', presenceRoutes);
 export default router;

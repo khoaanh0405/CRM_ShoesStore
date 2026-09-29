@@ -1,6 +1,7 @@
 import { RequireAuth, RequireGuest } from '@/components/AuthGate';
 import { SiteLayout } from '@/components/SiteLayout';
 import { AuthProvider } from '@/context/AuthContext';
+import { usePresence } from '@/hooks/usePresence';
 import LoginPage from '@/pages/auth/Login';
 import ForgotPasswordPage from '@/pages/auth/ForgotPassword';
 import RegisterPage from '@/pages/auth/Register';
@@ -16,10 +17,6 @@ import SurveysPage from '@/pages/Surveys';
 import type { ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 
-const AuthLayout = ({ children }: { children: ReactNode }) => (
-  <div className="auth-wrap"><div className="auth-card">{children}</div></div>
-);
-
 // Trang cần đăng nhập (đánh giá, khảo sát, hồ sơ...)
 const guard = (page: ReactNode, narrow = false) => (
   <RequireAuth>
@@ -32,16 +29,40 @@ const open = (page: ReactNode, narrow = false) => (
   <SiteLayout narrow={narrow}>{page}</SiteLayout>
 );
 
+/**
+ * Đăng nhập/Đăng ký/Quên mật khẩu vẫn dùng chung SiteLayout (header, menu,
+ * breadcrumb, footer) như mọi trang khác trong web — chỉ có phần nội dung
+ * là thẻ "auth-card" 2 cột quen thuộc — để không cảm giác như một màn hình
+ * tách biệt, đồng thời RequireGuest vẫn đảm bảo khách đã đăng nhập không
+ * vào lại được các trang này.
+ */
+const authPage = (page: ReactNode) => (
+  <RequireGuest>
+    <SiteLayout narrow>
+      <div className="auth-page">
+        <div className="auth-card">{page}</div>
+      </div>
+    </SiteLayout>
+  </RequireGuest>
+);
+
+/** Gửi heartbeat "đang online" cho cả khách đã đăng nhập lẫn khách vãng lai (vd. đang ở trang đăng nhập/đăng ký). */
+function PresenceTracker() {
+  usePresence();
+  return null;
+}
+
 export default function App() {
   return (
     <AuthProvider>
+      <PresenceTracker />
       <div className="app-shell">
         <Routes>
           <Route path="/" element={<Navigate to="/tabs" replace />} />
 
-          <Route path="/auth/login" element={<RequireGuest><AuthLayout><LoginPage /></AuthLayout></RequireGuest>} />
-          <Route path="/auth/register" element={<RequireGuest><AuthLayout><RegisterPage /></AuthLayout></RequireGuest>} />
-          <Route path="/auth/forgot-password" element={<RequireGuest><AuthLayout><ForgotPasswordPage /></AuthLayout></RequireGuest>} />
+          <Route path="/auth/login" element={authPage(<LoginPage />)} />
+          <Route path="/auth/register" element={authPage(<RegisterPage />)} />
+          <Route path="/auth/forgot-password" element={authPage(<ForgotPasswordPage />)} />
 
           <Route path="/tabs" element={open(<HomePage />)} />
           <Route path="/tabs/products" element={open(<ProductsPage />)} />

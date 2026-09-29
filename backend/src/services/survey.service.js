@@ -1,17 +1,26 @@
 /**
- * Service cho Survey. createWithQuestions() dùng prisma.$transaction /
- * nested-write trực tiếp (không qua Repository) để tạo Survey + câu hỏi +
- * lựa chọn nguyên tử trong 1 lần — vì Repository layer chỉ expose CRUD đơn
- * giản cho từng bảng riêng lẻ.
- *
- * Theo đúng thiết kế trong survey.repository.js: KHÔNG có hard delete cho
- * Survey (survey_responses RESTRICT sẽ luôn chặn nếu đã có người trả lời) —
- * Service dùng setActive() để "đóng" khảo sát thay vì xóa.
+ * Service cho Survey. Khảo sát có thể gắn (tùy chọn) với 1 sản phẩm qua productId.
+ * KHÔNG có hard delete — dùng setActive() để đóng khảo sát.
  */
 import prisma from '../config/database.js';
-import { surveyRepository, surveyTargetRepository, customerRepository } from '../repositories/index.js';
+import {
+  surveyRepository,
+  surveyTargetRepository,
+  customerRepository,
+  productRepository,
+} from '../repositories/index.js';
 import { NotFoundError, ValidationError } from '../errors/AppError.js';
 import { QUESTION_TYPE_LIST, MIN_SURVEY_QUESTIONS, MESSAGES } from '../constants/index.js';
+
+/** productId rỗng => khảo sát chung (null). Có giá trị => phải là sản phẩm tồn tại. */
+async function resolveProductId(productId) {
+  if (productId === undefined || productId === null || productId === '') return null;
+  const id = Number(productId);
+  if (!Number.isInteger(id) || id <= 0) throw new ValidationError('Sản phẩm không hợp lệ.');
+  const product = await productRepository.findById(id);
+  if (!product) throw new NotFoundError(MESSAGES.NOT_FOUND.PRODUCT);
+  return id;
+}
 
 export const surveyService = {
   list({ isActive } = {}) {
@@ -30,21 +39,19 @@ export const surveyService = {
     return survey;
   },
 
-  /**
-   * Tạo khảo sát đơn giản (không cần câu hỏi ngay). Admin sẽ thêm câu hỏi
-   * sau qua Tab "Câu hỏi & Tùy chọn" trong trang chi tiết.
-   */
-  async createSimple({ title, description, isActive = true }) {
+  /** Tạo khảo sát đơn giản (chung hoặc gắn sản phẩm), câu hỏi thêm sau. */
+  async createSimple({ title, description, isActive = true, productId }) {
     if (!title?.trim()) throw new ValidationError('Tiêu đề khảo sát không được để trống.');
-    return surveyRepository.create({ title: title.trim(), description, isActive });
+    const resolvedProductId = await resolveProductId(productId);
+    return surveyRepository.create({
+      title: title.trim(),
+      description,
+      isActive,
+      productId: resolvedProductId,
+    });
   },
 
-  /**
-   * Admin "Tạo bảng khảo sát và gửi đến tài khoản khách hàng" (mục 4.1.6),
-   * phần tạo khảo sát. questions: [{ questionContent, questionType, options? }]
-   * — options bắt buộc (>=2) khi questionType = 'SINGLE_CHOICE'.
-   */
-  async createWithQuestions({ title, description, questions = [] }) {
+  async createWithQuestions({ title, description, questions = [], productId }) {
     if (!title?.trim()) throw new ValidationError('Tiêu đề khảo sát không được để trống.');
     if (!Array.isArray(questions) || questions.length < MIN_SURVEY_QUESTIONS) {
       throw new ValidationError(`Khảo sát phải có ít nhất ${MIN_SURVEY_QUESTIONS} câu hỏi.`);
@@ -58,12 +65,14 @@ export const surveyService = {
         throw new ValidationError('Câu hỏi trắc nghiệm (SINGLE_CHOICE) phải có ít nhất 2 lựa chọn.');
       }
     }
+    const resolvedProductId = await resolveProductId(productId);
 
     return prisma.survey.create({
       data: {
         title: title.trim(),
         description,
         isActive: true,
+        productId: resolvedProductId,
         questions: {
           create: questions.map((q) => ({
             questionContent: q.questionContent.trim(),
@@ -79,7 +88,7 @@ export const surveyService = {
           })),
         },
       },
-      include: { questions: { include: { options: true } } },
+      include: { product: true, questions: { include: { options: true } } },
     });
   },
 
@@ -89,19 +98,17 @@ export const surveyService = {
     return surveyRepository.update(surveyId, { title: title?.trim(), description });
   },
 
-  /** Đóng/mở khảo sát — thay thế an toàn cho hard delete. */
   async setActive(surveyId, isActive) {
     await this.getById(surveyId);
     return surveyRepository.setActive(surveyId, isActive);
   },
 
   async assignToCustomers(surveyId, customerIds = []) {
-    const survey = await this.getWithQuestions(surveyId); // đã có sẵn hàm này, trả kèm questions+options
+    const survey = await this.getWithQuestions(surveyId);
     if (!Array.isArray(customerIds) || customerIds.length === 0) {
       throw new ValidationError('Danh sách khách hàng nhận khảo sát không được trống.');
     }
 
-    // Chặn gửi nếu còn câu hỏi trắc nghiệm chưa đủ lựa chọn (tối thiểu 2).
     const invalidQuestion = (survey.questions ?? []).find(
       (q) => q.questionType === 'SINGLE_CHOICE' && (!q.options || q.options.length < 2)
     );
@@ -122,7 +129,7 @@ export const surveyService = {
     }
 
     return surveyTargetRepository.createMany(targets);
-  }
+  },
 };
 
 export default surveyService;
