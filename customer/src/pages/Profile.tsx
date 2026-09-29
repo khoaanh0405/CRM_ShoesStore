@@ -25,6 +25,7 @@ import { validateDateOfBirth, validateFullName, validatePassword, validatePhone 
 import { Check, ClipboardList, Edit3, Grid, Heart, History, ImageOff, Key, LogOut, MessageCircle, Phone, ShieldCheck, User, type LucideIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { showConfirm } from '@/lib/dialog';
 
 type Section = 'info' | 'prefs' | 'history' | 'password';
 type ProfileForm = { fullName: string; dateOfBirth: string; gender: string; phone: string; address: string };
@@ -177,17 +178,12 @@ export default function ProfilePage() {
     } finally { setPwSaving(false); }
   };
 
-  /**
-   * Đăng xuất xong đưa khách về trang chủ ở trạng thái CHƯA đăng nhập (giao
-   * diện khách vãng lai bình thường), thay vì rơi vào trang đăng nhập —
-   * logout() trước rồi mới navigate để lúc điều hướng, AuthProvider đã ở
-   * trạng thái signedOut, /tabs vẫn là trang công khai nên vào thẳng được.
-   */
-  const handleLogout = () => {
-    if (!confirm('Bạn có chắc muốn đăng xuất?')) return;
-    logout();
-    navigate('/tabs', { replace: true });
-  };
+  const handleLogout = async () => {
+  const ok = await showConfirm({ title: 'Đăng xuất?', message: 'Bạn có chắc muốn đăng xuất khỏi tài khoản này?', confirmLabel: 'Đăng xuất', tone: 'warning', danger: true });
+  if (!ok) return;
+  logout();
+  navigate('/tabs', { replace: true });
+};
 
   return (
     <div className="account-layout">

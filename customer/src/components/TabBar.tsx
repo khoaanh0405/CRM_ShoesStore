@@ -15,6 +15,7 @@ const TABS = [
 ];
 const cls = ({ isActive }: { isActive: boolean }) => 'nav-link' + (isActive ? ' active' : '');
 
+/** Header gọn 1 thanh: logo · menu · tìm kiếm · hotline · tài khoản. Không dính khi cuộn. */
 export function TabBar() {
   const { status } = useAuth();
   const navigate = useNavigate();
@@ -27,47 +28,43 @@ export function TabBar() {
     navigate(k ? `/tabs/products?keyword=${encodeURIComponent(k)}` : '/tabs/products');
   };
 
-  const pill = { display: 'flex', alignItems: 'center', gap: 8, padding: '12px 22px', borderRadius: 999, fontWeight: 700, fontSize: 15 } as const;
+  const pill = { display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 999, fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap' } as const;
 
   return (
     <>
       <header className="nav-top">
         <div className="nav-top-inner">
-          <Link to="/tabs" className="brand" aria-label={SITE.name}><Logo height={80} /></Link>
+          <Link to="/tabs" className="brand" aria-label={SITE.name}><Logo height={44} /></Link>
+
+          <nav className="nav-top-links">
+            {TABS.map(({ to, label, icon: Icon, end }) => (
+              <NavLink key={to} to={to} end={end} className={cls} title={label}><Icon size={18} /><span className="nav-label">{label}</span></NavLink>
+            ))}
+          </nav>
 
           <form className="header-search" onSubmit={handleSearch} role="search">
-            <Search size={20} color={AppColors.textSecondary} />
+            <Search size={18} color={AppColors.textSecondary} />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tìm tên giày, thương hiệu..." aria-label="Tìm kiếm sản phẩm" />
             <button type="submit">Tìm</button>
           </form>
 
           <a className="header-hotline" href={`tel:${SITE.hotlineRaw}`}>
-            <span className="hotline-icon"><Phone size={20} /></span>
-            <span><small>Hotline</small><strong>{SITE.hotline}</strong></span>
+            <span className="hotline-icon"><Phone size={17} /></span>
+            <strong>{SITE.hotline}</strong>
           </a>
 
           <div className="header-actions">
             {signedIn ? (
               <>
                 <NotificationBell />
-                <Link to="/tabs/profile" className="icon-btn dark" aria-label="Hồ sơ người dùng" title="Hồ sơ người dùng"><User size={22} /></Link>
+                <Link to="/tabs/profile" className="icon-btn dark" aria-label="Hồ sơ người dùng" title="Hồ sơ người dùng"><User size={20} /></Link>
               </>
             ) : (
               <>
-                <Link to="/auth/register" style={{ ...pill, border: `1px solid ${AppColors.border}`, color: AppColors.textPrimary }}><UserPlus size={18} /> Đăng ký</Link>
-                <Link to="/auth/login" style={{ ...pill, background: AppColors.accent, color: AppColors.accentText }}><LogIn size={18} /> Đăng nhập</Link>
+                <Link to="/auth/register" style={{ ...pill, border: `1px solid ${AppColors.border}`, color: AppColors.textPrimary }}><UserPlus size={16} /> Đăng ký</Link>
+                <Link to="/auth/login" style={{ ...pill, background: AppColors.accent, color: AppColors.accentText }}><LogIn size={16} /> Đăng nhập</Link>
               </>
             )}
-          </div>
-        </div>
-
-        <div className="nav-sub">
-          <div className="nav-sub-inner">
-            <nav className="nav-top-links">
-              {TABS.map(({ to, label, icon: Icon, end }) => (
-                <NavLink key={to} to={to} end={end} className={cls}><Icon size={22} />{label}</NavLink>
-              ))}
-            </nav>
           </div>
         </div>
       </header>

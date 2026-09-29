@@ -1,0 +1,88 @@
+/* ===== Tiêu đề: IN HOA, đậm, lớn hơn ===== */
+.screen-heading { color: #18181B; font-size: 28px; font-weight: 900; line-height: 1.2; letter-spacing: .4px; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.section-heading { color: #18181B; font-size: 22px; font-weight: 900; line-height: 1.25; letter-spacing: .4px; text-transform: uppercase; }
+.side-title { color: #18181B; font-size: 15px; font-weight: 900; letter-spacing: .6px; padding: 0 12px 8px; }
+.opt { font-size: 14.5px; }
+
+/* ===== Hộp thoại thay alert/confirm ===== */
+.dlg-overlay { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(24, 24, 27, .55); backdrop-filter: blur(3px); animation: dlg-fade .15s ease; }
+.dlg { width: 100%; max-width: 420px; padding: 28px 26px 22px; text-align: center; background: #fff; border-radius: 28px; box-shadow: 0 30px 70px rgba(0, 0, 0, .28); animation: dlg-pop .2s ease; }
+.dlg-icon { width: 64px; height: 64px; margin: 0 auto 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.dlg-icon.success { background: #E6F6EE; color: #2E9E6B; }
+.dlg-icon.error { background: #FDECEC; color: #D64545; }
+.dlg-icon.warning { background: #FDF3E1; color: #D99A2B; }
+.dlg-icon.info { background: #F4F4F5; color: #18181B; }
+.dlg h3 { font-size: 20px; font-weight: 800; line-height: 26px; margin-bottom: 8px; }
+.dlg p { font-size: 14.5px; line-height: 21px; color: #52525B; }
+.dlg-actions { display: flex; gap: 10px; margin-top: 24px; }
+.dlg-actions button { flex: 1; height: 48px; border-radius: 999px; border: 1px solid #E4E4E7; background: #fff; color: #18181B; font-size: 15px; font-weight: 700; transition: background-color .15s; }
+.dlg-actions button:hover { background: #F4F4F5; }
+.dlg-actions button.primary { background: #18181B; border-color: #18181B; color: #fff; }
+.dlg-actions button.primary:hover { background: #3A3A3D; }
+.dlg-actions button.danger { background: #D64545; border-color: #D64545; color: #fff; }
+.dlg-actions button.danger:hover { background: #BF3A3A; }
+@keyframes dlg-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dlg-pop { from { opacity: 0; transform: translateY(8px) scale(.96); } to { opacity: 1; transform: none; } }
+
+/* ===== Khối "cần đăng nhập" ===== */
+.lr-wrap { display: flex; justify-content: center; padding: 40px 20px 24px; }
+.lr-card { width: 100%; max-width: 560px; padding: 44px 32px; text-align: center; background: #fff; border: 1px solid #E4E4E7; border-radius: 28px; box-shadow: 0 20px 50px rgba(0, 0, 0, .06); }
+.lr-icon { width: 76px; height: 76px; margin: 0 auto 20px; border-radius: 50%; background: #18181B; color: #fff; display: flex; align-items: center; justify-content: center; }
+.lr-card h2 { font-size: 24px; font-weight: 800; line-height: 32px; margin-bottom: 10px; }
+.lr-card p { font-size: 15px; line-height: 22px; color: #71717A; max-width: 420px; margin: 0 auto 26px; }
+.lr-actions { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+.lr-actions button { min-width: 170px; }
+
+/* ===== Header gọn 1 khối: hàng trên (logo · tìm kiếm · hotline · tài khoản), menu nằm ngay dưới ô tìm kiếm ===== */
+.nav-top { position: static; }
+.nav-top-inner {
+  display: grid; align-items: center; min-height: 0; padding: 8px 20px; column-gap: 16px; row-gap: 6px;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-areas: "brand search hotline actions" "brand nav nav nav";
+}
+.brand { grid-area: brand; }
+.header-search { grid-area: search; min-width: 120px; max-width: none; margin: 0; height: 42px; padding: 0 5px 0 16px; }
+.header-hotline { grid-area: hotline; gap: 8px; }
+.header-actions { grid-area: actions; gap: 10px; }
+.nav-top-links { grid-area: nav; width: auto; max-width: none; justify-self: center; gap: 4px; }
+.nav-link { flex: none; padding: 6px 18px; font-size: 14.5px; gap: 8px; }
+.header-search input { font-size: 14px; }
+.header-search button { height: 32px; padding: 0 16px; font-size: 13.5px; }
+.hotline-icon { width: 38px; height: 38px; }
+.header-hotline strong { font-size: 14px; }
+.icon-btn { width: 40px; height: 40px; }
+.shop-side, .side-stack { top: 16px; }
+
+@media (max-width: 1280px) {
+  .header-hotline { display: none; }
+  .nav-top-inner { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "brand search actions" "brand nav nav"; }
+}
+@media (max-width: 768px) {
+  .nav-top-links { display: none; }
+  .nav-top-inner { display: flex; flex-wrap: wrap; padding: 8px 16px; gap: 8px; }
+  .header-search { order: 3; flex: 1 1 100%; }
+}
+
+/* ===== Logo lớn lấp khoảng trắng bên trái; menu dàn đều hết chiều ngang ===== */
+.brand { align-self: center; padding-right: 4px; }
+.brand img { height: 92px !important; }
+.nav-top-links { justify-self: stretch; width: 100%; gap: 12px; }
+.nav-link { flex: 1; justify-content: center; padding: 8px 18px; }
+@media (max-width: 768px) {
+  .brand img { height: 48px !important; }
+}
+
+/* ===== Đăng nhập / Đăng ký: thẻ rộng hơn, breadcrumb nằm góc trái như các trang khác ===== */
+.auth-page { padding: 24px 20px 56px; }
+.auth-card { max-width: 1280px; min-height: 700px; padding: 24px; gap: 24px; border-radius: 36px; }
+.auth-form { gap: 24px; }
+.auth-form > *:first-child { flex: 0 0 44%; }
+.auth-form > *:nth-child(2) { max-height: none; overflow-y: visible; padding: 16px 64px; }
+@media (max-width: 1100px) {
+  .auth-form > *:nth-child(2) { padding: 16px 28px; }
+}
+@media (max-width: 768px) {
+  .auth-page { padding: 16px 12px 32px; }
+  .auth-card { max-width: 440px; min-height: unset; padding: 12px; border-radius: 24px; }
+  .auth-form > *:nth-child(2) { padding: 12px 8px; }
+}

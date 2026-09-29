@@ -1,6 +1,9 @@
+import { DialogHost } from '@/components/DialogHost';
+import { LoginRequired } from '@/components/LoginRequired';
 import { RequireAuth, RequireGuest } from '@/components/AuthGate';
 import { SiteLayout } from '@/components/SiteLayout';
-import { AuthProvider } from '@/context/AuthContext';
+import { AppColors } from '@/constants/appTheme';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { usePresence } from '@/hooks/usePresence';
 import LoginPage from '@/pages/auth/Login';
 import ForgotPasswordPage from '@/pages/auth/ForgotPassword';
@@ -14,10 +17,11 @@ import ProductsPage from '@/pages/Products';
 import ProfilePage from '@/pages/Profile';
 import SurveyFormPage from '@/pages/SurveyForm';
 import SurveysPage from '@/pages/Surveys';
+import { ClipboardList, Loader2, MessageCircle } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 
-// Trang cần đăng nhập (đánh giá, khảo sát, hồ sơ...)
+// Trang cần đăng nhập (hồ sơ, thông báo, làm khảo sát...) — chưa đăng nhập thì chuyển sang trang đăng nhập
 const guard = (page: ReactNode, narrow = false) => (
   <RequireAuth>
     <SiteLayout narrow={narrow}>{page}</SiteLayout>
@@ -30,15 +34,35 @@ const open = (page: ReactNode, narrow = false) => (
 );
 
 /**
- * Đăng nhập/Đăng ký/Quên mật khẩu vẫn dùng chung SiteLayout (header, menu,
- * breadcrumb, footer) như mọi trang khác trong web — chỉ có phần nội dung
- * là thẻ "auth-card" 2 cột quen thuộc — để không cảm giác như một màn hình
- * tách biệt, đồng thời RequireGuest vẫn đảm bảo khách đã đăng nhập không
- * vào lại được các trang này.
+ * Tab Khảo sát / Đánh giá: khách chưa đăng nhập vẫn vào được trang (giữ header,
+ * menu, footer) nhưng nội dung là khối "cần đăng nhập" kèm nút dẫn tới đăng nhập.
+ */
+function GatedTab({ page, icon, message }: { page: ReactNode; icon: typeof ClipboardList; message: string }) {
+  const { status } = useAuth();
+  if (status === 'loading') {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 64 }}>
+        <Loader2 size={32} color={AppColors.accent} className="spin" />
+      </div>
+    );
+  }
+  if (status === 'signedOut') return <LoginRequired icon={icon} message={message} />;
+  return <>{page}</>;
+}
+
+const gate = (page: ReactNode, icon: typeof ClipboardList, message: string) => (
+  <SiteLayout>
+    <GatedTab page={page} icon={icon} message={message} />
+  </SiteLayout>
+);
+
+/**
+ * Đăng nhập/Đăng ký/Quên mật khẩu dùng chung SiteLayout (header, menu,
+ * breadcrumb, footer) — chỉ phần nội dung là thẻ "auth-card" 2 cột.
  */
 const authPage = (page: ReactNode) => (
   <RequireGuest>
-    <SiteLayout narrow>
+    <SiteLayout>
       <div className="auth-page">
         <div className="auth-card">{page}</div>
       </div>
@@ -46,7 +70,7 @@ const authPage = (page: ReactNode) => (
   </RequireGuest>
 );
 
-/** Gửi heartbeat "đang online" cho cả khách đã đăng nhập lẫn khách vãng lai (vd. đang ở trang đăng nhập/đăng ký). */
+/** Gửi heartbeat "đang online" cho cả khách đã đăng nhập lẫn khách vãng lai. */
 function PresenceTracker() {
   usePresence();
   return null;
@@ -56,6 +80,7 @@ export default function App() {
   return (
     <AuthProvider>
       <PresenceTracker />
+      <DialogHost />
       <div className="app-shell">
         <Routes>
           <Route path="/" element={<Navigate to="/tabs" replace />} />
@@ -68,8 +93,8 @@ export default function App() {
           <Route path="/tabs/products" element={open(<ProductsPage />)} />
           <Route path="/product/:id" element={open(<ProductDetailPage />)} />
 
-          <Route path="/tabs/surveys" element={guard(<SurveysPage />)} />
-          <Route path="/tabs/feedbacks" element={guard(<FeedbacksPage />)} />
+          <Route path="/tabs/surveys" element={gate(<SurveysPage />, ClipboardList, 'Đăng nhập để xem các khảo sát dành cho bạn và chia sẻ ý kiến về sản phẩm.')} />
+          <Route path="/tabs/feedbacks" element={gate(<FeedbacksPage />, MessageCircle, 'Đăng nhập để gửi đánh giá sản phẩm và theo dõi các phản hồi bạn đã gửi.')} />
           <Route path="/tabs/profile" element={guard(<ProfilePage />)} />
           <Route path="/survey/:id" element={guard(<SurveyFormPage />, true)} />
           <Route path="/feedback/create" element={guard(<FeedbackCreatePage />, true)} />

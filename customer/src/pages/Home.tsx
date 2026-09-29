@@ -13,6 +13,7 @@ import { surveyService } from '@/services/survey.service';
 import type { CustomerPreference } from '@/types/customer';
 import type { Product } from '@/types/product';
 import type { SurveyTarget } from '@/types/survey';
+import { categoryLabel } from '@/utils/category';
 import { formatDate } from '@/utils/format';
 import { recommendProducts } from '@/utils/recommend';
 import { ChevronRight, ClipboardList, Footprints, Heart } from 'lucide-react';
@@ -68,7 +69,7 @@ export default function HomePage() {
       {/* Khảo sát cần làm */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, ...pad }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ color: AppColors.textPrimary, fontSize: 20, fontWeight: 800 }}>Khảo sát cần làm</div>
+          <div className="section-heading">Khảo sát cần làm</div>
           {signedIn ? <button onClick={() => navigate('/tabs/surveys')} style={{ background: 'none', border: 'none', color: AppColors.textPrimary, fontSize: 14, fontWeight: 700, textDecoration: 'underline' }}>Xem tất cả</button> : null}
         </div>
 
@@ -104,12 +105,12 @@ export default function HomePage() {
       {/* Danh mục dạng ô, tự giãn kín chiều ngang */}
       {categories.length > 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <SectionTitle title="Danh mục" subtitle="Chọn loại giày bạn quan tâm" />
+          <SectionTitle title="Danh mục" />
           <div className="cat-grid" style={pad}>
             {categories.map((c) => (
               <button key={c.name} className="cat-tile" onClick={() => openCategory(c.name)}>
                 <span className="cat-icon"><Footprints size={24} /></span>
-                <span><b>{c.name}</b><small>{c.count} sản phẩm</small></span>
+                <span><b>{categoryLabel(c.name)}</b><small>{c.count} sản phẩm</small></span>
                 <ChevronRight size={18} color={AppColors.textSecondary} style={{ marginLeft: 'auto' }} />
               </button>
             ))}
@@ -132,10 +133,7 @@ export default function HomePage() {
       ) : null}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <SectionTitle
-          title="Sản phẩm nổi bật"
-          subtitle={recommended.length > 0 ? `Ưu tiên theo sở thích: ${tags.slice(0, 3).join(', ')}` : undefined}
-          actionLabel="Xem tất cả" onAction={() => navigate('/tabs/products')} />
+        <SectionTitle title="Sản phẩm nổi bật" actionLabel="Xem tất cả" onAction={() => navigate('/tabs/products')} />
         {featured.length > 0 ? (
           <div style={pad}><ProductGrid products={featured} onOpen={openProduct} highlightIds={recommendedIds} /></div>
         ) : (

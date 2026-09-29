@@ -2,10 +2,18 @@ import { ProductGrid } from '@/components/ProductGrid';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { EmptyView, ErrorView, LoadingView } from '@/components/StateViews';
 import { AppColors, Radius } from '@/constants/appTheme';
+import { useAuth } from '@/context/AuthContext';
 import { useApi } from '@/hooks/useApi';
+import { useCustomerId } from '@/hooks/useCustomerId';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { customerService } from '@/services/customer.service';
 import { productService } from '@/services/product.service';
+import { surveyService } from '@/services/survey.service';
+import type { CustomerPreference } from '@/types/customer';
 import type { Product, ProductSortBy } from '@/types/product';
+import type { SurveyTarget } from '@/types/survey';
+import { categoryLabel } from '@/utils/category';
+import { recommendProducts } from '@/utils/recommend';
 import { Loader2, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -25,16 +33,22 @@ const PRICE_RANGES: { key: string; label: string; min?: number; max?: number }[]
   { key: 'o2m', label: 'Trên 2 triệu', min: 2_000_000 },
 ];
 
-/** Trang Sản phẩm: sidebar bộ lọc cố định bên trái + lưới sản phẩm (GET /products/search). */
+type Focus = 'all' | 'prefs' | 'survey';
+
+/** Trang Sản phẩm: sidebar bộ lọc (kèm nhóm "Dành cho bạn" phục vụ đánh giá/khảo sát) + lưới sản phẩm. */
 export default function ProductsPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { status } = useAuth();
+  const customerId = useCustomerId();
+  const signedIn = status === 'signedIn' && customerId != null;
 
   const [keyword, setKeyword] = useState('');
   const [category, setCategory] = useState<string | null>(null);
   const [brand, setBrand] = useState<string | null>(null);
   const [priceKey, setPriceKey] = useState('all');
   const [sortKey, setSortKey] = useState('new');
+  const [focus, setFocus] = useState<Focus>('all');
   const [showFilters, setShowFilters] = useState(false); // chỉ dùng trên màn hình hẹp
 
   useEffect(() => {
@@ -48,6 +62,24 @@ export default function ProductsPage() {
   const categories = uniqueSorted(allProducts?.map((p) => p.category));
   const brands = uniqueSorted(allProducts?.map((p) => p.brand));
   const countBy = (field: 'category' | 'brand', v: string) => allProducts?.filter((p) => p[field] === v).length ?? 0;
+
+  // Dữ liệu cá nhân: sản phẩm có khảo sát đang chờ + sở thích
+  const { data: personal } = useApi(async () => {
+    if (!signedIn || customerId == null) return null;
+    const [surveys, prefs] = await Promise.all([
+      surveyService.listByCustomer(customerId).catch(() => [] as SurveyTarget[]),
+      customerService.listPreferences(customerId).catch(() => [] as CustomerPreference[]),
+    ]);
+    const surveyIds = new Set<number>();
+    surveys.forEach((t) => {
+      const pid = t.survey.productId ?? t.survey.product?.productId;
+      if (!t.isCompleted && t.survey.isActive && pid != null) surveyIds.add(pid);
+    });
+    return { surveyIds, tags: prefs.map((p) => p.preferenceTag) };
+  }, [signedIn, customerId]);
+
+  const surveyIds = personal?.surveyIds ?? new Set<number>();
+  const prefIds = new Set(recommendProducts(allProducts ?? [], personal?.tags ?? []).map((p) => p.productId));
 
   const { data, loading, fetching, error, reload } = useApi(() => {
     const price = PRICE_RANGES.find((r) => r.key === priceKey);
@@ -63,19 +95,34 @@ export default function ProductsPage() {
     });
   }, [debouncedKeyword, category, brand, priceKey, sortKey]);
 
-  const activeFilterCount = (category ? 1 : 0) + (brand ? 1 : 0) + (priceKey !== 'all' ? 1 : 0) + (sortKey !== 'new' ? 1 : 0);
-  const resetFilters = () => { setCategory(null); setBrand(null); setPriceKey('all'); setSortKey('new'); };
+  const shown = data?.filter((p) => focus === 'all' || (focus === 'prefs' ? prefIds.has(p.productId) : surveyIds.has(p.productId)));
+  const badgeIds = focus === 'prefs' ? prefIds : surveyIds;
+  const badgeLabel = focus === 'prefs' ? 'Hợp sở thích' : 'Có khảo sát';
+
+  const activeFilterCount = (category ? 1 : 0) + (brand ? 1 : 0) + (priceKey !== 'all' ? 1 : 0) + (sortKey !== 'new' ? 1 : 0) + (focus !== 'all' ? 1 : 0);
+  const resetFilters = () => { setCategory(null); setBrand(null); setPriceKey('all'); setSortKey('new'); setFocus('all'); };
   const openProduct = (p: Product) => navigate(`/product/${p.productId}`);
 
   return (
     <div>
-      <ScreenHeader title="Sản phẩm" subtitle={data ? `${data.length} sản phẩm` : undefined} right={fetching && data ? <Loader2 size={18} color={AppColors.accent} className="spin" /> : undefined} />
+      <ScreenHeader title="Sản phẩm" right={fetching && data ? <Loader2 size={18} color={AppColors.accent} className="spin" /> : undefined} />
 
       <div className="shop-layout">
         <aside className={`shop-side${showFilters ? ' open' : ''}`}>
+          <SideGroup title="Dành cho bạn">
+            {signedIn ? (
+              <>
+                <Opt label="Tất cả sản phẩm" active={focus === 'all'} onClick={() => setFocus('all')} />
+                <Opt label="Hợp sở thích" active={focus === 'prefs'} onClick={() => setFocus('prefs')} count={prefIds.size} />
+                <Opt label="Có khảo sát cần làm" active={focus === 'survey'} onClick={() => setFocus('survey')} count={surveyIds.size} />
+              </>
+            ) : (
+              <Opt label="Đăng nhập để xem gợi ý & khảo sát" active={false} onClick={() => navigate('/auth/login')} />
+            )}
+          </SideGroup>
           <SideGroup title="Danh mục">
             <Opt label="Tất cả" active={category === null} onClick={() => setCategory(null)} count={allProducts?.length} />
-            {categories.map((c) => <Opt key={c} label={c} active={category === c} onClick={() => setCategory(c)} count={countBy('category', c)} />)}
+            {categories.map((c) => <Opt key={c} label={categoryLabel(c)} active={category === c} onClick={() => setCategory(c)} count={countBy('category', c)} />)}
           </SideGroup>
           <SideGroup title="Thương hiệu">
             <Opt label="Tất cả" active={brand === null} onClick={() => setBrand(null)} />
@@ -103,13 +150,13 @@ export default function ProductsPage() {
             </button>
           </div>
 
-          {loading && !data ? <LoadingView /> : !data ? <ErrorView message={error ?? 'Vui lòng thử lại.'} onRetry={reload} /> : (
-            data.length === 0 ? (
+          {loading && !data ? <LoadingView /> : !shown ? <ErrorView message={error ?? 'Vui lòng thử lại.'} onRetry={reload} /> : (
+            shown.length === 0 ? (
               <EmptyView icon={Search} title="Không tìm thấy sản phẩm" message="Thử đổi từ khóa hoặc bỏ bớt bộ lọc."
                 actionLabel={keyword || activeFilterCount > 0 ? 'Xóa tất cả bộ lọc' : undefined}
                 onAction={() => { setKeyword(''); resetFilters(); }} />
             ) : (
-              <ProductGrid products={data} onOpen={openProduct} />
+              <ProductGrid products={shown} onOpen={openProduct} highlightIds={badgeIds} highlightLabel={badgeLabel} />
             )
           )}
         </div>

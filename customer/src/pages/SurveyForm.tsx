@@ -14,6 +14,7 @@ import type { SubmitAnswer, SurveyQuestion } from '@/types/survey';
 import { Check, Lock, Send } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { showConfirm } from '@/lib/dialog';
 
 type DraftAnswer = { value: string; optionId?: number };
 
@@ -89,14 +90,14 @@ export default function SurveyFormPage() {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setShowErrors(true);
     const missing = questions.length - answeredCount;
     if (missing > 0) {
       alert(`Bạn còn ${missing} câu chưa trả lời. Vui lòng hoàn thành tất cả các câu.`);
       return;
     }
-    if (confirm('Sau khi nộp bạn sẽ không thể chỉnh sửa. Tiếp tục?')) doSubmit();
+    if (await showConfirm({ title: 'Nộp khảo sát?', message: 'Sau khi nộp bạn sẽ không thể chỉnh sửa.', confirmLabel: 'Nộp khảo sát', tone: 'info' })) doSubmit();
   };
 
   return (
