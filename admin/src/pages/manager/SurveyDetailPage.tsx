@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
-  ArrowLeft, Plus, Trash2, Edit2, Check, X, Users, BarChart2,
+  ArrowLeft, Plus, Trash2, Edit2, Check, X, Users, BarChart2, Lock, Send,
   FileText, ChevronDown, ChevronUp, Power, PowerOff
 } from 'lucide-react';
 import {
@@ -13,11 +13,14 @@ import {
   createQuestion, updateQuestion, deleteQuestion, createOption, deleteOption,
   toggleSurveyActive,
 } from '../../services/api';
+import api from '../../utils/api';
+import { showAlert, showConfirm } from '../../lib/dialog';
 import type {
   Survey, SurveyQuestion, SurveyStats, QuestionType
 } from '../../types/survey';
 import type { CustomerBasic } from '../../services/api';
 import './SurveyDetailPage.css';
+import './SurveyLock.css';
 
 type ActiveTab = 'questions' | 'targets' | 'stats';
 
@@ -28,10 +31,13 @@ const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
 
 const CHART_COLORS = ['#1EAD5D', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6'];
 
+const errMsg = (e: any, fallback: string) => e?.response?.data?.message ?? fallback;
+
 // ====================================================
 // TAB 1: Câu hỏi & Tùy chọn
+// locked = khảo sát đã có người trả lời -> chỉ xem
 // ====================================================
-const QuestionsTab: React.FC<{ survey: Survey; onReload: () => void }> = ({ survey, onReload }) => {
+const QuestionsTab: React.FC<{ survey: Survey; onReload: () => void; locked: boolean }> = ({ survey, onReload, locked }) => {
   const [newQ, setNewQ] = useState<{ content: string; type: QuestionType }>({
     content: '',
     type: 'SINGLE_CHOICE',
@@ -44,76 +50,112 @@ const QuestionsTab: React.FC<{ survey: Survey; onReload: () => void }> = ({ surv
   const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
 
   const handleAddQuestion = async () => {
-    if (!newQ.content.trim()) { toast.error('Nội dung câu hỏi không được trống'); return; }
+    if (!newQ.content.trim()) {
+      await showAlert({ title: 'Thiếu nội dung', message: 'Nội dung câu hỏi không được để trống.', tone: 'warning' });
+      return;
+    }
     setAddingQ(true);
     try {
       await createQuestion({ surveyId: survey.surveyId, questionContent: newQ.content, questionType: newQ.type });
-      toast.success('✅ Thêm câu hỏi thành công!');
+      toast.success('Đã thêm câu hỏi');
       setNewQ({ content: '', type: 'SINGLE_CHOICE' });
       setShowQForm(false);
       onReload();
-    } catch { toast.error('Thêm câu hỏi thất bại'); }
-    finally { setAddingQ(false); }
+    } catch (e) {
+      await showAlert({ title: 'Không thể thêm câu hỏi', message: errMsg(e, 'Vui lòng thử lại.'), tone: 'error' });
+    } finally { setAddingQ(false); }
   };
 
   const handleUpdateQuestion = async (q: SurveyQuestion) => {
-    if (!editContent.trim()) { toast.error('Nội dung không được trống'); return; }
+    if (!editContent.trim()) {
+      await showAlert({ title: 'Thiếu nội dung', message: 'Nội dung câu hỏi không được để trống.', tone: 'warning' });
+      return;
+    }
     try {
       await updateQuestion(q.questionId, { questionContent: editContent });
       toast.success('Đã cập nhật câu hỏi');
       setEditingQId(null);
       onReload();
-    } catch { toast.error('Cập nhật thất bại'); }
+    } catch (e) {
+      await showAlert({ title: 'Không thể cập nhật', message: errMsg(e, 'Vui lòng thử lại.'), tone: 'error' });
+    }
   };
 
   const handleDeleteQuestion = async (q: SurveyQuestion) => {
-    if (!confirm(`Xóa câu hỏi "${q.questionContent}"?`)) return;
+    const ok = await showConfirm({
+      title: 'Xóa câu hỏi?',
+      message: `Câu hỏi "${q.questionContent}" cùng các lựa chọn của nó sẽ bị xóa.`,
+      confirmLabel: 'Xóa', tone: 'warning', danger: true,
+    });
+    if (!ok) return;
     setDeletingIds((s) => new Set(s).add(q.questionId));
     try {
       await deleteQuestion(q.questionId);
       toast.success('Đã xóa câu hỏi');
       onReload();
-    } catch { toast.error('Xóa thất bại'); }
-    finally { setDeletingIds((s) => { const n = new Set(s); n.delete(q.questionId); return n; }); }
+    } catch (e) {
+      await showAlert({ title: 'Không thể xóa câu hỏi', message: errMsg(e, 'Vui lòng thử lại.'), tone: 'error' });
+    } finally {
+      setDeletingIds((s) => { const n = new Set(s); n.delete(q.questionId); return n; });
+    }
   };
 
   const handleAddOption = async (questionId: number) => {
     const text = newOptionTexts[questionId]?.trim();
-    if (!text) { toast.error('Nội dung tùy chọn không được trống'); return; }
+    if (!text) {
+      await showAlert({ title: 'Thiếu nội dung', message: 'Nội dung lựa chọn không được để trống.', tone: 'warning' });
+      return;
+    }
     try {
       await createOption({ questionId, optionText: text });
-      toast.success('✅ Thêm tùy chọn thành công!');
+      toast.success('Đã thêm lựa chọn');
       setNewOptionTexts((p) => ({ ...p, [questionId]: '' }));
       onReload();
-    } catch { toast.error('Thêm tùy chọn thất bại'); }
+    } catch (e) {
+      await showAlert({ title: 'Không thể thêm lựa chọn', message: errMsg(e, 'Vui lòng thử lại.'), tone: 'error' });
+    }
   };
 
-  const handleDeleteOption = async (optionId: number) => {
-    if (!confirm('Xóa tùy chọn này?')) return;
+  const handleDeleteOption = async (optionId: number, text: string) => {
+    const ok = await showConfirm({
+      title: 'Xóa lựa chọn?', message: `Lựa chọn "${text}" sẽ bị xóa.`,
+      confirmLabel: 'Xóa', tone: 'warning', danger: true,
+    });
+    if (!ok) return;
     try {
       await deleteOption(optionId);
-      toast.success('Đã xóa tùy chọn');
+      toast.success('Đã xóa lựa chọn');
       onReload();
-    } catch { toast.error('Xóa tùy chọn thất bại'); }
+    } catch (e) {
+      await showAlert({ title: 'Không thể xóa lựa chọn', message: errMsg(e, 'Vui lòng thử lại.'), tone: 'error' });
+    }
   };
 
   const questions = survey.questions ?? [];
 
   return (
     <div className="tab-content">
+      {locked && (
+        <div className="lock-banner">
+          <Lock size={18} />
+          <div>
+            <b>Cấu trúc khảo sát đã bị khóa</b>
+            Khảo sát này đã có khách hàng trả lời nên chỉ được xem. Bạn không thể thêm, sửa hay xóa câu hỏi/lựa chọn.
+            Nếu cần thay đổi, hãy tạo một khảo sát mới.
+          </div>
+        </div>
+      )}
+
       <div className="tab-section-header">
         <span>{questions.length} câu hỏi</span>
-        <button
-          id="add-question-btn"
-          className="btn btn-primary btn-sm"
-          onClick={() => setShowQForm(!showQForm)}
-        >
-          <Plus size={15} /> Thêm câu hỏi
-        </button>
+        {!locked && (
+          <button id="add-question-btn" className="btn btn-primary btn-sm" onClick={() => setShowQForm(!showQForm)}>
+            <Plus size={15} /> Thêm câu hỏi
+          </button>
+        )}
       </div>
 
-      {/* Form thêm câu hỏi */}
-      {showQForm && (
+      {!locked && showQForm && (
         <div className="add-question-form">
           <textarea
             className="form-input"
@@ -136,27 +178,24 @@ const QuestionsTab: React.FC<{ survey: Survey; onReload: () => void }> = ({ surv
             <button className="btn btn-primary btn-sm" onClick={handleAddQuestion} disabled={addingQ}>
               {addingQ ? 'Đang thêm...' : 'Lưu'}
             </button>
-            <button className="btn btn-ghost btn-sm" onClick={() => setShowQForm(false)}>
-              Hủy
-            </button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setShowQForm(false)}>Hủy</button>
           </div>
         </div>
       )}
 
       {questions.length === 0 && !showQForm && (
         <div className="empty-state-sm">
-          <p>Chưa có câu hỏi nào. Nhấn "+ Thêm câu hỏi" để bắt đầu.</p>
+          <p>Chưa có câu hỏi nào.{!locked && ' Nhấn "+ Thêm câu hỏi" để bắt đầu.'}</p>
         </div>
       )}
 
-      {/* Danh sách câu hỏi */}
       <div className="questions-list">
         {questions.map((q, idx) => (
           <div key={q.questionId} className="question-card">
             <div className="question-header">
               <div className="question-index">{idx + 1}</div>
               <div className="question-body">
-                {editingQId === q.questionId ? (
+                {!locked && editingQId === q.questionId ? (
                   <div className="edit-row">
                     <textarea
                       className="form-input"
@@ -177,26 +216,27 @@ const QuestionsTab: React.FC<{ survey: Survey; onReload: () => void }> = ({ surv
                 )}
                 <span className="question-type-badge">{QUESTION_TYPE_LABELS[q.questionType]}</span>
               </div>
-              <div className="question-actions">
-                <button
-                  className="icon-btn edit-btn"
-                  title="Sửa"
-                  onClick={() => { setEditingQId(q.questionId); setEditContent(q.questionContent); }}
-                >
-                  <Edit2 size={14} />
-                </button>
-                <button
-                  className="icon-btn danger-btn"
-                  title="Xóa câu hỏi"
-                  onClick={() => handleDeleteQuestion(q)}
-                  disabled={deletingIds.has(q.questionId)}
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
+              {!locked && (
+                <div className="question-actions">
+                  <button
+                    className="icon-btn edit-btn"
+                    title="Sửa"
+                    onClick={() => { setEditingQId(q.questionId); setEditContent(q.questionContent); }}
+                  >
+                    <Edit2 size={14} />
+                  </button>
+                  <button
+                    className="icon-btn danger-btn"
+                    title="Xóa câu hỏi"
+                    onClick={() => handleDeleteQuestion(q)}
+                    disabled={deletingIds.has(q.questionId)}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Options (nếu không phải TEXT) */}
             {q.questionType !== 'TEXT' && (
               <div className="options-section">
                 <div className="options-list">
@@ -204,33 +244,32 @@ const QuestionsTab: React.FC<{ survey: Survey; onReload: () => void }> = ({ surv
                     <div key={opt.optionId} className="option-item">
                       <span className="option-bullet">{String.fromCharCode(65 + oi)}.</span>
                       <span className="option-text">{opt.optionText}</span>
-                      <button
-                        className="icon-btn danger-btn btn-xs"
-                        onClick={() => handleDeleteOption(opt.optionId)}
-                        title="Xóa tùy chọn"
-                      >
-                        <X size={12} />
-                      </button>
+                      {!locked && (
+                        <button
+                          className="icon-btn danger-btn btn-xs"
+                          onClick={() => handleDeleteOption(opt.optionId, opt.optionText)}
+                          title="Xóa tùy chọn"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
-                <div className="add-option-row">
-                  <input
-                    className="form-input form-input-sm"
-                    placeholder="Thêm tùy chọn..."
-                    value={newOptionTexts[q.questionId] ?? ''}
-                    onChange={(e) =>
-                      setNewOptionTexts((p) => ({ ...p, [q.questionId]: e.target.value }))
-                    }
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddOption(q.questionId)}
-                  />
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => handleAddOption(q.questionId)}
-                  >
-                    <Plus size={14} /> Thêm
-                  </button>
-                </div>
+                {!locked && (
+                  <div className="add-option-row">
+                    <input
+                      className="form-input form-input-sm"
+                      placeholder="Thêm tùy chọn..."
+                      value={newOptionTexts[q.questionId] ?? ''}
+                      onChange={(e) => setNewOptionTexts((p) => ({ ...p, [q.questionId]: e.target.value }))}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddOption(q.questionId)}
+                    />
+                    <button className="btn btn-ghost btn-sm" onClick={() => handleAddOption(q.questionId)}>
+                      <Plus size={14} /> Thêm
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -241,29 +280,38 @@ const QuestionsTab: React.FC<{ survey: Survey; onReload: () => void }> = ({ surv
 };
 
 // ====================================================
-// TAB 2: Đối tượng
+// TAB 2: Đối tượng — gửi cho KH đã chọn / gửi tất cả (chỉ người chưa nhận)
 // ====================================================
 const TargetsTab: React.FC<{ survey: Survey }> = ({ survey }) => {
   const [customers, setCustomers] = useState<CustomerBasic[]>([]);
+  const [assignedIds, setAssignedIds] = useState<Set<number>>(new Set());
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [assigning, setAssigning] = useState(false);
+  const [sending, setSending] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // IDs đã được gán (từ surveyTargets nếu có)
-  const assignedIds = new Set<number>(); // sẽ lấy từ survey targets API sau khi có
+  const loadTargets = useCallback(async () => {
+    try {
+      const res = await api.get(`/surveys/${survey.surveyId}/targets`);
+      const list: any[] = res.data?.data ?? res.data ?? [];
+      setAssignedIds(new Set(list.map((t) => t.customerId)));
+    } catch {
+      setAssignedIds(new Set());
+    }
+  }, [survey.surveyId]);
 
   useEffect(() => {
-    getCustomers()
-      .then(setCustomers)
-      .catch(() => toast.error('Không tải được danh sách khách hàng'))
+    Promise.all([getCustomers().then(setCustomers), loadTargets()])
+      .catch(() => showAlert({ title: 'Lỗi tải dữ liệu', message: 'Không tải được danh sách khách hàng.', tone: 'error' }))
       .finally(() => setLoading(false));
-  }, []);
+  }, [loadTargets]);
 
   const filtered = customers.filter((c) =>
     c.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (c.phone ?? '').includes(searchTerm)
   );
+
+  const pendingAll = customers.filter((c) => !(c as any).isLocked && !assignedIds.has(c.customerId));
 
   const toggleSelect = (id: number) => {
     setSelected((prev) => {
@@ -273,30 +321,62 @@ const TargetsTab: React.FC<{ survey: Survey }> = ({ survey }) => {
     });
   };
 
-  const handleAssign = async () => {
-    if (selected.size === 0) { toast.error('Chọn ít nhất 1 khách hàng'); return; }
-    setAssigning(true);
+  const send = async (ids: number[]) => {
+    setSending(true);
     try {
-      await assignSurvey(survey.surveyId, Array.from(selected));
-      toast.success(`✅ Đã gán khảo sát cho ${selected.size} khách hàng!`);
+      await assignSurvey(survey.surveyId, ids);
       setSelected(new Set());
-    } catch { toast.error('Gán khảo sát thất bại'); }
-    finally { setAssigning(false); }
+      await loadTargets();
+      await showAlert({
+        title: 'Đã gửi khảo sát',
+        message: `Khảo sát "${survey.title}" đã được gửi cho ${ids.length} khách hàng. Họ sẽ nhận được thông báo ngay.`,
+        tone: 'success',
+      });
+    } catch (e) {
+      await showAlert({ title: 'Gửi khảo sát thất bại', message: errMsg(e, 'Vui lòng thử lại sau.'), tone: 'error' });
+    } finally { setSending(false); }
+  };
+
+  const handleSendSelected = async () => {
+    const ids = Array.from(selected).filter((id) => !assignedIds.has(id));
+    if (ids.length === 0) {
+      await showAlert({ title: 'Chưa chọn khách hàng', message: 'Hãy chọn ít nhất 1 khách hàng chưa nhận khảo sát.', tone: 'warning' });
+      return;
+    }
+    const ok = await showConfirm({
+      title: 'Gửi khảo sát?', message: `Gửi khảo sát cho ${ids.length} khách hàng đã chọn.`,
+      confirmLabel: 'Gửi', tone: 'info',
+    });
+    if (ok) send(ids);
+  };
+
+  const handleSendAll = async () => {
+    if (pendingAll.length === 0) {
+      await showAlert({ title: 'Không còn ai để gửi', message: 'Tất cả khách hàng đã nhận khảo sát này rồi.', tone: 'info' });
+      return;
+    }
+    const ok = await showConfirm({
+      title: 'Gửi cho tất cả?',
+      message: `Gửi khảo sát cho ${pendingAll.length} khách hàng chưa nhận. Người đã nhận sẽ được bỏ qua.`,
+      confirmLabel: 'Gửi tất cả', tone: 'info',
+    });
+    if (ok) send(pendingAll.map((c) => c.customerId));
   };
 
   return (
     <div className="tab-content">
       <div className="tab-section-header">
-        <span>Chọn khách hàng để gán khảo sát</span>
-        <button
-          className="btn btn-primary btn-sm"
-          onClick={handleAssign}
-          disabled={assigning || selected.size === 0}
-          id="assign-survey-btn"
-        >
-          <Users size={15} />
-          {assigning ? 'Đang gán...' : `Gán cho ${selected.size > 0 ? selected.size : ''} KH đã chọn`}
-        </button>
+        <span>Đã gửi {assignedIds.size}/{customers.length} khách hàng</span>
+        <div className="send-actions">
+          <button className="btn btn-ghost btn-sm" onClick={handleSendAll} disabled={sending || loading} id="assign-all-btn">
+            <Send size={15} /> Gửi tất cả ({pendingAll.length})
+          </button>
+          <button className="btn btn-primary btn-sm" onClick={handleSendSelected}
+            disabled={sending || selected.size === 0} id="assign-survey-btn">
+            <Users size={15} />
+            {sending ? 'Đang gửi...' : `Gửi cho ${selected.size > 0 ? selected.size : ''} KH đã chọn`}
+          </button>
+        </div>
       </div>
 
       <input
@@ -320,10 +400,10 @@ const TargetsTab: React.FC<{ survey: Survey }> = ({ survey }) => {
                 key={c.customerId}
                 className={`customer-chip ${isSelected ? 'selected' : ''} ${isAssigned ? 'assigned' : ''}`}
                 onClick={() => !isAssigned && toggleSelect(c.customerId)}
-                title={isAssigned ? 'Đã gán' : ''}
+                title={isAssigned ? 'Đã gửi khảo sát' : ''}
               >
                 <img
-                  src={`https://ui-avatars.com/api/?name=${encodeURIComponent(c.fullName)}&background=1EAD5D&color=fff&size=32`}
+                  src={`https://ui-avatars.com/api/?name=${encodeURIComponent(c.fullName)}&background=8B5CF6&color=fff&size=32`}
                   alt=""
                   className="chip-avatar"
                 />
@@ -332,7 +412,7 @@ const TargetsTab: React.FC<{ survey: Survey }> = ({ survey }) => {
                   {c.phone && <span className="chip-phone">{c.phone}</span>}
                 </div>
                 {isSelected && <Check size={14} className="chip-check" />}
-                {isAssigned && <span className="assigned-label">Đã gán</span>}
+                {isAssigned && <span className="assigned-label">Đã gửi</span>}
               </div>
             );
           })}
@@ -366,7 +446,6 @@ const StatsTab: React.FC<{ surveyId: number }> = ({ surveyId }) => {
 
   return (
     <div className="tab-content">
-      {/* Tổng quan */}
       <div className="stats-overview">
         <div className="stat-box">
           <div className="stat-box-value">{stats.totalAssigned}</div>
@@ -382,7 +461,6 @@ const StatsTab: React.FC<{ surveyId: number }> = ({ surveyId }) => {
         </div>
       </div>
 
-      {/* Completion progress bar */}
       <div className="progress-section">
         <div className="progress-bar">
           <div className="progress-fill" style={{ width: `${completionPct}%` }} />
@@ -390,7 +468,6 @@ const StatsTab: React.FC<{ surveyId: number }> = ({ surveyId }) => {
         <span className="progress-label">{stats.totalResponses}/{stats.totalAssigned} phản hồi</span>
       </div>
 
-      {/* Từng câu hỏi */}
       {stats.questions.map((q, idx) => (
         <div key={q.questionId} className="stat-question-card">
           <div className="stat-q-header">
@@ -426,10 +503,6 @@ const StatsTab: React.FC<{ surveyId: number }> = ({ surveyId }) => {
             </div>
           ) : (
             <div className="chart-wrapper">
-              {/* Luôn dùng biểu đồ cột ngang cho mọi câu hỏi trắc nghiệm —
-                  nhất quán, không bị lỗi cắt nhãn như Pie Chart (nhãn Pie vẽ
-                  ra ngoài bán kính, bị .stat-question-card{overflow:hidden}
-                  cắt cụt), và vẫn đọc rõ tỷ lệ nhờ bảng breakdown-table đi kèm. */}
               <ResponsiveContainer width="100%" height={Math.max(160, q.breakdown.length * 44)}>
                 <BarChart data={q.breakdown} layout="vertical">
                   <XAxis type="number" allowDecimals={false} />
@@ -442,14 +515,9 @@ const StatsTab: React.FC<{ surveyId: number }> = ({ surveyId }) => {
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-              {/* Bảng số liệu */}
               <table className="breakdown-table">
                 <thead>
-                  <tr>
-                    <th>Lựa chọn</th>
-                    <th>Số phiếu</th>
-                    <th>Tỷ lệ</th>
-                  </tr>
+                  <tr><th>Lựa chọn</th><th>Số phiếu</th><th>Tỷ lệ</th></tr>
                 </thead>
                 <tbody>
                   {q.breakdown.map((row, i) => (
@@ -489,7 +557,6 @@ const SurveyDetailPage: React.FC = () => {
 
   const loadSurvey = useCallback(async () => {
     if (!surveyId) return;
-    setLoading(true);
     try {
       const data = await getSurveyFull(Number(surveyId));
       setSurvey(data);
@@ -508,9 +575,10 @@ const SurveyDetailPage: React.FC = () => {
     try {
       const updated = await toggleSurveyActive(survey.surveyId, !survey.isActive);
       setSurvey((prev) => prev ? { ...prev, isActive: updated.isActive ?? !survey.isActive } : prev);
-      toast.success(survey.isActive ? '🔴 Đã đóng khảo sát' : '🟢 Đã kích hoạt khảo sát');
-    } catch { toast.error('Thao tác thất bại'); }
-    finally { setToggling(false); }
+      toast.success(survey.isActive ? 'Đã đóng khảo sát' : 'Đã kích hoạt khảo sát');
+    } catch (e) {
+      await showAlert({ title: 'Thao tác thất bại', message: errMsg(e, 'Vui lòng thử lại.'), tone: 'error' });
+    } finally { setToggling(false); }
   };
 
   const TABS: { key: ActiveTab; label: string; icon: React.ReactNode }[] = [
@@ -535,9 +603,11 @@ const SurveyDetailPage: React.FC = () => {
     );
   }
 
+  // Khảo sát đã có người trả lời -> khóa cấu trúc (chỉ xem)
+  const locked = ((survey as any)._count?.surveyResponses ?? 0) > 0;
+
   return (
     <div className="survey-detail-page">
-      {/* Breadcrumb */}
       <div className="breadcrumb">
         <button className="back-btn" onClick={() => navigate('/surveys')}>
           <ArrowLeft size={18} /> Quay lại
@@ -546,7 +616,6 @@ const SurveyDetailPage: React.FC = () => {
         <span className="breadcrumb-current">Chi tiết khảo sát</span>
       </div>
 
-      {/* Survey header card */}
       <div className="survey-detail-header">
         <div className="sdh-info">
           <div className="sdh-title-row">
@@ -560,6 +629,7 @@ const SurveyDetailPage: React.FC = () => {
             <span>Tạo ngày {new Date(survey.createdAt).toLocaleDateString('vi-VN')}</span>
             <span>•</span>
             <span>{survey.questions?.length ?? 0} câu hỏi</span>
+            {locked && <><span>•</span><span>Đã có phản hồi (khóa chỉnh sửa)</span></>}
           </div>
         </div>
         <button
@@ -572,7 +642,6 @@ const SurveyDetailPage: React.FC = () => {
         </button>
       </div>
 
-      {/* Tabs */}
       <div className="detail-tabs">
         {TABS.map((tab) => (
           <button
@@ -587,9 +656,8 @@ const SurveyDetailPage: React.FC = () => {
         ))}
       </div>
 
-      {/* Tab content */}
       <div className="detail-tab-content">
-        {activeTab === 'questions' && <QuestionsTab survey={survey} onReload={loadSurvey} />}
+        {activeTab === 'questions' && <QuestionsTab survey={survey} onReload={loadSurvey} locked={locked} />}
         {activeTab === 'targets' && <TargetsTab survey={survey} />}
         {activeTab === 'stats' && <StatsTab surveyId={survey.surveyId} />}
       </div>
