@@ -4,7 +4,6 @@ import { Star, CheckCircle, XCircle, X } from 'lucide-react';
 import { getFeedbacks, updateFeedbackStatus } from '../../services/api';
 import type { Feedback, FeedbackStatus } from '../../types/feedback';
 import Pagination from '../../components/Pagination';
-import LiveBadge from '../../components/LiveBadge';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import './FeedbacksPage.css';
 
@@ -117,7 +116,6 @@ const FeedbacksPage: React.FC = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedFeedback, setSelectedFeedback] = useState<Feedback | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [newIds, setNewIds] = useState<Set<number>>(new Set()); // dòng vừa xuất hiện, tô sáng vài giây
 
   // Các feedbackId đã biết — null = chưa tải lần đầu (không báo "mới" cho lần tải đầu tiên)
@@ -129,7 +127,6 @@ const FeedbacksPage: React.FC = () => {
     try {
       const data = await getFeedbacks();
       setFeedbacks(data);
-      setLastUpdated(new Date());
 
       // Đồng bộ modal đang mở với dữ liệu mới nhất (vd. trạng thái vừa đổi ở nơi khác)
       setSelectedFeedback((prev) =>
@@ -215,7 +212,6 @@ const FeedbacksPage: React.FC = () => {
           <h1 className="page-title">Quản lý Đánh giá</h1>
           <p className="page-subtitle">Duyệt và quản lý đánh giá sản phẩm từ khách hàng theo thời gian thực</p>
         </div>
-        <LiveBadge lastUpdated={lastUpdated} />
       </div>
 
       {/* Filter tabs */}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { Plus, Search, Power, Package, Truck, X, Upload, Image as ImageIcon } from 'lucide-react';
 import {
@@ -7,6 +7,7 @@ import {
 } from '../../services/api';
 import type { Product, Supplier, CreateProductForm, CreateSupplierForm } from '../../types/product';
 import Pagination from '../../components/Pagination';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import './ProductsPage.css';
 
 type MainTab = 'products' | 'suppliers';
@@ -45,8 +46,8 @@ const ProductModal: React.FC<{
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (file: File) => {
-    if (!file.type.startsWith('image/')) { toast.error('Vui long chon file anh'); return; }
-    if (file.size > 5242880) { toast.error('Anh qua lon, toi da 5MB'); return; }
+    if (!file.type.startsWith('image/')) { toast.error('Vui lòng chọn file ảnh'); return; }
+    if (file.size > 5242880) { toast.error('Ảnh quá lớn, tối đa 5MB'); return; }
     const reader = new FileReader();
     reader.onload = (e) => {
       const dataUrl = e.target?.result as string;
@@ -466,8 +467,9 @@ const ProductsPage: React.FC = () => {
 
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
 
-  const loadData = async () => {
-    setLoading(true);
+  /** silent = true: dùng cho auto-refresh, không bật spinner, không báo lỗi. */
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [prods, sups] = await Promise.all([
         getProducts({ includeInactive: true }),
@@ -476,15 +478,18 @@ const ProductsPage: React.FC = () => {
       setProducts(prods);
       setSuppliers(sups);
     } catch {
-      toast.error('Không tải được dữ liệu sản phẩm & nhà cung cấp');
+      if (!silent) toast.error('Không tải được dữ liệu sản phẩm & nhà cung cấp');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
+
+  // Real-time: tự cập nhật mỗi 5 giây (tồn kho, sản phẩm, nhà cung cấp...)
+  useAutoRefresh(() => loadData(true), 5000);
 
   // Filter products
   const filteredProducts = products
@@ -937,7 +942,7 @@ const ProductsPage: React.FC = () => {
           product={editingProduct}
           suppliers={suppliers}
           onClose={() => setShowProductModal(false)}
-          onSaved={loadData}
+          onSaved={() => loadData()}
         />
       )}
 
@@ -946,7 +951,7 @@ const ProductsPage: React.FC = () => {
         <SupplierModal
           supplier={editingSupplier}
           onClose={() => setShowSupplierModal(false)}
-          onSaved={loadData}
+          onSaved={() => loadData()}
         />
       )}
 
@@ -963,7 +968,3 @@ const ProductsPage: React.FC = () => {
 };
 
 export default ProductsPage;
-
-
-
-

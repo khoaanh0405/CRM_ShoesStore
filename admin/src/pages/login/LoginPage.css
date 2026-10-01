@@ -29,9 +29,18 @@
 }
 
 .logo-icon {
-  font-size: 48px;
-  margin-bottom: 12px;
-  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+  width: 68px;
+  height: 68px;
+  margin: 0 auto 14px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  /* Đổi gradient tím sang gradient xanh lá */
+  background: linear-gradient(135deg, #1ead5d, #169b50);
+  /* Đổi màu bóng đổ sang xanh lá nhẹ */
+  box-shadow: 0 8px 20px rgba(30, 173, 93, 0.3);
 }
 
 .login-logo h1 {
@@ -154,20 +163,4 @@
 
 @keyframes spin {
   to { transform: rotate(360deg); }
-}
-
-/* Hint */
-.login-hint {
-  margin-top: 20px;
-  text-align: center;
-  font-size: 13px;
-  color: var(--color-text-muted);
-  background: #f8fafc;
-  border-radius: 8px;
-  padding: 10px;
-  border: 1px dashed var(--color-border);
-}
-
-.login-hint strong {
-  color: var(--color-primary);
 }

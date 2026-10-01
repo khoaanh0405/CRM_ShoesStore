@@ -8,7 +8,6 @@ import { getSurveys, toggleSurveyActive } from '../../services/api';
 import type { Survey } from '../../types/survey';
 import Pagination from '../../components/Pagination';
 import CreateSurveyModal from '../../components/CreateSurveyModal';
-import LiveBadge from '../../components/LiveBadge';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import './SurveysPage.css';
 
@@ -16,6 +15,8 @@ type ProductLite = { productId: number; productName: string; brand?: string | nu
 type SurveyItem = Survey & { productId?: number | null; product?: ProductLite | null };
 
 const SURVEYS_PER_PAGE = 6;
+
+type StatusFilter = 'ALL' | 'ACTIVE' | 'CLOSED';
 
 const ProductBadge: React.FC<{ product?: ProductLite | null }> = ({ product }) =>
   product ? (
@@ -38,7 +39,7 @@ const SurveysPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchDraft, setSearchDraft] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
 
   // Tổng phản hồi ở lần tải trước — để báo "có phản hồi mới" khi tăng
   const prevResponsesRef = useRef<number | null>(null);
@@ -49,7 +50,6 @@ const SurveysPage: React.FC = () => {
     try {
       const data = (await getSurveys()) as SurveyItem[];
       setSurveys(data);
-      setLastUpdated(new Date());
 
       const total = data.reduce((s, x) => s + (x._count?.surveyResponses ?? 0), 0);
       if (prevResponsesRef.current !== null && total > prevResponsesRef.current) {
@@ -96,14 +96,17 @@ const SurveysPage: React.FC = () => {
   const inactiveSurveys = surveys.filter((s) => !s.isActive);
 
   const kw = searchTerm.toLowerCase();
-  const filteredSurveys = surveys.filter(
-    (s) =>
+  const filteredSurveys = surveys.filter((s) => {
+    const matchSearch =
       s.title.toLowerCase().includes(kw) ||
       (s.description ?? '').toLowerCase().includes(kw) ||
-      (s.product?.productName ?? '').toLowerCase().includes(kw),
-  );
+      (s.product?.productName ?? '').toLowerCase().includes(kw);
+    const matchStatus =
+      statusFilter === 'ALL' || (statusFilter === 'ACTIVE' ? s.isActive : !s.isActive);
+    return matchSearch && matchStatus;
+  });
 
-  useEffect(() => { setCurrentPage(1); }, [searchTerm]);
+  useEffect(() => { setCurrentPage(1); }, [searchTerm, statusFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredSurveys.length / SURVEYS_PER_PAGE));
   useEffect(() => {
@@ -122,7 +125,6 @@ const SurveysPage: React.FC = () => {
           <h1 className="page-title">Quản lý Khảo sát</h1>
           <p className="page-subtitle">Tạo, gửi và theo dõi kết quả khảo sát khách hàng theo thời gian thực</p>
         </div>
-        <LiveBadge lastUpdated={lastUpdated} />
       </div>
 
       <div className="surveys-toolbar">
@@ -154,19 +156,19 @@ const SurveysPage: React.FC = () => {
         </button>
       </div>
 
-      <div className="surveys-stats">
-        <div className="stat-chip">
-          <FileText size={16} />
-          <span>Tổng: <strong>{surveys.length}</strong></span>
-        </div>
-        <div className="stat-chip active">
-          <Power size={16} />
-          <span>Đang hoạt động: <strong>{activeSurveys.length}</strong></span>
-        </div>
-        <div className="stat-chip inactive">
-          <PowerOff size={16} />
-          <span>Đã đóng: <strong>{inactiveSurveys.length}</strong></span>
-        </div>
+      <div className="sv-filter">
+        <button type="button" className={`sv-filter-btn ${statusFilter === 'ALL' ? 'on' : ''}`}
+          onClick={() => setStatusFilter('ALL')}>
+          <FileText size={15} /> Tổng: <strong>{surveys.length}</strong>
+        </button>
+        <button type="button" className={`sv-filter-btn active ${statusFilter === 'ACTIVE' ? 'on' : ''}`}
+          onClick={() => setStatusFilter('ACTIVE')}>
+          <Power size={15} /> Đang hoạt động: <strong>{activeSurveys.length}</strong>
+        </button>
+        <button type="button" className={`sv-filter-btn closed ${statusFilter === 'CLOSED' ? 'on' : ''}`}
+          onClick={() => setStatusFilter('CLOSED')}>
+          <PowerOff size={15} /> Đã đóng: <strong>{inactiveSurveys.length}</strong>
+        </button>
       </div>
 
       {loading ? (
@@ -185,10 +187,14 @@ const SurveysPage: React.FC = () => {
       ) : (
         <>
           <div className="surveys-list">
-            {filteredSurveys.length === 0 && searchTerm ? (
+            {filteredSurveys.length === 0 ? (
               <div className="empty-state">
                 <Search size={48} strokeWidth={1} />
-                <p>Không tìm thấy khảo sát với từ khóa "{searchTerm}"</p>
+                <p>
+                  {searchTerm
+                    ? `Không tìm thấy khảo sát với từ khóa "${searchTerm}"`
+                    : 'Không có khảo sát nào ở mục này'}
+                </p>
               </div>
             ) : (
               paginatedSurveys.map((survey) => (

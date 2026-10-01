@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Users, UserCheck, Lock, Package, ShieldCheck, Heart } from 'lucide-react';
 import { getAccounts, getProducts, getCustomerReport } from '../../services/api';
 import DonutChart from '../../components/DonutChart';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import './Dashboard.css';
 
 interface GenderRow { gender: string; count: number; }
@@ -24,30 +25,28 @@ const Dashboard: React.FC = () => {
   const [totalProducts, setTotalProducts] = useState(0);
   const [report, setReport] = useState<CustomerReport | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        // Bỏ getRecentActivity() — backend chưa có endpoint "hoạt động gần
-        // đây" nào (không route nào trong routes/ khớp) nên request cũ luôn
-        // trả 404. Thay bằng getCustomerReport(), gọi đúng
-        // GET /api/customers/report đã có sẵn ở customer.routes.js /
-        // customerController.report, để panel "Báo cáo CRM" có dữ liệu
-        // thật thay vì để trống.
-        const [accs, products, rpt] = await Promise.all([
-          getAccounts(),
-          getProducts(),
-          getCustomerReport(),
-        ]);
-        setAccounts(accs);
-        setTotalProducts(products.length);
-        setReport(rpt);
-      } catch {
-        toast.error('Không thể tải dữ liệu dashboard');
-      } finally {
-        setLoading(false);
-      }
-    })();
+  /** silent = true: dùng cho auto-refresh, không bật spinner, không báo lỗi. */
+  const load = useCallback(async (silent = false) => {
+    try {
+      const [accs, products, rpt] = await Promise.all([
+        getAccounts(),
+        getProducts(),
+        getCustomerReport(),
+      ]);
+      setAccounts(accs);
+      setTotalProducts(products.length);
+      setReport(rpt);
+    } catch {
+      if (!silent) toast.error('Không thể tải dữ liệu dashboard');
+    } finally {
+      if (!silent) setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  // Real-time: tự cập nhật mỗi 5 giây
+  useAutoRefresh(() => load(true), 5000);
 
   const total = accounts.length;
   const active = accounts.filter((a) => !a.isLocked).length;

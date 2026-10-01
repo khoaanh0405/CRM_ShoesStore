@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { login } from '../../services/auth';
-import { LogIn, Eye, EyeOff } from 'lucide-react';
+import { LogIn, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import './LoginPage.css';
 
 const LoginPage: React.FC = () => {
@@ -34,8 +34,10 @@ const LoginPage: React.FC = () => {
     <div className="login-page">
       <div className="login-card">
         <div className="login-logo">
-          <div className="logo-icon">👟</div>
-          <h1>CRM Shoes Store</h1>
+          <div className="logo-icon">
+            <ShieldCheck size={34} strokeWidth={2.2} />
+          </div>
+          <h1>Ouran</h1>
           <p>Đăng nhập để quản trị hệ thống</p>
         </div>
 
@@ -46,7 +48,7 @@ const LoginPage: React.FC = () => {
               id="login-username"
               type="text"
               className="form-input"
-              placeholder="admin"
+              placeholder="Nhập tên đăng nhập"
               value={form.username}
               onChange={(e) => setForm({ ...form, username: e.target.value })}
               autoFocus
@@ -91,10 +93,6 @@ const LoginPage: React.FC = () => {
             {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
           </button>
         </form>
-
-        <div className="login-hint">
-          <span>Tài khoản mặc định: <strong>admin</strong> / <strong>123456</strong></span>
-        </div>
       </div>
     </div>
   );

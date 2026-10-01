@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Search, RefreshCw, Trash2, X, AlertCircle, CheckCircle, Plus } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Search, Trash2, X, AlertCircle, CheckCircle, Plus } from 'lucide-react';
 import api from '../../utils/api';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import './AccountManagement.css';
 
 interface Account {
@@ -39,7 +40,7 @@ const AccountManagement: React.FC = () => {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
+
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
   const [isModalLoading, setIsModalLoading] = useState(false);
 
@@ -80,7 +81,7 @@ const AccountManagement: React.FC = () => {
     account: null,
     newRole: ''
   });
-  
+
   // Toast state
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error', id: number}[]>([]);
 
@@ -92,73 +93,80 @@ const AccountManagement: React.FC = () => {
     }, 3000);
   };
 
-  const fetchAccounts = async () => {
-  setLoading(true);
-  setError('');
-  try {
-    const res = await api.get('/accounts');
-    // Backend trả về { success, data: [...] } — cần unwrap giống các API khác trong dự án,
-    // nếu không "accounts" sẽ là object thay vì array và toàn bộ .filter/.map phía dưới sẽ lỗi.
-    const list = res.data?.data ?? res.data ?? [];
-    setAccounts(Array.isArray(list) ? list : []);
-  } catch (err: any) {
-    setError(err.response?.data?.message || 'Lỗi khi tải dữ liệu tài khoản');
-  } finally {
-    setLoading(false);
-  }
-};
+  /** silent = true: dùng cho auto-refresh, không bật spinner, không báo lỗi. */
+  const fetchAccounts = useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+      setError('');
+    }
+    try {
+      const res = await api.get('/accounts');
+      // Backend trả về { success, data: [...] } — cần unwrap giống các API khác trong dự án,
+      // nếu không "accounts" sẽ là object thay vì array và toàn bộ .filter/.map phía dưới sẽ lỗi.
+      const list = res.data?.data ?? res.data ?? [];
+      setAccounts(Array.isArray(list) ? list : []);
+      if (silent) setError('');
+    } catch (err: any) {
+      if (!silent) setError(err.response?.data?.message || 'Lỗi khi tải dữ liệu tài khoản');
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchAccounts();
-  }, []);
+  }, [fetchAccounts]);
+
+  // Real-time: tự cập nhật mỗi 5 giây, không cần bấm làm mới
+  useAutoRefresh(() => fetchAccounts(true), 5000);
 
   const ROLE_OPTIONS = ['Admin', 'Manager', 'Customer'];
 
-const getRoleLabel = (roleName?: string) => {
-  switch (roleName) {
-    case 'Admin':
-      return 'Quản trị viên';
-    case 'Manager':
-      return 'Quản lý';
-    case 'Customer':
-      return 'Khách hàng';
-    default:
-      return roleName || 'Không xác định';
-  }
-};
+  const getRoleLabel = (roleName?: string) => {
+    switch (roleName) {
+      case 'Admin':
+        return 'Quản trị viên';
+      case 'Manager':
+        return 'Quản lý';
+      case 'Customer':
+        return 'Khách hàng';
+      default:
+        return roleName || 'Không xác định';
+    }
+  };
 
-const requestChangeRole = (account: Account, newRole: string) => {
-  if (newRole === account.role?.roleName) return;
+  const requestChangeRole = (account: Account, newRole: string) => {
+    if (newRole === account.role?.roleName) return;
 
-  setRoleChangeModal({
-    isOpen: true,
-    account,
-    newRole
-  });
-};
+    setRoleChangeModal({
+      isOpen: true,
+      account,
+      newRole
+    });
+  };
 
-const executeChangeRole = async () => {
-  if (!roleChangeModal.account || !roleChangeModal.newRole) return;
+  const executeChangeRole = async () => {
+    if (!roleChangeModal.account || !roleChangeModal.newRole) return;
 
-  const account = roleChangeModal.account;
-  const newRole = roleChangeModal.newRole;
+    const account = roleChangeModal.account;
+    const newRole = roleChangeModal.newRole;
 
-  try {
-    await api.patch(`/accounts/${account.accountId}/role`, { roleName: newRole });
-    showToast(`Đã đổi vai trò thành ${getRoleLabel(newRole)}`, 'success');
-    setRoleChangeModal({ isOpen: false, account: null, newRole: '' });
-    fetchAccounts();
-  } catch (err: any) {
-    showToast(err.response?.data?.message || 'Đổi vai trò thất bại', 'error');
-  }
-};
+    try {
+      await api.patch(`/accounts/${account.accountId}/role`, { roleName: newRole });
+      showToast(`Đã đổi vai trò thành ${getRoleLabel(newRole)}`, 'success');
+      setRoleChangeModal({ isOpen: false, account: null, newRole: '' });
+      fetchAccounts();
+    } catch (err: any) {
+      showToast(err.response?.data?.message || 'Đổi vai trò thất bại', 'error');
+    }
+  };
 
   const toggleLock = async (account: Account) => {
     try {
       const endpoint = `/accounts/${account.accountId}/${account.isLocked ? 'unlock' : 'lock'}`;
       await api.patch(endpoint);
       // Reload or update state
-      setAccounts(accounts.map(acc => 
+      setAccounts(accounts.map(acc =>
         acc.accountId === account.accountId ? { ...acc, isLocked: !acc.isLocked } : acc
       ));
       showToast(account.isLocked ? 'Đã mở khóa tài khoản' : 'Đã khóa tài khoản', 'success');
@@ -172,11 +180,11 @@ const executeChangeRole = async () => {
       showToast('Chỉ hỗ trợ sửa thông tin cho tài khoản Khách hàng.', 'error');
       return;
     }
-    
+
     setSelectedAccountId(account.accountId);
     setIsEditModalOpen(true);
     setIsModalLoading(true);
-    
+
     try {
       const res = await api.get(`/customers/${account.accountId}/profile`);
       const data = res.data;
@@ -246,7 +254,7 @@ const executeChangeRole = async () => {
 
   const executeDeleteCustomer = async () => {
     if (!confirmModal.accountId) return;
-    
+
     try {
       await api.delete(`/customers/${confirmModal.accountId}`);
       showToast('Đã xóa khách hàng thành công!', 'success');
@@ -299,15 +307,6 @@ const executeChangeRole = async () => {
           <h1 className="page-title">Quản lý tài khoản</h1>
           <p className="page-subtitle">Xem và quản lý danh sách tài khoản hệ thống</p>
         </div>
-        <button
-          className="btn-refresh"
-          onClick={fetchAccounts}
-          title="Làm mới"
-          disabled={loading}
-        >
-          <RefreshCw size={16} className={loading ? 'spinning' : ''} />
-          {loading ? 'Đang tải...' : 'Làm mới'}
-        </button>
       </div>
 
       {error && <div className="error-message" style={{marginBottom: 16}}>{error}</div>}
@@ -404,8 +403,8 @@ const executeChangeRole = async () => {
                       style={{ border: 'none', cursor: 'pointer' }}
                     >
                       {ROLE_OPTIONS.map((r) => (
-                <option key={r} value={r}>{getRoleLabel(r)}</option>
-              ))}
+                        <option key={r} value={r}>{getRoleLabel(r)}</option>
+                      ))}
                     </select>
                   </td>
                   <td>
@@ -423,7 +422,7 @@ const executeChangeRole = async () => {
                     <button className="action-btn-text edit-btn" title="Chỉnh sửa" onClick={() => openEdit(account)}>
                       Sửa
                     </button>
-                    <button 
+                    <button
                       className={`action-btn-text ${account.isLocked ? 'unlock-btn' : 'lock-btn'}`}
                       title={account.isLocked ? 'Mở khóa' : 'Khóa tài khoản'}
                       onClick={() => toggleLock(account)}
@@ -461,7 +460,7 @@ const executeChangeRole = async () => {
                 <X size={20} />
               </button>
             </div>
-            
+
             <form onSubmit={handleEditSubmit}>
               <div className="modal-body">
                 {isModalLoading ? (
@@ -470,18 +469,18 @@ const executeChangeRole = async () => {
                   <div className="customer-details">
                     <div className="form-group" style={{ marginBottom: '16px' }}>
                       <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Họ và tên</label>
-                      <input 
-                        type="text" 
-                        required 
+                      <input
+                        type="text"
+                        required
                         value={editFormData.fullName}
                         onChange={(e) => setEditFormData({...editFormData, fullName: e.target.value})}
                         style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' }}
                       />
                     </div>
-                    
+
                     <div className="form-group" style={{ marginBottom: '16px' }}>
                       <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Giới tính</label>
-                      <select 
+                      <select
                         value={editFormData.gender}
                         onChange={(e) => setEditFormData({...editFormData, gender: e.target.value})}
                         style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' }}
@@ -493,9 +492,9 @@ const executeChangeRole = async () => {
 
                     <div className="form-group" style={{ marginBottom: '16px' }}>
                       <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Ngày sinh</label>
-                      <input 
-                        type="date" 
-                        required 
+                      <input
+                        type="date"
+                        required
                         value={editFormData.dateOfBirth}
                         onChange={(e) => setEditFormData({...editFormData, dateOfBirth: e.target.value})}
                         style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' }}
@@ -504,8 +503,8 @@ const executeChangeRole = async () => {
 
                     <div className="form-group" style={{ marginBottom: '16px' }}>
                       <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Số điện thoại</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={editFormData.phone}
                         onChange={(e) => setEditFormData({...editFormData, phone: e.target.value})}
                         style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' }}
@@ -514,8 +513,8 @@ const executeChangeRole = async () => {
 
                     <div className="form-group" style={{ marginBottom: '16px' }}>
                       <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Địa chỉ</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={editFormData.address}
                         onChange={(e) => setEditFormData({...editFormData, address: e.target.value})}
                         style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' }}
@@ -612,7 +611,7 @@ const executeChangeRole = async () => {
                 <X size={20} />
               </button>
             </div>
-            
+
             <div className="modal-body">
               <p style={{ margin: 0, fontSize: '15px', color: 'var(--color-text-main)' }}>
                 Bạn có chắc chắn muốn xóa khách hàng này không? Dữ liệu sẽ được ẩn khỏi hệ thống.
@@ -642,15 +641,15 @@ const executeChangeRole = async () => {
                 <X size={20} />
               </button>
             </div>
-            
+
             <form onSubmit={handleAddSubmit}>
               <div className="modal-body">
                 <div className="customer-details">
                   <div className="form-group" style={{ marginBottom: '16px' }}>
                     <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Tên đăng nhập *</label>
-                    <input 
-                      type="text" 
-                      required 
+                    <input
+                      type="text"
+                      required
                       value={addFormData.username}
                       onChange={(e) => setAddFormData({...addFormData, username: e.target.value})}
                       style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' }}
@@ -659,9 +658,9 @@ const executeChangeRole = async () => {
 
                   <div className="form-group" style={{ marginBottom: '16px' }}>
                     <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Mật khẩu *</label>
-                    <input 
-                      type="password" 
-                      required 
+                    <input
+                      type="password"
+                      required
                       minLength={6}
                       value={addFormData.password}
                       onChange={(e) => setAddFormData({...addFormData, password: e.target.value})}
@@ -671,18 +670,18 @@ const executeChangeRole = async () => {
 
                   <div className="form-group" style={{ marginBottom: '16px' }}>
                     <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Họ và tên *</label>
-                    <input 
-                      type="text" 
-                      required 
+                    <input
+                      type="text"
+                      required
                       value={addFormData.fullName}
                       onChange={(e) => setAddFormData({...addFormData, fullName: e.target.value})}
                       style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' }}
                     />
                   </div>
-                  
+
                   <div className="form-group" style={{ marginBottom: '16px' }}>
                     <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Giới tính</label>
-                    <select 
+                    <select
                       value={addFormData.gender}
                       onChange={(e) => setAddFormData({...addFormData, gender: e.target.value})}
                       style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' }}
@@ -694,9 +693,9 @@ const executeChangeRole = async () => {
 
                   <div className="form-group" style={{ marginBottom: '16px' }}>
                     <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Ngày sinh *</label>
-                    <input 
-                      type="date" 
-                      required 
+                    <input
+                      type="date"
+                      required
                       value={addFormData.dateOfBirth}
                       onChange={(e) => setAddFormData({...addFormData, dateOfBirth: e.target.value})}
                       style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' }}
@@ -705,8 +704,8 @@ const executeChangeRole = async () => {
 
                   <div className="form-group" style={{ marginBottom: '16px' }}>
                     <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Số điện thoại</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={addFormData.phone}
                       onChange={(e) => setAddFormData({...addFormData, phone: e.target.value})}
                       style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' }}
@@ -715,8 +714,8 @@ const executeChangeRole = async () => {
 
                   <div className="form-group" style={{ marginBottom: '16px' }}>
                     <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Địa chỉ</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={addFormData.address}
                       onChange={(e) => setAddFormData({...addFormData, address: e.target.value})}
                       style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' }}

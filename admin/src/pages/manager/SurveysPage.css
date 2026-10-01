@@ -69,34 +69,43 @@
   flex-shrink: 0;
 }
 
-/* Stats chips */
-.surveys-stats {
+/* Bộ lọc trạng thái (Tổng / Đang hoạt động / Đã đóng) */
+.sv-filter {
   display: flex;
   gap: 10px;
   margin-bottom: 24px;
   flex-wrap: wrap;
 }
 
-.stat-chip {
+.sv-filter-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
+  gap: 7px;
+  height: 38px;
+  padding: 0 16px;
   border-radius: 999px;
-  font-size: 13px;
-  background: #f1f5f9;
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface);
   color: var(--color-text-muted);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
 }
 
-.stat-chip.active {
-  background: #D1FAE5;
-  color: #059669;
+.sv-filter-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
-.stat-chip.inactive {
-  background: #f1f5f9;
-  color: #94a3b8;
+.sv-filter-btn.on {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
 }
+
+.sv-filter-btn.active.on { background: #059669; border-color: #059669; }
+.sv-filter-btn.closed.on { background: #64748B; border-color: #64748B; }
 
 /* Loading & Empty */
 .loading-state,

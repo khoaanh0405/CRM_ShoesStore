@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Plus, Search, X } from 'lucide-react';
 import api from '../../utils/api';
 import Pagination from '../../components/Pagination';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import './CustomersPage.css';
 
 interface Customer {
@@ -16,6 +17,10 @@ interface Customer {
 
 const ITEMS_PER_PAGE = 10;
 
+type StatusFilter = 'ALL' | 'ACTIVE' | 'LOCKED';
+type GenderFilter = 'ALL' | 'Nam' | 'Nữ';
+type SortBy = 'NEWEST' | 'OLDEST' | 'NAME_ASC' | 'NAME_DESC';
+
 const CustomersPage = () => {
   const [all, setAll] = useState<Customer[]>([]);
   const [search, setSearch] = useState('');
@@ -24,10 +29,17 @@ const CustomersPage = () => {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
+  const [genderFilter, setGenderFilter] = useState<GenderFilter>('ALL');
+  const [sortBy, setSortBy] = useState<SortBy>('NEWEST');
+  const [statusDraft, setStatusDraft] = useState<StatusFilter>('ALL');
+  const [genderDraft, setGenderDraft] = useState<GenderFilter>('ALL');
 
   const handleApplySearch = (e: React.FormEvent) => {
     e.preventDefault();
     setSearch(searchDraft);
+    setStatusFilter(statusDraft);
+    setGenderFilter(genderDraft);
     setPage(1);
   };
 
@@ -47,34 +59,52 @@ const CustomersPage = () => {
     address: '',
   });
 
-  const load = async () => {
-  setLoading(true);
-  try {
-    const res = await api.get('/customers');
-    setAll(res.data?.data ?? res.data ?? []);
-  } catch (e: any) {
-    toast.error(e.response?.data?.message ?? 'Không tải được khách hàng');
-  } finally {
-    setLoading(false);
-  }
-};
+  /** silent = true: dùng cho auto-refresh, không bật spinner, không báo lỗi. */
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const res = await api.get('/customers');
+      setAll(res.data?.data ?? res.data ?? []);
+    } catch (e: any) {
+      if (!silent) toast.error(e.response?.data?.message ?? 'Không tải được khách hàng');
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, []);
 
-// ✅ Thêm lại effect này — đây chính là phần bị thiếu
-useEffect(() => {
-  load();
-}, []);
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // Real-time: khách mới đăng ký tự xuất hiện, không cần tải lại trang
+  useAutoRefresh(() => load(true), 5000);
 
   const filtered = useMemo(() => {
     const k = search.trim().toLowerCase();
 
-    if (!k) return all;
-
-    return all.filter(
-      (c) =>
-        c.fullName.toLowerCase().includes(k) ||
-        (c.phone ?? '').includes(k)
-    );
-  }, [all, search]);
+    return all
+      .filter((c) => {
+        const matchSearch =
+          !k || c.fullName.toLowerCase().includes(k) || (c.phone ?? '').includes(k);
+        const matchStatus =
+          statusFilter === 'ALL' || (statusFilter === 'LOCKED') === c.isLocked;
+        const matchGender = genderFilter === 'ALL' || c.gender === genderFilter;
+        return matchSearch && matchStatus && matchGender;
+      })
+      .sort((a, b) => {
+        switch (sortBy) {
+          case 'OLDEST':
+            return a.customerId - b.customerId;
+          case 'NAME_ASC':
+            return a.fullName.localeCompare(b.fullName, 'vi');
+          case 'NAME_DESC':
+            return b.fullName.localeCompare(a.fullName, 'vi');
+          case 'NEWEST':
+          default:
+            return b.customerId - a.customerId; // khách mới đăng ký (ID lớn nhất) lên đầu
+        }
+      });
+  }, [all, search, statusFilter, genderFilter, sortBy]);
 
   const total = filtered.length;
 
@@ -219,6 +249,37 @@ useEffect(() => {
             </button>
           )}
         </label>
+
+        <select
+          className="customer-select"
+          value={statusDraft}
+          onChange={(e) => setStatusDraft(e.target.value as StatusFilter)}
+        >
+          <option value="ALL">Tất cả trạng thái</option>
+          <option value="ACTIVE">Đang hoạt động</option>
+          <option value="LOCKED">Đã khóa</option>
+        </select>
+
+        <select
+          className="customer-select"
+          value={genderDraft}
+          onChange={(e) => setGenderDraft(e.target.value as GenderFilter)}
+        >
+          <option value="ALL">Tất cả giới tính</option>
+          <option value="Nam">Nam</option>
+          <option value="Nữ">Nữ</option>
+        </select>
+
+        <select
+          className="customer-select"
+          value={sortBy}
+          onChange={(e) => { setSortBy(e.target.value as SortBy); setPage(1); }}
+        >
+          <option value="NEWEST">Mới đăng ký nhất</option>
+          <option value="OLDEST">Cũ nhất</option>
+          <option value="NAME_ASC">Tên A → Z</option>
+          <option value="NAME_DESC">Tên Z → A</option>
+        </select>
 
         <button type="submit" className="customer-search__submit">
           <Search size={16} />
