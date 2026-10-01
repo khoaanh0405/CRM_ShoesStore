@@ -3,14 +3,14 @@ import { Breadcrumb } from './Breadcrumb';
 import { SiteFooter } from './SiteFooter';
 import { TabBar } from './TabBar';
 
-/** Khung chung cho mọi trang chính: Header (TabBar) + Breadcrumb + nội dung + Footer. */
+/** Khung chung: Header + Breadcrumb (luôn sát lề) + nội dung (có thể thu hẹp) + Footer. */
 export function SiteLayout({ children, narrow = false }: { children: ReactNode; narrow?: boolean }) {
   return (
     <>
       <TabBar />
-      <main className={`container${narrow ? ' narrow' : ''}`}>
+      <main className="container">
         <Breadcrumb />
-        {children}
+        {narrow ? <div className="narrow-body">{children}</div> : children}
       </main>
       <SiteFooter />
     </>

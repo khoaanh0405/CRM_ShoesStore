@@ -4,15 +4,17 @@ import { RatingStars } from '@/components/RatingStars';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { EmptyView, ErrorView, LoadingView } from '@/components/StateViews';
 import { StatusBadge, type BadgeTone } from '@/components/StatusBadge';
-import { AppColors, Radius, SCREEN_PADDING } from '@/constants/appTheme';
+import { AppColors, Radius } from '@/constants/appTheme';
 import { FEEDBACK_STATUS } from '@/constants/domain';
 import { useApi } from '@/hooks/useApi';
 import { useCustomerId } from '@/hooks/useCustomerId';
+import { showConfirm } from '@/lib/dialog';
+import { getApiErrorMessage } from '@/services/api-client';
 import { feedbackService } from '@/services/feedback.service';
 import { productService } from '@/services/product.service';
 import type { Feedback, FeedbackStatus } from '@/types/feedback';
 import { formatDate } from '@/utils/format';
-import { Plus, MessageCircle, Filter, PenLine } from 'lucide-react';
+import { Plus, MessageCircle, Filter, PenLine, Undo2 } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -41,6 +43,7 @@ export default function FeedbacksPage() {
   const navigate = useNavigate();
   const customerId = useCustomerId();
   const [filter, setFilter] = useState<Filter>('all');
+  const [withdrawingId, setWithdrawingId] = useState<number | null>(null);
 
   const { data, loading, error, reload } = useApi(async () => {
     if (customerId == null) throw new Error('Không xác định được tài khoản khách hàng.');
@@ -57,6 +60,28 @@ export default function FeedbacksPage() {
   const all = data?.feedbacks ?? [];
   const avg = all.length ? all.reduce((s, f) => s + f.rating, 0) / all.length : 0;
   const count = (s: FeedbackStatus) => all.filter((f) => f.status === s).length;
+
+  const handleWithdraw = async (f: Feedback) => {
+    if (withdrawingId != null) return;
+    const ok = await showConfirm({
+      title: 'Thu hồi đánh giá?',
+      message: 'Đánh giá đang chờ duyệt sẽ bị xóa và không thể khôi phục.',
+      confirmLabel: 'Thu hồi',
+      tone: 'warning',
+      danger: true,
+    });
+    if (!ok) return;
+    setWithdrawingId(f.feedbackId);
+    try {
+      await feedbackService.remove(f.feedbackId);
+      await reload();
+      alert('Đã thu hồi đánh giá.');
+    } catch (e) {
+      alert('Không thu hồi được: ' + getApiErrorMessage(e, 'Vui lòng thử lại sau.'));
+    } finally {
+      setWithdrawingId(null);
+    }
+  };
 
   return (
     <div>
@@ -79,7 +104,14 @@ export default function FeedbacksPage() {
                   )}
                 </div>
               ) : items.map((item) => (
-                <FeedbackCard key={item.feedbackId} feedback={item} productName={data.productNames.get(item.productId) ?? `Sản phẩm #${item.productId}`} onOpenProduct={() => navigate(`/product/${item.productId}`)} />
+                <FeedbackCard
+                  key={item.feedbackId}
+                  feedback={item}
+                  productName={data.productNames.get(item.productId) ?? `Sản phẩm #${item.productId}`}
+                  onOpenProduct={() => navigate(`/product/${item.productId}`)}
+                  onWithdraw={() => handleWithdraw(item)}
+                  withdrawing={withdrawingId === item.feedbackId}
+                />
               ))}
             </div>
           </div>
@@ -109,7 +141,7 @@ export default function FeedbacksPage() {
   );
 }
 
-function FeedbackCard({ feedback, productName, onOpenProduct }: { feedback: Feedback; productName: string; onOpenProduct: () => void; }) {
+function FeedbackCard({ feedback, productName, onOpenProduct, onWithdraw, withdrawing }: { feedback: Feedback; productName: string; onOpenProduct: () => void; onWithdraw: () => void; withdrawing: boolean; }) {
   const meta = STATUS_META[feedback.status] ?? STATUS_META.Pending;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 18, borderRadius: Radius.lg, border: `1px solid ${AppColors.border}`, background: AppColors.surface }}>
@@ -125,6 +157,11 @@ function FeedbackCard({ feedback, productName, onOpenProduct }: { feedback: Feed
       </div>
       <span style={{ color: AppColors.textPrimary, fontSize: 16, fontWeight: 800 }}>{feedback.title}</span>
       <span style={{ color: AppColors.textSecondary, fontSize: 14, lineHeight: '20px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' as any }}>{feedback.content}</span>
+      {feedback.status === FEEDBACK_STATUS.PENDING ? (
+        <div style={{ marginTop: 4 }}>
+          <AppButton label="Thu hồi đánh giá" icon={Undo2} variant="danger" compact loading={withdrawing} onClick={onWithdraw} />
+        </div>
+      ) : null}
     </div>
   );
 }

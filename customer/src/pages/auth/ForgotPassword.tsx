@@ -4,7 +4,7 @@ import { AuthTextField } from '@/components/AuthTextField';
 import { AuthColors } from '@/constants/authTheme';
 import { getApiErrorMessage } from '@/services/api-client';
 import { authService } from '@/services/auth.service';
-import { validateDateOfBirth, validatePassword, validateUsername } from '@/utils/validation';
+import { normalizePhone, validateConfirmPassword, validateDateOfBirth, validateNewPassword, validatePhone, validateUsername } from '@/utils/validation';
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -20,16 +20,20 @@ export default function ForgotPasswordPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const setField = (field: keyof Form) => (value: string) => setForm((prev) => ({ ...prev, [field]: value }));
+  const setField = (field: keyof Form) => (value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    setErrors((prev) => ({ ...prev, [field]: null }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     const next: Partial<Record<keyof Form, string | null>> = {
       username: validateUsername(form.username),
       dateOfBirth: validateDateOfBirth(form.dateOfBirth),
-      phone: form.phone.trim() ? (/^[0-9+\-\s]{8,20}$/.test(form.phone.trim()) ? null : 'Số điện thoại không hợp lệ.') : 'Vui lòng nhập số điện thoại đã đăng ký.',
-      newPassword: validatePassword(form.newPassword),
-      confirm: form.confirm !== form.newPassword ? 'Mật khẩu nhập lại không khớp.' : null,
+      phone: form.phone.trim() ? validatePhone(form.phone) : 'Vui lòng nhập số điện thoại đã đăng ký.',
+      newPassword: validateNewPassword(form.newPassword, form.username),
+      confirm: validateConfirmPassword(form.newPassword, form.confirm),
     };
     setErrors(next);
     if (Object.values(next).some(Boolean)) return;
@@ -40,7 +44,7 @@ export default function ForgotPasswordPage() {
       await authService.forgotPassword({
         username: form.username.trim(),
         dateOfBirth: form.dateOfBirth.trim(),
-        phone: form.phone.trim(),
+        phone: normalizePhone(form.phone),
         newPassword: form.newPassword,
       });
       alert('Đã đặt lại mật khẩu. Vui lòng đăng nhập bằng mật khẩu mới.');
@@ -53,7 +57,7 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="auth-form" style={{ background: AuthColors.background }}>
+    <form onSubmit={handleSubmit} noValidate className="auth-form" style={{ background: AuthColors.background }}>
       <AuthBanner />
       <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 18 }}>
         <button type="button" onClick={() => navigate('/auth/login', { replace: true })}
@@ -67,12 +71,12 @@ export default function ForgotPasswordPage() {
 
         <div className="auth-grid">
           <div className="full">
-            <AuthTextField label="Tên đăng nhập" placeholder="ten_dang_nhap" autoCapitalize="none" autoCorrect="off" value={form.username} onChangeText={setField('username')} error={errors.username} />
+            <AuthTextField label="Tên đăng nhập" placeholder="ten_dang_nhap" autoCapitalize="none" autoCorrect="off" maxLength={50} value={form.username} onChangeText={setField('username')} error={errors.username} />
           </div>
-          <AuthTextField label="Ngày sinh" type="date" max={new Date().toISOString().slice(0, 10)} value={form.dateOfBirth} onChangeText={setField('dateOfBirth')} error={errors.dateOfBirth} />
-          <AuthTextField label="Số điện thoại đã đăng ký" placeholder="09xx xxx xxx" value={form.phone} onChangeText={setField('phone')} error={errors.phone} />
-          <AuthTextField label="Mật khẩu mới" placeholder="Tối thiểu 6 ký tự" type="password" secureToggle value={form.newPassword} onChangeText={setField('newPassword')} error={errors.newPassword} />
-          <AuthTextField label="Nhập lại mật khẩu mới" placeholder="Nhập lại mật khẩu" type="password" secureToggle value={form.confirm} onChangeText={setField('confirm')} error={errors.confirm} />
+          <AuthTextField label="Ngày sinh" type="date" min="1900-01-01" max={new Date().toISOString().slice(0, 10)} value={form.dateOfBirth} onChangeText={setField('dateOfBirth')} error={errors.dateOfBirth} />
+          <AuthTextField label="Số điện thoại đã đăng ký" placeholder="09xx xxx xxx" inputMode="tel" maxLength={15} value={form.phone} onChangeText={setField('phone')} error={errors.phone} />
+          <AuthTextField label="Mật khẩu mới" placeholder="Tối thiểu 6 ký tự, có chữ hoa, số, ký tự đặc biệt" type="password" secureToggle maxLength={50} value={form.newPassword} onChangeText={setField('newPassword')} error={errors.newPassword} />
+          <AuthTextField label="Nhập lại mật khẩu mới" placeholder="Nhập lại mật khẩu" type="password" secureToggle maxLength={50} value={form.confirm} onChangeText={setField('confirm')} error={errors.confirm} />
         </div>
 
         {formError ? <div style={{ color: AuthColors.danger, fontSize: 13 }}>{formError}</div> : null}

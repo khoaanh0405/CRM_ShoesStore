@@ -1,69 +1,71 @@
+import { Chip } from '@/components/Chip';
+import { Pagination } from '@/components/Pagination';
 import { ProductGrid } from '@/components/ProductGrid';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { EmptyView, ErrorView, LoadingView } from '@/components/StateViews';
-import { AppColors, Radius } from '@/constants/appTheme';
+import { AppColors } from '@/constants/appTheme';
 import { useAuth } from '@/context/AuthContext';
 import { useApi } from '@/hooks/useApi';
 import { useCustomerId } from '@/hooks/useCustomerId';
-import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { customerService } from '@/services/customer.service';
 import { productService } from '@/services/product.service';
 import { surveyService } from '@/services/survey.service';
 import type { CustomerPreference } from '@/types/customer';
-import type { Product, ProductSortBy } from '@/types/product';
+import type { Product } from '@/types/product';
 import type { SurveyTarget } from '@/types/survey';
 import { categoryLabel } from '@/utils/category';
 import { recommendProducts } from '@/utils/recommend';
-import { Loader2, Search, SlidersHorizontal, X } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { Loader2, Lock, Search, SlidersHorizontal } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-
-const SORTS: { key: string; label: string; sortBy: ProductSortBy; sortOrder: 'asc' | 'desc' }[] = [
-  { key: 'new', label: 'Mới nhất', sortBy: 'productId', sortOrder: 'desc' },
-  { key: 'priceAsc', label: 'Giá tăng dần', sortBy: 'price', sortOrder: 'asc' },
-  { key: 'priceDesc', label: 'Giá giảm dần', sortBy: 'price', sortOrder: 'desc' },
-  { key: 'name', label: 'Tên A-Z', sortBy: 'productName', sortOrder: 'asc' },
-];
-
-const PRICE_RANGES: { key: string; label: string; min?: number; max?: number }[] = [
-  { key: 'all', label: 'Mọi mức giá' },
-  { key: 'u500', label: 'Dưới 500K', max: 500_000 },
-  { key: '500-1m', label: '500K - 1 triệu', min: 500_000, max: 1_000_000 },
-  { key: '1m-2m', label: '1 - 2 triệu', min: 1_000_000, max: 2_000_000 },
-  { key: 'o2m', label: 'Trên 2 triệu', min: 2_000_000 },
-];
 
 type Focus = 'all' | 'prefs' | 'survey';
 
-/** Trang Sản phẩm: sidebar bộ lọc (kèm nhóm "Dành cho bạn" phục vụ đánh giá/khảo sát) + lưới sản phẩm. */
+const PAGE_SIZE = 12; // 4 cột × 3 hàng
+
+/**
+ * Trang Sản phẩm: thanh tab ngang (Tất cả | Hợp sở thích | Có khảo sát cần làm)
+ * + nút "Bộ lọc nâng cao" (Danh mục, Thương hiệu) ở góc phải.
+ */
 export default function ProductsPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { status } = useAuth();
   const customerId = useCustomerId();
   const signedIn = status === 'signedIn' && customerId != null;
 
-  const [keyword, setKeyword] = useState('');
   const [category, setCategory] = useState<string | null>(null);
   const [brand, setBrand] = useState<string | null>(null);
-  const [priceKey, setPriceKey] = useState('all');
-  const [sortKey, setSortKey] = useState('new');
   const [focus, setFocus] = useState<Focus>('all');
-  const [showFilters, setShowFilters] = useState(false); // chỉ dùng trên màn hình hẹp
+  const [advOpen, setAdvOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const advRef = useRef<HTMLDivElement>(null);
+
+  // Từ khóa chỉ đến từ ô tìm kiếm trên header (?keyword=...)
+  const keyword = (searchParams.get('keyword') ?? '').trim();
 
   useEffect(() => {
     setCategory(searchParams.get('category'));
-    setKeyword(searchParams.get('keyword') ?? '');
   }, [searchParams]);
 
-  const debouncedKeyword = useDebouncedValue(keyword.trim(), 350);
+  // Đóng bảng bộ lọc nâng cao khi bấm ra ngoài / nhấn Esc
+  useEffect(() => {
+    if (!advOpen) return;
+    const onDown = (e: MouseEvent) => { if (advRef.current && !advRef.current.contains(e.target as Node)) setAdvOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setAdvOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [advOpen]);
+
+  // Đổi bộ lọc / tab / từ khóa thì quay về trang 1
+  useEffect(() => { setPage(1); }, [keyword, category, brand, focus]);
 
   const { data: allProducts } = useApi(() => productService.list(), []);
   const categories = uniqueSorted(allProducts?.map((p) => p.category));
   const brands = uniqueSorted(allProducts?.map((p) => p.brand));
   const countBy = (field: 'category' | 'brand', v: string) => allProducts?.filter((p) => p[field] === v).length ?? 0;
 
-  // Dữ liệu cá nhân: sản phẩm có khảo sát đang chờ + sở thích
   const { data: personal } = useApi(async () => {
     if (!signedIn || customerId == null) return null;
     const [surveys, prefs] = await Promise.all([
@@ -81,104 +83,136 @@ export default function ProductsPage() {
   const surveyIds = personal?.surveyIds ?? new Set<number>();
   const prefIds = new Set(recommendProducts(allProducts ?? [], personal?.tags ?? []).map((p) => p.productId));
 
-  const { data, loading, fetching, error, reload } = useApi(() => {
-    const price = PRICE_RANGES.find((r) => r.key === priceKey);
-    const sort = SORTS.find((s) => s.key === sortKey) ?? SORTS[0];
-    return productService.search({
-      keyword: debouncedKeyword || undefined,
+  const { data, loading, fetching, error, reload } = useApi(
+    () => productService.search({
+      keyword: keyword || undefined,
       category: category ?? undefined,
       brand: brand ?? undefined,
-      minPrice: price?.min,
-      maxPrice: price?.max,
-      sortBy: sort.sortBy,
-      sortOrder: sort.sortOrder,
-    });
-  }, [debouncedKeyword, category, brand, priceKey, sortKey]);
+      sortBy: 'productId',
+      sortOrder: 'desc',
+    }),
+    [keyword, category, brand],
+  );
 
   const shown = data?.filter((p) => focus === 'all' || (focus === 'prefs' ? prefIds.has(p.productId) : surveyIds.has(p.productId)));
+  const totalItems = shown?.length ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageItems = shown?.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE) ?? [];
+  const goToPage = (p: number) => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+
   const badgeIds = focus === 'prefs' ? prefIds : surveyIds;
   const badgeLabel = focus === 'prefs' ? 'Hợp sở thích' : 'Có khảo sát';
 
-  const activeFilterCount = (category ? 1 : 0) + (brand ? 1 : 0) + (priceKey !== 'all' ? 1 : 0) + (sortKey !== 'new' ? 1 : 0) + (focus !== 'all' ? 1 : 0);
-  const resetFilters = () => { setCategory(null); setBrand(null); setPriceKey('all'); setSortKey('new'); setFocus('all'); };
+  const advCount = (category ? 1 : 0) + (brand ? 1 : 0);
+  const activeFilterCount = advCount + (focus !== 'all' ? 1 : 0) + (keyword ? 1 : 0);
+
+  const clearKeyword = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('keyword');
+    setSearchParams(next, { replace: true });
+  };
+  const clearCategory = () => {
+    setCategory(null);
+    if (searchParams.has('category')) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('category');
+      setSearchParams(next, { replace: true });
+    }
+  };
+  const clearAdvanced = () => { clearCategory(); setBrand(null); };
+  const resetFilters = () => {
+    setCategory(null); setBrand(null); setFocus('all');
+    setSearchParams({}, { replace: true });
+  };
   const openProduct = (p: Product) => navigate(`/product/${p.productId}`);
+
+  const TABS: { key: Focus; label: string; count?: number; needLogin?: boolean }[] = [
+    { key: 'all', label: 'Tất cả sản phẩm', count: allProducts?.length },
+    { key: 'prefs', label: 'Hợp sở thích', count: signedIn ? prefIds.size : undefined, needLogin: true },
+    { key: 'survey', label: 'Có khảo sát cần làm', count: signedIn ? surveyIds.size : undefined, needLogin: true },
+  ];
 
   return (
     <div>
       <ScreenHeader title="Sản phẩm" right={fetching && data ? <Loader2 size={18} color={AppColors.accent} className="spin" /> : undefined} />
 
-      <div className="shop-layout">
-        <aside className={`shop-side${showFilters ? ' open' : ''}`}>
-          <SideGroup title="Dành cho bạn">
-            {signedIn ? (
-              <>
-                <Opt label="Tất cả sản phẩm" active={focus === 'all'} onClick={() => setFocus('all')} />
-                <Opt label="Hợp sở thích" active={focus === 'prefs'} onClick={() => setFocus('prefs')} count={prefIds.size} />
-                <Opt label="Có khảo sát cần làm" active={focus === 'survey'} onClick={() => setFocus('survey')} count={surveyIds.size} />
-              </>
-            ) : (
-              <Opt label="Đăng nhập để xem gợi ý & khảo sát" active={false} onClick={() => navigate('/auth/login')} />
-            )}
-          </SideGroup>
-          <SideGroup title="Danh mục">
-            <Opt label="Tất cả" active={category === null} onClick={() => setCategory(null)} count={allProducts?.length} />
-            {categories.map((c) => <Opt key={c} label={categoryLabel(c)} active={category === c} onClick={() => setCategory(c)} count={countBy('category', c)} />)}
-          </SideGroup>
-          <SideGroup title="Thương hiệu">
-            <Opt label="Tất cả" active={brand === null} onClick={() => setBrand(null)} />
-            {brands.map((b) => <Opt key={b} label={b} active={brand === b} onClick={() => setBrand(b)} count={countBy('brand', b)} />)}
-          </SideGroup>
-          <SideGroup title="Khoảng giá">
-            {PRICE_RANGES.map((r) => <Opt key={r.key} label={r.label} active={priceKey === r.key} onClick={() => setPriceKey(r.key)} />)}
-          </SideGroup>
-          <SideGroup title="Sắp xếp">
-            {SORTS.map((s) => <Opt key={s.key} label={s.label} active={sortKey === s.key} onClick={() => setSortKey(s.key)} />)}
-          </SideGroup>
-          {activeFilterCount > 0 ? <button onClick={resetFilters} style={{ background: 'none', border: 'none', color: AppColors.accent, fontSize: 13, fontWeight: 700, textDecoration: 'underline' }}>Xóa bộ lọc</button> : null}
-        </aside>
+      <div className="pf-bar">
+        <div className="pf-tabs" role="tablist" aria-label="Lọc sản phẩm theo nhu cầu">
+          {TABS.map((t) => {
+            const locked = !!t.needLogin && !signedIn;
+            return (
+              <button
+                key={t.key}
+                role="tab"
+                aria-selected={focus === t.key}
+                className={`pf-tab${focus === t.key ? ' active' : ''}${locked ? ' locked' : ''}`}
+                title={locked ? 'Đăng nhập để sử dụng' : undefined}
+                onClick={() => (locked ? navigate('/auth/login') : setFocus(t.key))}
+              >
+                {locked ? <Lock size={14} /> : null}
+                <span>{t.label}</span>
+                {t.count !== undefined ? <span className="pf-count">{t.count}</span> : null}
+              </button>
+            );
+          })}
+        </div>
 
-        <div style={{ minWidth: 0 }}>
-          <div className="shop-toolbar">
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, padding: '0 16px', borderRadius: Radius.md, border: `1px solid ${AppColors.border}`, background: AppColors.surface }}>
-              <Search size={18} color={AppColors.textSecondary} />
-              <input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Tìm tên giày..." style={{ flex: 1, minHeight: 50, background: 'transparent', border: 'none', outline: 'none', color: AppColors.textPrimary, fontSize: 15 }} />
-              {keyword ? <button onClick={() => setKeyword('')} aria-label="Xóa từ khóa" style={{ background: 'none', border: 'none', display: 'flex' }}><X size={18} color={AppColors.textSecondary} /></button> : null}
+        <div className="pf-adv" ref={advRef}>
+          <button className={`pf-adv-btn${advCount > 0 || advOpen ? ' on' : ''}`} onClick={() => setAdvOpen((v) => !v)} aria-expanded={advOpen}>
+            <SlidersHorizontal size={17} />
+            <span>Bộ lọc nâng cao</span>
+            {advCount > 0 ? <span className="pf-badge">{advCount}</span> : null}
+          </button>
+
+          {advOpen ? (
+            <div className="pf-pop" role="dialog" aria-label="Bộ lọc nâng cao">
+              <div>
+                <div className="pf-group-title">Danh mục</div>
+                <div className="pf-wrap">
+                  <Chip label="Tất cả" selected={category === null} onClick={clearCategory} />
+                  {categories.map((c) => <Chip key={c} label={`${categoryLabel(c)} (${countBy('category', c)})`} selected={category === c} onClick={() => setCategory(c)} />)}
+                </div>
+              </div>
+              <div>
+                <div className="pf-group-title">Thương hiệu</div>
+                <div className="pf-wrap">
+                  <Chip label="Tất cả" selected={brand === null} onClick={() => setBrand(null)} />
+                  {brands.map((b) => <Chip key={b} label={`${b} (${countBy('brand', b)})`} selected={brand === b} onClick={() => setBrand(b)} />)}
+                </div>
+              </div>
+              <div className="pf-pop-foot">
+                <button className="pf-link" onClick={clearAdvanced} disabled={advCount === 0} style={{ opacity: advCount === 0 ? 0.4 : 1 }}>Xóa bộ lọc</button>
+                <button className="pf-adv-btn on" onClick={() => setAdvOpen(false)} style={{ height: 38 }}>Xem {shown ? shown.length : ''} sản phẩm</button>
+              </div>
             </div>
-            <button className="filter-toggle" onClick={() => setShowFilters((v) => !v)} aria-label="Bộ lọc" style={{ background: showFilters || activeFilterCount > 0 ? AppColors.accent : AppColors.surface }}>
-              <SlidersHorizontal size={20} color={showFilters || activeFilterCount > 0 ? AppColors.accentText : AppColors.textPrimary} />
-              {activeFilterCount > 0 ? <span style={{ position: 'absolute', top: -6, right: -6, minWidth: 18, height: 18, borderRadius: 9, background: AppColors.danger, color: '#fff', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{activeFilterCount}</span> : null}
-            </button>
-          </div>
-
-          {loading && !data ? <LoadingView /> : !shown ? <ErrorView message={error ?? 'Vui lòng thử lại.'} onRetry={reload} /> : (
-            shown.length === 0 ? (
-              <EmptyView icon={Search} title="Không tìm thấy sản phẩm" message="Thử đổi từ khóa hoặc bỏ bớt bộ lọc."
-                actionLabel={keyword || activeFilterCount > 0 ? 'Xóa tất cả bộ lọc' : undefined}
-                onAction={() => { setKeyword(''); resetFilters(); }} />
-            ) : (
-              <ProductGrid products={shown} onOpen={openProduct} highlightIds={badgeIds} highlightLabel={badgeLabel} />
-            )
-          )}
+          ) : null}
         </div>
       </div>
-    </div>
-  );
-}
 
-function SideGroup({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <div>
-      <div className="side-title">{title}</div>
-      <div className="opt-list">{children}</div>
-    </div>
-  );
-}
+      {category || brand || keyword ? (
+        <div className="pf-active">
+          <span>Đang lọc:</span>
+          {category ? <Chip label={`Danh mục: ${categoryLabel(category)}`} selected onClick={clearCategory} onRemove={clearCategory} /> : null}
+          {brand ? <Chip label={`Thương hiệu: ${brand}`} selected onClick={() => setBrand(null)} onRemove={() => setBrand(null)} /> : null}
+          {keyword ? <Chip label={`Từ khóa: “${keyword}”`} selected onClick={clearKeyword} onRemove={clearKeyword} /> : null}
+        </div>
+      ) : null}
 
-function Opt({ label, active, onClick, count }: { label: string; active: boolean; onClick: () => void; count?: number }) {
-  return (
-    <button className={`opt${active ? ' active' : ''}`} onClick={onClick}>
-      <span>{label}</span>{count !== undefined ? <small>{count}</small> : null}
-    </button>
+      <div style={{ padding: '16px 20px 0' }}>
+        {loading && !data ? <LoadingView /> : !shown ? <ErrorView message={error ?? 'Vui lòng thử lại.'} onRetry={reload} /> : (
+          shown.length === 0 ? (
+            <EmptyView icon={Search} title="Không tìm thấy sản phẩm" message="Thử đổi tab hoặc bỏ bớt bộ lọc."
+              actionLabel={activeFilterCount > 0 ? 'Xóa tất cả bộ lọc' : undefined} onAction={resetFilters} />
+          ) : (
+            <>
+              <ProductGrid products={pageItems} onOpen={openProduct} highlightIds={focus === 'all' ? undefined : badgeIds} highlightLabel={badgeLabel} />
+              <Pagination page={currentPage} totalPages={totalPages} totalItems={totalItems} pageSize={PAGE_SIZE} onChange={goToPage} />
+            </>
+          )
+        )}
+      </div>
+    </div>
   );
 }
 

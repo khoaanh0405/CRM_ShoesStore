@@ -14,17 +14,15 @@ import { formatPrice } from '@/utils/format';
 import { ChevronDown, ImageOff, Search, Send, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import axios from 'axios';
-import { useCooldown } from '@/hooks/useCooldown';
-
 
 const TITLE_MAX = 150;
+const CONTENT_MAX = 2000;
+const normalize = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
 
-/** Gửi phản hồi về sản phẩm (mục 4.3.3). Phản hồi mới có trạng thái "Chờ duyệt". */
+/** Gửi phản hồi về sản phẩm (mục 4.3.3). Chống spam: chặn double-click + chặn gửi lại cùng nội dung cho cùng sản phẩm. */
 export default function FeedbackCreatePage() {
   const navigate = useNavigate();
   const customerId = useCustomerId();
-  const { remaining, start: startCooldown } = useCooldown('feedback', 60);
   const [searchParams] = useSearchParams();
   const initialProductId = searchParams.get('productId');
 
@@ -34,7 +32,7 @@ export default function FeedbackCreatePage() {
   const [content, setContent] = useState('');
   const [errors, setErrors] = useState<{ product?: string; rating?: string; title?: string; content?: string }>({});
   const [pickerOpen, setPickerOpen] = useState(false);
-    const [submitting, setSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const lockRef = useRef(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -43,31 +41,36 @@ export default function FeedbackCreatePage() {
   const selected = products?.find((p) => p.productId === selectedId) ?? null;
 
   const handleSubmit = async () => {
-    if (remaining > 0 || submitting) return;
+    if (lockRef.current) return; // chống double click
     const next = {
       product: selectedId == null ? 'Vui lòng chọn sản phẩm.' : undefined,
       rating: rating < 1 ? 'Vui lòng chọn số sao.' : undefined,
       title: !title.trim() ? 'Vui lòng nhập tiêu đề.' : title.trim().length > TITLE_MAX ? `Tối đa ${TITLE_MAX} ký tự.` : undefined,
-      content: !content.trim() ? 'Vui lòng nhập nội dung đánh giá.' : undefined,
+      content: !content.trim() ? 'Vui lòng nhập nội dung đánh giá.' : content.trim().length > CONTENT_MAX ? `Tối đa ${CONTENT_MAX} ký tự.` : undefined,
     };
     setErrors(next);
     if (Object.values(next).some(Boolean) || selectedId == null || customerId == null) return;
 
+    lockRef.current = true;
     setSubmitting(true);
     setFormError(null);
     try {
+      // Chặn gửi lặp lại cùng một nội dung cho cùng một sản phẩm
+      const existing = await feedbackService.listByCustomer(customerId).catch(() => []);
+      const duplicated = existing.some((f) => f.productId === selectedId && normalize(f.content) === normalize(content));
+      if (duplicated) {
+        setErrors((prev) => ({ ...prev, content: 'Bạn đã gửi đúng nội dung này cho sản phẩm này rồi.' }));
+        return;
+      }
+
       await feedbackService.create({ customerId, productId: selectedId, title: title.trim(), content: content.trim(), rating });
-      startCooldown(60);
       alert('Đã gửi đánh giá. Phản hồi của bạn đang chờ cửa hàng duyệt. Cảm ơn bạn!');
       goBack();
     } catch (e) {
       setFormError(getApiErrorMessage(e, 'Vui lòng thử lại sau.'));
-
-      if (axios.isAxiosError(e) && e.response?.status === 429) {
-        startCooldown(Number(e.response.headers['retry-after']) || 60);
-      }
     } finally {
       setSubmitting(false);
+      lockRef.current = false;
     }
   };
 
@@ -103,17 +106,11 @@ export default function FeedbackCreatePage() {
           </div>
 
           <AppTextField label="Tiêu đề" placeholder="Tóm tắt cảm nhận của bạn" value={title} onChangeText={setTitle} maxLength={TITLE_MAX} error={errors.title} />
-          <AppTextField label="Nội dung" placeholder="Chất liệu, độ vừa chân, chất lượng sau khi sử dụng..." multiline value={content} onChangeText={setContent} error={errors.content} />
+          <AppTextField label="Nội dung" placeholder="Chất liệu, độ vừa chân, chất lượng sau khi sử dụng..." multiline value={content} onChangeText={(v) => { setContent(v); setErrors((p) => ({ ...p, content: undefined })); }} maxLength={CONTENT_MAX} error={errors.content} />
 
           {formError ? <span style={{ color: AppColors.danger, fontSize: 13 }}>{formError}</span> : null}
 
-          <AppButton
-            label={remaining > 0 ? `Vui lòng chờ ${remaining}s` : 'Gửi đánh giá'}
-            icon={Send}
-            onClick={handleSubmit}
-            loading={submitting}
-            disabled={remaining > 0}
-          />
+          <AppButton label="Gửi đánh giá" icon={Send} onClick={handleSubmit} loading={submitting} />
         </div>
       )}
 

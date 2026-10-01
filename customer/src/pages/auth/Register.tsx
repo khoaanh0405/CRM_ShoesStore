@@ -6,35 +6,59 @@ import { Chip } from '@/components/Chip';
 import { AuthColors } from '@/constants/authTheme';
 import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage } from '@/services/api-client';
-import { validateDateOfBirth, validateFullName, validatePassword, validatePhone, validateUsername } from '@/utils/validation';
+import {
+  normalizePhone, normalizeSpaces, validateAddress, validateConfirmPassword, validateDateOfBirth,
+  validateFullName, validateNewPassword, validateNewUsername, validatePhone,
+} from '@/utils/validation';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const GENDER_OPTIONS = ['Nam', 'Nữ', 'Khác'];
 
-type RegisterForm = { username: string; password: string; fullName: string; dateOfBirth: string; gender: string; phone: string; address: string; };
-const INITIAL_FORM: RegisterForm = { username: '', password: '', fullName: '', dateOfBirth: '', gender: '', phone: '', address: '' };
+type RegisterForm = { username: string; password: string; confirm: string; fullName: string; dateOfBirth: string; gender: string; phone: string; address: string; };
+type Errors = Partial<Record<keyof RegisterForm, string | null>>;
+const INITIAL_FORM: RegisterForm = { username: '', password: '', confirm: '', fullName: '', dateOfBirth: '', gender: '', phone: '', address: '' };
 
-/** Khách hàng tự đăng ký tài khoản (mục 4.3.1 Yeu_cau_do_an.docx). Form 2 cột để vừa một màn hình. */
+const VALIDATORS: Record<keyof RegisterForm, (f: RegisterForm) => string | null> = {
+  fullName: (f) => validateFullName(f.fullName),
+  dateOfBirth: (f) => validateDateOfBirth(f.dateOfBirth),
+  username: (f) => validateNewUsername(f.username),
+  password: (f) => validateNewPassword(f.password, f.username),
+  confirm: (f) => validateConfirmPassword(f.password, f.confirm),
+  phone: (f) => validatePhone(f.phone),
+  address: (f) => validateAddress(f.address),
+  gender: () => null,
+};
+
+/** Khách hàng tự đăng ký tài khoản (mục 4.3.1 Yeu_cau_do_an.docx). */
 export default function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState<RegisterForm>(INITIAL_FORM);
-  const [errors, setErrors] = useState<Partial<Record<keyof RegisterForm, string | null>>>({});
+  const [errors, setErrors] = useState<Errors>({});
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const setField = (field: keyof RegisterForm) => (value: string) => setForm((prev) => ({ ...prev, [field]: value }));
+  const setField = (field: keyof RegisterForm) => (value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    setErrors((prev) => ({ ...prev, [field]: null }));
+  };
+
+  const blur = (field: keyof RegisterForm) => () => {
+    setErrors((prev) => {
+      const next = { ...prev, [field]: VALIDATORS[field](form) };
+      if (field === 'password' && form.confirm) next.confirm = VALIDATORS.confirm(form);
+      return next;
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const nextErrors: Partial<Record<keyof RegisterForm, string | null>> = {
-      username: validateUsername(form.username),
-      password: validatePassword(form.password),
-      fullName: validateFullName(form.fullName),
-      dateOfBirth: validateDateOfBirth(form.dateOfBirth),
-      phone: validatePhone(form.phone),
-    };
+    if (submitting) return;
+    const nextErrors = (Object.keys(VALIDATORS) as (keyof RegisterForm)[]).reduce<Errors>((acc, k) => {
+      acc[k] = VALIDATORS[k](form);
+      return acc;
+    }, {});
     setErrors(nextErrors);
     if (Object.values(nextErrors).some(Boolean)) return;
 
@@ -44,11 +68,11 @@ export default function RegisterPage() {
       await register({
         username: form.username.trim(),
         password: form.password,
-        fullName: form.fullName.trim(),
+        fullName: normalizeSpaces(form.fullName),
         dateOfBirth: form.dateOfBirth.trim(),
         gender: form.gender || undefined,
-        phone: form.phone.trim() || undefined,
-        address: form.address.trim() || undefined,
+        phone: normalizePhone(form.phone) || undefined,
+        address: normalizeSpaces(form.address) || undefined,
       });
       navigate('/tabs', { replace: true });
     } catch (error) {
@@ -59,7 +83,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="auth-form" style={{ background: AuthColors.background }}>
+    <form onSubmit={handleSubmit} noValidate className="auth-form" style={{ background: AuthColors.background }}>
       <AuthBanner />
       <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 18 }}>
         <AuthSegmentedTabs active="register" />
@@ -69,16 +93,18 @@ export default function RegisterPage() {
         </div>
 
         <div className="auth-grid">
-          <AuthTextField label="Họ và tên" placeholder="Nguyễn Văn A" value={form.fullName} onChangeText={setField('fullName')} error={errors.fullName} />
-          <AuthTextField label="Ngày sinh" type="date" max={new Date().toISOString().slice(0, 10)} value={form.dateOfBirth} onChangeText={setField('dateOfBirth')} error={errors.dateOfBirth} />
+          <AuthTextField label="Họ và tên" placeholder="Nguyễn Văn A" maxLength={100} value={form.fullName} onChangeText={setField('fullName')} onBlur={blur('fullName')} error={errors.fullName} />
+          <AuthTextField label="Ngày sinh" type="date" min="1900-01-01" max={new Date().toISOString().slice(0, 10)} value={form.dateOfBirth} onChangeText={setField('dateOfBirth')} onBlur={blur('dateOfBirth')} error={errors.dateOfBirth} />
 
-          <AuthTextField label="Tên đăng nhập" placeholder="ten_dang_nhap" autoCapitalize="none" autoCorrect="off" value={form.username} onChangeText={setField('username')} error={errors.username} />
-          <AuthTextField label="Mật khẩu" placeholder="Tối thiểu 6 ký tự" type="password" secureToggle value={form.password} onChangeText={setField('password')} error={errors.password} />
+          <AuthTextField label="Tên đăng nhập" placeholder="ten_dang_nhap" autoCapitalize="none" autoCorrect="off" maxLength={50} value={form.username} onChangeText={setField('username')} onBlur={blur('username')} error={errors.username} />
+          <AuthTextField label="Số điện thoại" placeholder="Không bắt buộc" inputMode="tel" maxLength={15} value={form.phone} onChangeText={setField('phone')} onBlur={blur('phone')} error={errors.phone} />
 
-          <AuthTextField label="Số điện thoại" placeholder="Không bắt buộc" value={form.phone} onChangeText={setField('phone')} error={errors.phone} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <AuthTextField label="Mật khẩu" placeholder="Tối thiểu 6 ký tự, có chữ hoa, số, ký tự đặc biệt" type="password" secureToggle maxLength={50} value={form.password} onChangeText={setField('password')} onBlur={blur('password')} error={errors.password} />
+          <AuthTextField label="Nhập lại mật khẩu" placeholder="Nhập lại mật khẩu" type="password" secureToggle maxLength={50} value={form.confirm} onChangeText={setField('confirm')} onBlur={blur('confirm')} error={errors.confirm} />
+
+          <div className="full" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span style={{ color: AuthColors.textSecondary, fontSize: 13, fontWeight: 600 }}>Giới tính</span>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', minHeight: 46 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               {GENDER_OPTIONS.map((option) => (
                 <Chip key={option} label={option} selected={form.gender === option} onClick={() => setField('gender')(form.gender === option ? '' : option)} />
               ))}
@@ -86,7 +112,7 @@ export default function RegisterPage() {
           </div>
 
           <div className="full">
-            <AuthTextField label="Địa chỉ" placeholder="Không bắt buộc (số nhà, đường, quận/huyện...)" value={form.address} onChangeText={setField('address')} />
+            <AuthTextField label="Địa chỉ" placeholder="Không bắt buộc (số nhà, đường, quận/huyện...)" maxLength={255} value={form.address} onChangeText={setField('address')} onBlur={blur('address')} error={errors.address} />
           </div>
         </div>
 

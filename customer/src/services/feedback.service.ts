@@ -10,4 +10,8 @@ export const feedbackService = {
     const { data } = await http.get<Feedback[]>(`/customers/${customerId}/feedbacks`);
     return data;
   },
+  /** Thu hồi đánh giá đang chờ duyệt (backend chỉ cho phép chủ sở hữu + trạng thái Pending). */
+  async remove(feedbackId: number): Promise<void> {
+    await http.delete(`/feedbacks/${feedbackId}`);
+  },
 };

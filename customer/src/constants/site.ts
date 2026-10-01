@@ -1,6 +1,6 @@
 /** Thông tin cửa hàng dùng chung cho Header/Footer — sửa lại cho đúng thực tế. */
 export const SITE = {
-  name: 'CRM ShoesStore',
+  name: 'Ouran',
   hotline: '1900 6868',
   hotlineRaw: '19006868',
   email: 'support@shoesstore.vn',
