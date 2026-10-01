@@ -11,3 +11,5 @@ export { surveyQuestionOptionController } from './surveyQuestionOption.controlle
 export { surveyTargetController } from './surveyTarget.controller.js';
 export { surveyResponseController } from './surveyResponse.controller.js';
 export { surveyAnswerController } from './surveyAnswer.controller.js';
+export { notificationController } from './notification.controller.js';
+export { adminController } from './admin.controller.js';

@@ -47,3 +47,10 @@ export class ForbiddenError extends AppError {
     super(message, 403, 'FORBIDDEN');
   }
 }
+
+/** 429 — gửi quá nhiều request / nghi ngờ spam. */
+export class TooManyRequestsError extends AppError {
+  constructor(message = 'Bạn thao tác quá nhanh, vui lòng thử lại sau.') {
+    super(message, 429, 'TOO_MANY_REQUESTS');
+  }
+}

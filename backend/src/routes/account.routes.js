@@ -11,7 +11,7 @@
 import { Router } from 'express';
 import { accountController } from '../controllers/index.js';
 import { accountValidator } from '../validators/index.js';
-import { authenticate, adminOnly } from '../middleware/index.js';
+import { authenticate, adminOnly, staffOnly } from '../middleware/index.js';
 
 const router = Router();
 
@@ -31,8 +31,8 @@ router.patch(
 // --- Chỉ Admin ---
 router.get('/', adminOnly, accountController.list);
 router.get('/:id', adminOnly, accountValidator.idParam, accountController.getById);
-router.patch('/:id/lock', adminOnly, accountValidator.idParam, accountController.lock);
-router.patch('/:id/unlock', adminOnly, accountValidator.idParam, accountController.unlock);
+router.patch('/:id/lock', staffOnly, accountValidator.idParam, accountController.lock);
+router.patch('/:id/unlock', staffOnly, accountValidator.idParam, accountController.unlock);
 router.patch(
   '/:id/role',
   adminOnly,

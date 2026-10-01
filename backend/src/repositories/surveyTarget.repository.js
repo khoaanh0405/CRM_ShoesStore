@@ -1,12 +1,17 @@
 /**
  * Repository cho model SurveyTarget (bảng survey_targets).
- * PK composite (survey_id, customer_id) — đúng field tương ứng trong Prisma
- * là @@id([surveyId, customerId]), khi where phải dùng tên khóa hợp
- * (surveyId_customerId) mà Prisma tự sinh.
- * survey_id -> surveys (CASCADE), customer_id -> customers (CASCADE).
- * Đại diện cho việc "gửi khảo sát tới 1 khách hàng cụ thể" (mục 4.1.6).
+ * PK composite (survey_id, customer_id) -> where dùng surveyId_customerId.
+ * sentSignature: "chữ ký" nội dung khảo sát tại thời điểm gửi, dùng để chặn gửi trùng.
  */
 import prisma from '../config/database.js';
+
+const PRODUCT_SELECT = {
+  productId: true,
+  productName: true,
+  brand: true,
+  imageUrl: true,
+  price: true,
+};
 
 export const surveyTargetRepository = {
   findAll() {
@@ -19,30 +24,39 @@ export const surveyTargetRepository = {
     });
   },
 
-  findBySurvey(surveyId) {
+  /** Lấy các target đã có của 1 nhóm khách hàng trong 1 khảo sát. */
+  findBySurveyAndCustomers(surveyId, customerIds) {
     return prisma.surveyTarget.findMany({
-      where: { surveyId },
-      include: { customer: true },
+      where: { surveyId, customerId: { in: customerIds } },
     });
   },
 
+  findBySurvey(surveyId) {
+    return prisma.surveyTarget.findMany({ where: { surveyId }, include: { customer: true } });
+  },
+
+  /** Kèm thông tin sản phẩm (nếu khảo sát gắn với sản phẩm) để customer hiển thị. */
   findByCustomer(customerId) {
     return prisma.surveyTarget.findMany({
       where: { customerId },
-      include: { survey: true },
+      include: { survey: { include: { product: { select: PRODUCT_SELECT } } } },
     });
   },
 
-  /** Gán 1 khách hàng vào danh sách nhận khảo sát. */
-  create({ surveyId, customerId, isCompleted = false }) {
-    return prisma.surveyTarget.create({
-      data: { surveyId, customerId, isCompleted },
-    });
+  create({ surveyId, customerId, isCompleted = false, sentSignature = null }) {
+    return prisma.surveyTarget.create({ data: { surveyId, customerId, isCompleted, sentSignature } });
   },
 
-  /** Gán hàng loạt khách hàng cùng lúc cho 1 khảo sát. */
   createMany(targets) {
     return prisma.surveyTarget.createMany({ data: targets, skipDuplicates: true });
+  },
+
+  /** Cập nhật chữ ký đã gửi cho nhiều khách hàng cùng lúc. */
+  updateSignature(surveyId, customerIds, sentSignature) {
+    return prisma.surveyTarget.updateMany({
+      where: { surveyId, customerId: { in: customerIds } },
+      data: { sentSignature },
+    });
   },
 
   markCompleted(surveyId, customerId) {

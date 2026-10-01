@@ -1,7 +1,5 @@
 /**
- * Controller cho Survey. Không có endpoint DELETE — theo thiết kế, Survey
- * chỉ được "đóng" bằng PATCH /api/surveys/:id/active với isActive=false
- * (xóa cứng luôn bị FK RESTRICT từ survey_responses chặn).
+ * Controller cho Survey. Không có DELETE — chỉ "đóng" bằng PATCH /:id/active.
  */
 import { surveyService } from '../services/index.js';
 import { parseId, parseBoolean } from '../utils/index.js';
@@ -16,20 +14,22 @@ export const surveyController = {
     res.json(await surveyService.getById(surveyId));
   },
 
-  /** Lấy khảo sát kèm toàn bộ câu hỏi + lựa chọn để khách hàng làm bài. */
   async getWithQuestions(req, res) {
     const surveyId = parseId(req.params.id, 'surveyId');
     res.json(await surveyService.getWithQuestions(surveyId));
   },
 
-  /**
-   * Tạo khảo sát kèm câu hỏi trong 1 lần (nested-write).
-   * Body: { title, description, questions: [{ questionContent, questionType, options? }] }
-   * Yêu cầu tối thiểu 15 câu hỏi (Service tự validate).
-   */
+  /** Body: { title, description?, isActive?, productId? } — productId null/không gửi = khảo sát chung. */
+  async createSimple(req, res) {
+    const { title, description, isActive, productId } = req.body;
+    const survey = await surveyService.createSimple({ title, description, isActive, productId });
+    res.status(201).json(survey);
+  },
+
+  /** Body: { title, description, questions, productId? } */
   async create(req, res) {
-    const { title, description, questions } = req.body;
-    const survey = await surveyService.createWithQuestions({ title, description, questions });
+    const { title, description, questions, productId } = req.body;
+    const survey = await surveyService.createWithQuestions({ title, description, questions, productId });
     res.status(201).json(survey);
   },
 
@@ -39,13 +39,11 @@ export const surveyController = {
     res.json(await surveyService.update(surveyId, { title, description }));
   },
 
-  /** Đóng/mở khảo sát — body { isActive: true|false }. */
   async setActive(req, res) {
     const surveyId = parseId(req.params.id, 'surveyId');
     res.json(await surveyService.setActive(surveyId, parseBoolean(req.body.isActive)));
   },
 
-  /** Gửi khảo sát tới nhiều khách hàng — body { customerIds: [1, 2, 3] }. */
   async assignToCustomers(req, res) {
     const surveyId = parseId(req.params.id, 'surveyId');
     const result = await surveyService.assignToCustomers(surveyId, req.body.customerIds);

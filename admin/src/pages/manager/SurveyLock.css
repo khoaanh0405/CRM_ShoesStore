@@ -1,0 +1,4 @@
+.lock-banner { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; margin-bottom: 16px; border-radius: 12px; background: #FEF3C7; border: 1px solid #FDE68A; color: #92400E; font-size: 13.5px; line-height: 1.5; }
+.lock-banner svg { flex-shrink: 0; margin-top: 2px; }
+.lock-banner b { display: block; margin-bottom: 2px; }
+.send-actions { display: flex; gap: 8px; flex-wrap: wrap; }

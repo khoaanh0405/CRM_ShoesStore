@@ -55,7 +55,7 @@ export const productController = {
 
   async remove(req, res) {
     const productId = parseId(req.params.id, 'productId');
-    await productService.remove(productId);
+    await productService.setActive(productId, false);
     res.status(204).send();
   },
 };

@@ -11,3 +11,4 @@ export { surveyQuestionOptionService } from './surveyQuestionOption.service.js';
 export { surveyTargetService } from './surveyTarget.service.js';
 export { surveyResponseService } from './surveyResponse.service.js';
 export { surveyAnswerService } from './surveyAnswer.service.js';
+export { notificationService } from './notification.service.js';

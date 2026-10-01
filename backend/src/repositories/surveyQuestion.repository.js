@@ -17,7 +17,10 @@ export const surveyQuestionRepository = {
   },
 
   findById(questionId) {
-    return prisma.surveyQuestion.findUnique({ where: { questionId } });
+    return prisma.surveyQuestion.findUnique({
+      where: { questionId },
+      include: { options: { orderBy: { sortOrder: 'asc' } } },
+    });
   },
 
   findBySurvey(surveyId) {

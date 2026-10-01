@@ -1,14 +1,6 @@
 /**
  * Xác thực (authenticate) và phân quyền (authorize) bằng JWT.
  *
- * Yêu cầu: npm install jsonwebtoken
- *
- * Luồng: client đăng nhập -> nhận token -> gửi kèm header
- *   Authorization: Bearer <token>
- * -> authenticate() verify token, gắn payload vào req.user
- * -> authorize('Admin') kiểm tra req.user.roleName có nằm trong danh sách
- *    role được phép không.
- *
  * req.user cũng chính là thứ customer.controller.js#updateProfile đọc để
  * chặn khách hàng sửa hồ sơ của người khác (req.user.customerId).
  */
@@ -27,14 +19,30 @@ export function authenticate(req, res, next) {
     req.user = verifyToken(header.slice('Bearer '.length).trim());
     next();
   } catch {
-    // Gộp chung token sai chữ ký / hết hạn / hỏng -> đều là 401.
     next(new UnauthorizedError('Token không hợp lệ hoặc đã hết hạn.'));
   }
 }
 
 /**
+ * Xác thực "mềm": nếu có token hợp lệ thì gắn req.user, nếu không có/token
+ * sai thì vẫn cho đi tiếp (req.user = undefined) — dùng cho các endpoint
+ * công khai nhưng muốn biết thêm danh tính nếu có, ví dụ heartbeat presence
+ * (khách chưa đăng nhập ở trang login/register vẫn được tính "đang online").
+ */
+export function optionalAuthenticate(req, res, next) {
+  const header = req.headers.authorization;
+  if (header?.startsWith('Bearer ')) {
+    try {
+      req.user = verifyToken(header.slice('Bearer '.length).trim());
+    } catch {
+      req.user = undefined;
+    }
+  }
+  next();
+}
+
+/**
  * Chỉ cho phép các role chỉ định. Luôn dùng SAU authenticate.
- * Ví dụ: router.delete('/:id', authenticate, authorize(ROLE_NAMES.ADMIN), ...)
  */
 export function authorize(...allowedRoles) {
   return (req, res, next) => {
@@ -46,5 +54,6 @@ export function authorize(...allowedRoles) {
   };
 }
 
-/** Lối tắt hay dùng nhất: chỉ Admin mới được vào. */
 export const adminOnly = [authenticate, authorize(ROLE_NAMES.ADMIN)];
+export const managerOnly = [authenticate, authorize(ROLE_NAMES.MANAGER)];
+export const staffOnly = [authenticate, authorize(ROLE_NAMES.ADMIN, ROLE_NAMES.MANAGER)];

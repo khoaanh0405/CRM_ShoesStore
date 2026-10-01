@@ -16,11 +16,11 @@
 import prisma from '../config/database.js';
 
 export const customerRepository = {
-  /** Mặc định chỉ trả về khách hàng đang hoạt động (is_deleted = false). */
   findAll({ includeDeleted = false } = {}) {
     return prisma.customer.findMany({
       where: includeDeleted ? undefined : { isDeleted: false },
       orderBy: { customerId: 'asc' },
+      include: { customerPreferences: true },
     });
   },
 
