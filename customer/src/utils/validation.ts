@@ -105,3 +105,31 @@ export function validateAddress(value?: string): string | null {
   if (v.length > 255) return 'Địa chỉ tối đa 255 ký tự.';
   return null;
 }
+
+/* ===== Email & OTP ===== */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+export const OTP_LENGTH = 6;
+
+/** Email luôn gửi lên server ở dạng chữ thường, bỏ khoảng trắng đầu cuối. */
+export const normalizeEmail = (v: string) => v.trim().toLowerCase();
+
+export function validateEmail(value: string): string | null {
+  const v = value.trim();
+  if (!v) return 'Vui lòng nhập email.';
+  if (v.length > 100) return 'Email tối đa 100 ký tự.';
+  if (!EMAIL_RE.test(v)) return 'Email không hợp lệ (vd: ten@gmail.com).';
+  return null;
+}
+
+export function validateOtp(value: string): string | null {
+  if (!value.trim()) return 'Vui lòng nhập mã OTP.';
+  if (!new RegExp(`^\\d{${OTP_LENGTH}}$`).test(value.trim())) return `Mã OTP gồm ${OTP_LENGTH} chữ số.`;
+  return null;
+}
+
+/** an***@gmail.com — che bớt email khi hiển thị. */
+export function maskEmail(email: string): string {
+  const [name, domain] = email.split('@');
+  if (!domain) return email;
+  return `${name.slice(0, 2)}${'*'.repeat(Math.max(name.length - 2, 1))}@${domain}`;
+}

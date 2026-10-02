@@ -33,6 +33,15 @@ const daysAgo = (n, hour = 10) => {
   return d;
 };
 
+/* ---------- email khách hàng ---------- */
+// Mỗi khách hàng có 1 email duy nhất (chữ thường). Mặc định: <username>@example.com.
+// Tài khoản 'nguyenvana' dùng email THẬT của bạn để test luồng Quên mật khẩu (OTP gửi qua email).
+// Muốn test bằng email khác: sửa giá trị bên dưới rồi chạy lại seed.
+const EMAIL_OVERRIDES = {
+  nguyenvana: 'nguyenhuudai104@gmail.com',
+};
+const emailOf = (username) => EMAIL_OVERRIDES[username] ?? `${username}@example.com`;
+
 /* ---------- dữ liệu nguồn ---------- */
 const SUPPLIER = {
   supplierName: 'Công ty TNHH Phân Phối Giày Sài Gòn',
@@ -58,6 +67,7 @@ const PRODUCTS = [
 ];
 
 // [username, họ tên, ngày sinh, giới tính, sđt, địa chỉ, [sở thích], isLocked, isDeleted]
+// Email sinh tự động bằng emailOf(username).
 // 0-20: đang hoạt động | 21-22: bị khóa | 23-25: đã xóa mềm. Độ tuổi & giới tính đa dạng để báo cáo CRM có số liệu.
 const CUSTOMERS = [
   ['nguyenvana', 'Nguyễn Văn An', '2008-04-12', 'Nam', '0901000001', 'Q.1, TP.HCM', ['Giày Sneaker'], false, false],
@@ -202,7 +212,7 @@ async function main() {
 
   // 0. Xóa sạch dữ liệu cũ (seed chạy lại bao nhiêu lần cũng không bị trùng)
   await prisma.$executeRawUnsafe(`
-    TRUNCATE TABLE "notifications", "survey_answers", "survey_responses", "survey_targets",
+    TRUNCATE TABLE "password_reset_otps", "notifications", "survey_answers", "survey_responses", "survey_targets",
       "survey_question_options", "survey_questions", "surveys", "feedbacks",
       "customer_preferences", "customers", "products", "suppliers", "accounts", "roles"
     RESTART IDENTITY CASCADE
@@ -235,7 +245,7 @@ async function main() {
     }));
   }
 
-  // 3. Khách hàng (tài khoản + hồ sơ + sở thích trong 1 lần tạo)
+  // 3. Khách hàng (tài khoản + hồ sơ + email + sở thích trong 1 lần tạo)
   const customers = [];
   for (const [username, fullName, dob, gender, phone, address, prefs, isLocked, isDeleted] of CUSTOMERS) {
     const acc = await prisma.account.create({
@@ -244,6 +254,7 @@ async function main() {
         customer: {
           create: {
             fullName, dateOfBirth: new Date(dob), gender, phone, address,
+            email: emailOf(username),
             isDeleted, deletedAt: isDeleted ? daysAgo(5) : null,
             customerPreferences: { create: prefs.map((preferenceTag) => ({ preferenceTag })) },
           },
@@ -358,9 +369,10 @@ async function main() {
   await prisma.notification.createMany({ data: notifications });
 
   console.log('Seed xong!');
-  console.log(`- ${customers.length} khách hàng (${activeCustomers.length} hoạt động, 2 bị khóa, 3 đã xóa mềm)`);
+  console.log(`- ${customers.length} khách hàng (${activeCustomers.length} hoạt động, 2 bị khóa, 3 đã xóa mềm), mỗi người 1 email riêng`);
   console.log(`- ${PRODUCTS.length} sản phẩm, 1 nhà cung cấp, ${FEEDBACKS.length} phản hồi, ${SURVEYS.length} khảo sát`);
   console.log('- Tài khoản test (mật khẩu 123456): admin | manager | nguyenvana | tranthib | levanc ...');
+  console.log(`- Test quên mật khẩu: tài khoản nguyenvana, email ${emailOf('nguyenvana')}`);
 }
 
 main()

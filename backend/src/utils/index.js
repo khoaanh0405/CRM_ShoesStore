@@ -3,3 +3,6 @@ export { calculateAge } from './date.util.js';
 export { isForeignKeyError } from './prismaError.util.js';
 export { parseId, parseBoolean, parseNumber } from './param.util.js';
 export { signToken, verifyToken } from './jwt.util.js';
+export { normalizeEmail, isValidEmail, assertValidEmail, assertStrongPassword, EMAIL_MAX_LENGTH } from './validation.util.js';
+export { generateOtp, hashOtp, verifyOtpHash } from './otp.util.js';
+export { sendMail, sendPasswordResetOtpMail } from './mail.util.js';

@@ -4,9 +4,9 @@
  * (đúng thiết kế trong customer.repository.js).
  */
 import { customerRepository, customerPreferenceRepository } from '../repositories/index.js';
-import { NotFoundError, ValidationError, ForbiddenError } from '../errors/AppError.js';
+import { NotFoundError, ValidationError, ForbiddenError, ConflictError } from '../errors/AppError.js';
 import { AGE_BUCKETS, MESSAGES } from '../constants/index.js';
-import { calculateAge } from '../utils/index.js';
+import { calculateAge, assertValidEmail } from '../utils/index.js';
 
 function ageBucketOf(age) {
   const bucket = AGE_BUCKETS.find((b) => age >= b.min && age <= b.max);
@@ -15,13 +15,14 @@ function ageBucketOf(age) {
 
 export const customerService = {
   async list({ includeDeleted = false } = {}) {
-  const customers = await customerRepository.findAll({ includeDeleted });
-  return customers.map((c) => ({
-    ...c,
-    isLocked: c.account?.isLocked ?? false,
-    preferences: (c.customerPreferences ?? []).map((p) => ({ tag: p.preferenceTag })),
-  }));
-},
+    const customers = await customerRepository.findAll({ includeDeleted });
+    return customers.map(({ account, customerPreferences, ...c }) => ({
+      ...c,
+      isLocked: account?.isLocked ?? false,
+      customerPreferences,
+      preferences: (customerPreferences ?? []).map((p) => ({ tag: p.preferenceTag })),
+    }));
+  },
 
   async getById(customerId, options = {}) {
     const customer = await customerRepository.findById(customerId, options);
@@ -46,7 +47,7 @@ export const customerService = {
    * người đang đăng nhập (lấy từ token/session ở Controller) — truyền vào
    * đây để đảm bảo không sửa được hồ sơ người khác. Bỏ trống nếu Admin gọi.
    */
-  async updateProfile(customerId, { fullName, dateOfBirth, gender, phone, address }, requesterId) {
+  async updateProfile(customerId, { fullName, dateOfBirth, gender, phone, email, address }, requesterId) {
     if (requesterId !== undefined && requesterId !== customerId) {
       throw new ForbiddenError('Không thể chỉnh sửa thông tin của khách hàng khác.');
     }
@@ -56,11 +57,22 @@ export const customerService = {
       throw new ValidationError('Họ tên không được để trống.');
     }
 
+    // Đổi email: phải hợp lệ và không trùng với khách hàng khác.
+    let normalizedEmail;
+    if (email !== undefined) {
+      normalizedEmail = assertValidEmail(email);
+      const owner = await customerRepository.findByEmail(normalizedEmail);
+      if (owner && owner.customerId !== customerId) {
+        throw new ConflictError('Email này đã được sử dụng bởi tài khoản khác.');
+      }
+    }
+
     return customerRepository.update(customerId, {
       fullName: fullName?.trim(),
       dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
       gender,
       phone,
+      email: normalizedEmail,
       address,
     });
   },

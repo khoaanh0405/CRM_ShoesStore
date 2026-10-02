@@ -11,17 +11,31 @@
  * createAccountWithNewCustomer() vì nghiệp vụ tạo Account+Customer giống hệt
  * nhau — điểm khác nhau duy nhất là AI được phép gọi (route/middleware quyết
  * định: register công khai, createCustomerByAdmin chỉ Admin qua adminOnly).
+ *
+ * Quên mật khẩu bằng OTP gửi qua email: requestPasswordReset() + resetPassword().
  */
 import prisma from '../config/database.js';
-import { accountRepository, roleRepository } from '../repositories/index.js';
+import {
+  accountRepository,
+  roleRepository,
+  customerRepository,
+  passwordResetOtpRepository,
+} from '../repositories/index.js';
 import {
   NotFoundError,
   ValidationError,
   ConflictError,
   UnauthorizedError,
 } from '../errors/AppError.js';
-import { ROLE_NAMES, MESSAGES, MIN_PASSWORD_LENGTH } from '../constants/index.js';
-import { hashPassword, comparePassword } from '../utils/index.js';
+import {
+  ROLE_NAMES, MESSAGES,
+  OTP_TTL_MINUTES, OTP_MAX_ATTEMPTS, OTP_RESEND_SECONDS,
+} from '../constants/index.js';
+import {
+  hashPassword, comparePassword,
+  assertValidEmail, normalizeEmail, assertStrongPassword,
+  generateOtp, hashOtp, verifyOtpHash, sendPasswordResetOtpMail,
+} from '../utils/index.js';
 
 /** Không bao giờ trả passwordHash ra ngoài Service/Controller. */
 function sanitize(account) {
@@ -30,22 +44,21 @@ function sanitize(account) {
   return rest;
 }
 
+const OTP_INVALID_MESSAGE = 'Mã OTP không đúng hoặc đã hết hạn. Vui lòng kiểm tra lại hoặc gửi lại mã mới.';
+
 /**
  * Tạo đồng thời 1 Account (role Customer, isLocked=false) + 1 Customer
  * trong cùng 1 nested-write. Dùng chung cho:
- *  - registerCustomer (mục 4.3.1 — khách hàng TỰ đăng ký, mật khẩu do
- *    chính khách hàng nhập)
+ *  - registerCustomer (mục 4.3.1 — khách hàng TỰ đăng ký)
  *  - createCustomerByAdmin (mục 4.1.1 — Admin THÊM khách hàng hộ, mật khẩu
  *    khởi tạo do Admin nhập qua field `password`)
- * Ai được phép gọi hàm này là quyết định của route/middleware (accounts
- * routes để /register công khai; admin routes gắn adminOnly), bản thân
- * Service không phân biệt "ai đang tạo" vì nghiệp vụ tạo bản ghi là như
- * nhau — tránh lặp lại y hệt logic validate + nested-write ở 2 nơi.
+ * Ai được phép gọi hàm này là quyết định của route/middleware.
  */
 async function createAccountWithNewCustomer({
   username,
   password,
   fullName,
+  email,
   dateOfBirth,
   gender,
   phone,
@@ -54,12 +67,14 @@ async function createAccountWithNewCustomer({
   if (!username?.trim() || !password || !fullName?.trim() || !dateOfBirth) {
     throw new ValidationError('Vui lòng nhập đầy đủ tên đăng nhập, mật khẩu, họ tên và ngày sinh.');
   }
-  if (password.length < MIN_PASSWORD_LENGTH) {
-    throw new ValidationError(`Mật khẩu phải có ít nhất ${MIN_PASSWORD_LENGTH} ký tự.`);
-  }
+  const normalizedEmail = assertValidEmail(email);
+  assertStrongPassword(password, username);
 
   const existed = await accountRepository.findByUsername(username.trim());
   if (existed) throw new ConflictError(`Tên đăng nhập "${username}" đã tồn tại.`);
+
+  const emailOwner = await customerRepository.findByEmail(normalizedEmail);
+  if (emailOwner) throw new ConflictError('Email này đã được sử dụng bởi tài khoản khác.');
 
   const customerRole = await roleRepository.findByName(ROLE_NAMES.CUSTOMER);
   if (!customerRole) throw new NotFoundError(`Hệ thống chưa cấu hình vai trò "${ROLE_NAMES.CUSTOMER}".`);
@@ -78,6 +93,7 @@ async function createAccountWithNewCustomer({
           dateOfBirth: new Date(dateOfBirth),
           gender,
           phone,
+          email: normalizedEmail,
           address,
         },
       },
@@ -106,12 +122,8 @@ export const accountService = {
   },
 
   /**
-   * Admin thêm một khách hàng mới (mục 4.1.1) — nghiệp vụ tách biệt khỏi
-   * registerCustomer ở tầng route (chỉ Admin gọi được qua adminOnly), còn
-   * việc tạo Account+Customer dùng chung createAccountWithNewCustomer().
-   * `password` ở đây LÀ mật khẩu khởi tạo do Admin tự nhập cho khách hàng
-   * (không phải khách hàng tự đặt) — khách hàng có thể đổi lại sau qua
-   * PATCH /accounts/:id/password.
+   * Admin thêm một khách hàng mới (mục 4.1.1). `password` ở đây LÀ mật khẩu
+   * khởi tạo do Admin tự nhập cho khách hàng — khách hàng có thể đổi lại sau.
    */
   createCustomerByAdmin(payload) {
     return createAccountWithNewCustomer(payload);
@@ -152,12 +164,86 @@ export const accountService = {
     const isMatch = await comparePassword(oldPassword ?? '', account.passwordHash);
     if (!isMatch) throw new UnauthorizedError('Mật khẩu cũ không đúng.');
 
-    if (!newPassword || newPassword.length < MIN_PASSWORD_LENGTH) {
-      throw new ValidationError(`Mật khẩu mới phải có ít nhất ${MIN_PASSWORD_LENGTH} ký tự.`);
-    }
+    assertStrongPassword(newPassword, account.username);
 
     const passwordHash = await hashPassword(newPassword);
     return sanitize(await accountRepository.update(accountId, { passwordHash }));
+  },
+
+  /**
+   * Quên mật khẩu — bước 1: sinh OTP 6 số, lưu bản băm + hạn dùng vào DB và gửi
+   * email. Luôn "im lặng" khi email không tồn tại / tài khoản bị khóa / vừa gửi
+   * mã chưa đủ OTP_RESEND_SECONDS để không lộ email nào đã đăng ký.
+   */
+  async requestPasswordReset(rawEmail) {
+    const email = assertValidEmail(rawEmail);
+    const customer = await customerRepository.findByEmail(email);
+    if (!customer || customer.isDeleted || customer.account.isLocked) return;
+
+    const accountId = customer.customerId;
+    const last = await passwordResetOtpRepository.findLatest(accountId);
+    if (last && Date.now() - last.createdAt.getTime() < OTP_RESEND_SECONDS * 1000) return;
+
+    const otp = generateOtp();
+    await passwordResetOtpRepository.invalidateAll(accountId);
+    const record = await passwordResetOtpRepository.create({
+      accountId,
+      otpHash: hashOtp(accountId, otp),
+      expiresAt: new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000),
+    });
+
+    try {
+      await sendPasswordResetOtpMail({ to: email, fullName: customer.fullName, otp });
+    } catch (err) {
+      await passwordResetOtpRepository.remove(record.otpId).catch(() => {});
+      throw err;
+    }
+  },
+
+  /**
+   * Quên mật khẩu — bước 2: kiểm tra OTP rồi đặt mật khẩu mới. Nhập sai quá
+   * OTP_MAX_ATTEMPTS lần thì mã bị hủy; OTP chỉ dùng được 1 lần.
+   */
+  async resetPassword({ email: rawEmail, otp, newPassword }) {
+    const email = normalizeEmail(rawEmail);
+    const customer = await customerRepository.findByEmail(email);
+    if (!customer || customer.isDeleted || customer.account.isLocked) {
+      throw new ValidationError(OTP_INVALID_MESSAGE);
+    }
+    const account = customer.account;
+    assertStrongPassword(newPassword, account.username);
+
+    const record = await passwordResetOtpRepository.findLatestUnused(account.accountId);
+    if (!record || record.expiresAt.getTime() < Date.now()) {
+      throw new ValidationError(OTP_INVALID_MESSAGE);
+    }
+    if (record.attempts >= OTP_MAX_ATTEMPTS) {
+      await passwordResetOtpRepository.markUsed(record.otpId);
+      throw new ValidationError('Bạn đã nhập sai quá nhiều lần. Vui lòng gửi lại mã mới.');
+    }
+
+    if (!verifyOtpHash(account.accountId, otp, record.otpHash)) {
+      const updated = await passwordResetOtpRepository.incrementAttempts(record.otpId);
+      const left = OTP_MAX_ATTEMPTS - updated.attempts;
+      if (left <= 0) {
+        await passwordResetOtpRepository.markUsed(record.otpId);
+        throw new ValidationError('Bạn đã nhập sai quá nhiều lần. Vui lòng gửi lại mã mới.');
+      }
+      throw new ValidationError(`Mã OTP không đúng. Bạn còn ${left} lần thử.`);
+    }
+
+    if (await comparePassword(newPassword, account.passwordHash)) {
+      throw new ValidationError('Mật khẩu mới phải khác mật khẩu hiện tại.');
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+    await prisma.$transaction([
+      prisma.account.update({ where: { accountId: account.accountId }, data: { passwordHash } }),
+      prisma.passwordResetOtp.updateMany({
+        where: { accountId: account.accountId, usedAt: null },
+        data: { usedAt: new Date() },
+      }),
+    ]);
   },
 
   /** Khóa tài khoản khách hàng (mục 4.1.3), cũng dùng chung để Admin khóa account bất kỳ. */
@@ -173,9 +259,7 @@ export const accountService = {
 
   /**
    * Admin phân quyền lại cho account. Nhận `roleName` (chuỗi, ví dụ "Manager")
-   * — khớp với những gì AccountManagement.tsx đang gửi lên
-   * (PATCH /accounts/:id/role, body { roleName }) — tự tra roleId tương ứng
-   * qua roleRepository.findByName() rồi mới cập nhật.
+   * — tự tra roleId tương ứng qua roleRepository.findByName() rồi mới cập nhật.
    */
   async updateRole(accountId, roleName) {
     await this.getById(accountId);

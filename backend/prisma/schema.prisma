@@ -16,16 +16,32 @@ model Role {
 }
 
 model Account {
-  accountId    Int       @id @default(autoincrement()) @map("account_id")
-  username     String    @unique @db.VarChar(50)
-  passwordHash String    @map("password_hash") @db.VarChar(255)
-  roleId       Int       @map("role_id")
-  isLocked     Boolean   @default(false) @map("is_locked")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  role         Role      @relation(fields: [roleId], references: [roleId])
-  customer     Customer?
+  accountId        Int                @id @default(autoincrement()) @map("account_id")
+  username         String             @unique @db.VarChar(50)
+  passwordHash     String             @map("password_hash") @db.VarChar(255)
+  roleId           Int                @map("role_id")
+  isLocked         Boolean            @default(false) @map("is_locked")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  role             Role               @relation(fields: [roleId], references: [roleId])
+  customer         Customer?
+  passwordResetOtps PasswordResetOtp[]
 
   @@map("accounts")
+}
+
+// Mã OTP quên mật khẩu — chỉ lưu bản băm (HMAC-SHA256), không lưu mã gốc.
+model PasswordResetOtp {
+  otpId     Int       @id @default(autoincrement()) @map("otp_id")
+  accountId Int       @map("account_id")
+  otpHash   String    @map("otp_hash") @db.VarChar(64)
+  expiresAt DateTime  @map("expires_at")
+  attempts  Int       @default(0)
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  account   Account   @relation(fields: [accountId], references: [accountId], onDelete: Cascade)
+
+  @@index([accountId, createdAt])
+  @@map("password_reset_otps")
 }
 
 model Supplier {
@@ -68,6 +84,8 @@ model Customer {
   dateOfBirth         DateTime             @map("date_of_birth") @db.Date
   gender              String?              @db.VarChar(10)
   phone               String?              @db.VarChar(20)
+  // Email (luôn lưu chữ thường) — dùng để gửi OTP quên mật khẩu. Bắt buộc ở tầng API.
+  email               String?              @unique @db.VarChar(100)
   address             String?              @db.VarChar(255)
   isDeleted           Boolean              @default(false) @map("is_deleted")
   deletedAt           DateTime?            @map("deleted_at")

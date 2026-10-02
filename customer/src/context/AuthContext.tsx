@@ -1,4 +1,6 @@
 import { AUTH_ACCOUNT_KEY, AUTH_TOKEN_KEY } from '@/constants/config';
+import { showAlert } from '@/lib/dialog';
+import { AUTH_EXPIRED_EVENT } from '@/services/api-client';
 import { authService } from '@/services/auth.service';
 import type { Account, LoginPayload, RegisterPayload } from '@/types/auth';
 import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
@@ -31,9 +33,10 @@ function clearSession() {
 /**
  * Quản lý phiên đăng nhập của khách hàng cho toàn app web (mục 4.3.1/4.3.2).
  * Token JWT + account lưu trong localStorage để giữ phiên xuyên suốt các lần
- * mở lại trình duyệt (khác sessionStorage — mất khi đóng tab). Chỉ mất phiên
- * khi gọi logout() tường minh. services/api-client.ts đọc cùng key này để
- * gắn Authorization header.
+ * mở lại trình duyệt (khác sessionStorage — mất khi đóng tab). Mất phiên khi
+ * gọi logout() tường minh HOẶC khi server báo token sai/hết hạn (api-client
+ * phát AUTH_EXPIRED_EVENT). services/api-client.ts đọc cùng key này để gắn
+ * Authorization header.
  */
 export function AuthProvider({ children }: PropsWithChildren) {
   const [status, setStatus] = useState<AuthStatus>('loading');
@@ -54,6 +57,19 @@ export function AuthProvider({ children }: PropsWithChildren) {
     } catch {
       setStatus('signedOut');
     }
+  }, []);
+
+  // Token hết hạn/không hợp lệ -> tự đăng xuất và báo cho khách đăng nhập lại.
+  useEffect(() => {
+    const onExpired = () => {
+      clearSession();
+      setToken(null);
+      setAccount(null);
+      setStatus('signedOut');
+      void showAlert({ title: 'Phiên đăng nhập đã hết hạn', message: 'Vui lòng đăng nhập lại để tiếp tục.', tone: 'warning' });
+    };
+    window.addEventListener(AUTH_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, onExpired);
   }, []);
 
   const login = async (payload: LoginPayload) => {

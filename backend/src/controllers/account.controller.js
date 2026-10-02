@@ -1,9 +1,10 @@
 /**
  * Controller cho Account (đăng ký/đăng nhập/khóa tài khoản/phân quyền/
- * Admin thêm khách hàng).
+ * Admin thêm khách hàng/quên mật khẩu bằng OTP qua email).
  */
 import { accountService } from '../services/index.js';
 import { parseId, parseNumber, signToken } from '../utils/index.js';
+import { OTP_TTL_MINUTES, OTP_RESEND_SECONDS } from '../constants/index.js';
 
 export const accountController = {
   async list(req, res) {
@@ -18,24 +19,21 @@ export const accountController = {
 
   /** Khách hàng tự đăng ký — tạo Account + Customer trong 1 transaction. */
   async register(req, res) {
-    const { username, password, fullName, dateOfBirth, gender, phone, address } = req.body;
+    const { username, password, fullName, email, dateOfBirth, gender, phone, address } = req.body;
     const account = await accountService.registerCustomer({
-      username, password, fullName, dateOfBirth, gender, phone, address,
+      username, password, fullName, email, dateOfBirth, gender, phone, address,
     });
     res.status(201).json(account);
   },
 
   /**
    * Admin thêm một khách hàng mới (mục 4.1.1) — POST /api/admin/customers.
-   * Route gắn adminOnly (xem admin.routes.js) nên chỉ Admin gọi được; khác
-   * register() ở chỗ người gọi là Admin (không phải khách hàng tự đăng ký)
-   * và `password` trong body là mật khẩu KHỞI TẠO do Admin tự nhập cho
-   * khách hàng, không phải khách hàng tự đặt.
+   * `password` trong body là mật khẩu KHỞI TẠO do Admin tự nhập cho khách hàng.
    */
   async createCustomerByAdmin(req, res) {
-    const { username, password, fullName, dateOfBirth, gender, phone, address } = req.body;
+    const { username, password, fullName, email, dateOfBirth, gender, phone, address } = req.body;
     const account = await accountService.createCustomerByAdmin({
-      username, password, fullName, dateOfBirth, gender, phone, address,
+      username, password, fullName, email, dateOfBirth, gender, phone, address,
     });
     res.status(201).json(account);
   },
@@ -63,6 +61,22 @@ export const accountController = {
     const accountId = parseId(req.params.id, 'accountId');
     const { oldPassword, newPassword } = req.body;
     res.json(await accountService.changePassword(accountId, { oldPassword, newPassword }));
+  },
+
+  /** POST /api/accounts/forgot-password — body { email }. Luôn trả cùng 1 thông báo (không lộ email nào đã đăng ký). */
+  async forgotPassword(req, res) {
+    await accountService.requestPasswordReset(req.body.email);
+    res.json({
+      message: `Nếu email đã đăng ký, mã OTP đã được gửi tới hộp thư của bạn. Mã có hiệu lực ${OTP_TTL_MINUTES} phút.`,
+      resendAfterSeconds: OTP_RESEND_SECONDS,
+    });
+  },
+
+  /** POST /api/accounts/reset-password — body { email, otp, newPassword }. */
+  async resetPassword(req, res) {
+    const { email, otp, newPassword } = req.body;
+    await accountService.resetPassword({ email, otp, newPassword });
+    res.json({ message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập bằng mật khẩu mới.' });
   },
 
   async lock(req, res) {

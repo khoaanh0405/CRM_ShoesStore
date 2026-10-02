@@ -12,6 +12,8 @@
  * comment trong schema.prisma — KHÔNG có hàm hard delete ở đây. Sau khi
  * isDeleted=true, khách hàng biến mất khỏi danh sách hoạt động nhưng toàn bộ
  * Feedback/SurveyResponse lịch sử vẫn giữ nguyên.
+ *
+ * email luôn được Service chuẩn hóa về chữ thường trước khi truyền xuống đây.
  */
 import prisma from '../config/database.js';
 
@@ -20,7 +22,7 @@ export const customerRepository = {
     return prisma.customer.findMany({
       where: includeDeleted ? undefined : { isDeleted: false },
       orderBy: { customerId: 'asc' },
-      include: { customerPreferences: true },
+      include: { customerPreferences: true, account: { select: { isLocked: true } } },
     });
   },
 
@@ -41,6 +43,14 @@ export const customerRepository = {
     });
   },
 
+  /** Tìm theo email (đã chuẩn hóa chữ thường) — dùng cho quên mật khẩu và kiểm tra trùng email. */
+  findByEmail(email) {
+    return prisma.customer.findUnique({
+      where: { email },
+      include: { account: true },
+    });
+  },
+
   findByIdWithPreferences(customerId) {
     return prisma.customer.findUnique({
       where: { customerId },
@@ -52,7 +62,12 @@ export const customerRepository = {
     return prisma.customer.findMany({
       where: {
         ...(includeDeleted ? {} : { isDeleted: false }),
-        ...(keyword && { fullName: { contains: keyword, mode: 'insensitive' } }),
+        ...(keyword && {
+          OR: [
+            { fullName: { contains: keyword, mode: 'insensitive' } },
+            { email: { contains: keyword, mode: 'insensitive' } },
+          ],
+        }),
         ...(gender && { gender }),
       },
       orderBy: { fullName: 'asc' },
@@ -63,16 +78,16 @@ export const customerRepository = {
    * customerId phải là account_id của 1 Account (role Customer) đã tồn tại
    * từ trước — xem ghi chú đầu file.
    */
-  create({ customerId, fullName, dateOfBirth, gender, phone, address }) {
+  create({ customerId, fullName, dateOfBirth, gender, phone, email, address }) {
     return prisma.customer.create({
-      data: { customerId, fullName, dateOfBirth, gender, phone, address },
+      data: { customerId, fullName, dateOfBirth, gender, phone, email, address },
     });
   },
 
-  update(customerId, { fullName, dateOfBirth, gender, phone, address }) {
+  update(customerId, { fullName, dateOfBirth, gender, phone, email, address }) {
     return prisma.customer.update({
       where: { customerId },
-      data: { fullName, dateOfBirth, gender, phone, address },
+      data: { fullName, dateOfBirth, gender, phone, email, address },
     });
   },
 
