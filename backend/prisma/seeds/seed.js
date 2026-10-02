@@ -218,7 +218,7 @@ async function main() {
     RESTART IDENTITY CASCADE
   `);
 
-  // 1. Vai trò + tài khoản nội bộ
+  // 1. Vai trò + tài khoản nội bộ (Admin & Manager có thêm hồ sơ Customer tương ứng để lưu Email)
   const [adminRole, managerRole, customerRole] = await Promise.all([
     prisma.role.create({ data: { roleName: 'Admin', description: 'Quản trị viên hệ thống' } }),
     prisma.role.create({ data: { roleName: 'Manager', description: 'Quản lý CRM (khách hàng, phản hồi, khảo sát)' } }),
@@ -226,11 +226,36 @@ async function main() {
   ]);
   const passwordHash = await bcrypt.hash('123456', 10);
 
-  await prisma.account.createMany({
-    data: [
-      { username: 'admin', passwordHash, roleId: adminRole.roleId },
-      { username: 'manager', passwordHash, roleId: managerRole.roleId },
-    ],
+  await prisma.account.create({
+    data: {
+      username: 'admin',
+      passwordHash,
+      roleId: adminRole.roleId,
+      customer: {
+        create: {
+          fullName: 'Quản Trị Viên',
+          email: 'admin@ouran.com',
+          phone: '0900000000',
+          dateOfBirth: new Date('1990-01-01'), // Bổ sung ngày sinh mặc định
+        },
+      },
+    },
+  });
+
+  await prisma.account.create({
+    data: {
+      username: 'manager',
+      passwordHash,
+      roleId: managerRole.roleId,
+      customer: {
+        create: {
+          fullName: 'Quản Lý CRM',
+          email: 'manager@ouran.com',
+          phone: '0900000001',
+          dateOfBirth: new Date('1992-01-01'), // Bổ sung ngày sinh mặc định
+        },
+      },
+    },
   });
 
   // 2. Nhà cung cấp duy nhất + sản phẩm
@@ -371,7 +396,7 @@ async function main() {
   console.log('Seed xong!');
   console.log(`- ${customers.length} khách hàng (${activeCustomers.length} hoạt động, 2 bị khóa, 3 đã xóa mềm), mỗi người 1 email riêng`);
   console.log(`- ${PRODUCTS.length} sản phẩm, 1 nhà cung cấp, ${FEEDBACKS.length} phản hồi, ${SURVEYS.length} khảo sát`);
-  console.log('- Tài khoản test (mật khẩu 123456): admin | manager | nguyenvana | tranthib | levanc ...');
+  console.log('- Tài khoản test (mật khẩu 123456): admin (admin@ouran.com) | manager (manager@ouran.com) | nguyenvana | tranthib ...');
   console.log(`- Test quên mật khẩu: tài khoản nguyenvana, email ${emailOf('nguyenvana')}`);
 }
 

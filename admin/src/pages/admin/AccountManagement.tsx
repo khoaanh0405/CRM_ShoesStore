@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Search, Trash2, X, AlertCircle, CheckCircle, Plus } from 'lucide-react';
 import api from '../../utils/api';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { normalizeEmail, validateEmail, validateNewPassword, PASSWORD_HINT } from '../../utils/validation';
 import './AccountManagement.css';
 
 interface Account {
@@ -10,6 +11,7 @@ interface Account {
   isLocked: boolean;
   createdAt: string;
   role: { roleName: string };
+  customer?: { email?: string | null } | null;
 }
 
 const AccountManagement: React.FC = () => {
@@ -46,21 +48,24 @@ const AccountManagement: React.FC = () => {
 
   // Add Modal state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [addFormData, setAddFormData] = useState({
+  const EMPTY_ADD_FORM = {
     username: '',
+    email: '',
     password: '',
     fullName: '',
     gender: 'Nam',
     dateOfBirth: '',
     phone: '',
     address: ''
-  });
+  };
+  const [addFormData, setAddFormData] = useState(EMPTY_ADD_FORM);
   const [isAdding, setIsAdding] = useState(false);
 
   // Edit Modal state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editFormData, setEditFormData] = useState({
     fullName: '',
+    email: '',
     gender: 'Nam',
     dateOfBirth: '',
     phone: '',
@@ -190,6 +195,7 @@ const AccountManagement: React.FC = () => {
       const data = res.data;
       setEditFormData({
         fullName: data.fullName || '',
+        email: data.email || '',
         gender: data.gender || 'Nam',
         dateOfBirth: data.dateOfBirth ? data.dateOfBirth.substring(0, 10) : '',
         phone: data.phone || '',
@@ -207,9 +213,18 @@ const AccountManagement: React.FC = () => {
     e.preventDefault();
     if (!selectedAccountId) return;
 
+    const emailErr = validateEmail(editFormData.email);
+    if (emailErr) {
+      showToast(emailErr, 'error');
+      return;
+    }
+
     setIsSaving(true);
     try {
-      await api.put(`/customers/${selectedAccountId}`, editFormData);
+      await api.put(`/customers/${selectedAccountId}`, {
+        ...editFormData,
+        email: normalizeEmail(editFormData.email),
+      });
       showToast('Cập nhật thông tin thành công!', 'success');
       setIsEditModalOpen(false);
       fetchAccounts();
@@ -222,20 +237,29 @@ const AccountManagement: React.FC = () => {
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const emailErr = validateEmail(addFormData.email);
+    if (emailErr) {
+      showToast(emailErr, 'error');
+      return;
+    }
+    const pwErr = validateNewPassword(addFormData.password, addFormData.username);
+    if (pwErr) {
+      showToast(pwErr, 'error');
+      return;
+    }
+
     setIsAdding(true);
     try {
-      await api.post('/admin/customers', addFormData);
+      await api.post('/admin/customers', {
+        ...addFormData,
+        username: addFormData.username.trim(),
+        fullName: addFormData.fullName.trim(),
+        email: normalizeEmail(addFormData.email),
+      });
       showToast('Thêm khách hàng thành công!', 'success');
       setIsAddModalOpen(false);
-      setAddFormData({
-        username: '',
-        password: '',
-        fullName: '',
-        gender: 'Nam',
-        dateOfBirth: '',
-        phone: '',
-        address: ''
-      });
+      setAddFormData(EMPTY_ADD_FORM);
       fetchAccounts();
     } catch (err: any) {
       showToast(err.response?.data?.message || 'Lỗi khi thêm khách hàng mới.', 'error');
@@ -269,8 +293,9 @@ const AccountManagement: React.FC = () => {
     .filter(acc => {
       const searchLower = searchTerm.trim().toLowerCase();
       const isUsernameMatch = acc.username.toLowerCase().includes(searchLower);
+      const isEmailMatch = (acc.customer?.email ?? '').toLowerCase().includes(searchLower);
       const isExactIdMatch = searchTerm.trim() !== '' && !isNaN(Number(searchTerm)) && acc.accountId.toString() === searchTerm.trim();
-      const matchSearch = searchLower === '' || isUsernameMatch || isExactIdMatch;
+      const matchSearch = searchLower === '' || isUsernameMatch || isEmailMatch || isExactIdMatch;
 
       const matchRole = roleFilter === 'ALL' || acc.role?.roleName === roleFilter;
       const matchStatus =
@@ -300,6 +325,9 @@ const AccountManagement: React.FC = () => {
       }
     });
 
+  const inputStyle = { width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' } as const;
+  const labelStyle = { display: 'block', marginBottom: '8px', fontWeight: 500 } as const;
+
   return (
     <div className="account-management">
       <div className="page-header">
@@ -324,7 +352,7 @@ const AccountManagement: React.FC = () => {
               <input
                 type="text"
                 className="acc-toolbar__search-input"
-                placeholder="Tìm kiếm tên đăng nhập hoặc ID..."
+                placeholder="Tìm kiếm tên đăng nhập, email hoặc ID..."
                 value={searchDraft}
                 onChange={(e) => setSearchDraft(e.target.value)}
               />
@@ -384,6 +412,7 @@ const AccountManagement: React.FC = () => {
               <tr>
                 <th>ID</th>
                 <th>Tên đăng nhập</th>
+                <th>Email</th>
                 <th>Vai trò</th>
                 <th>Trạng thái</th>
                 <th>Ngày tạo</th>
@@ -395,6 +424,7 @@ const AccountManagement: React.FC = () => {
                 <tr key={account.accountId}>
                   <td>#{account.accountId}</td>
                   <td className="font-medium">{account.username}</td>
+                  <td className="text-muted">{account.customer?.email || '—'}</td>
                   <td>
                     <select
                       className={`role-badge role-${account.role?.roleName.toLowerCase()}`}
@@ -434,13 +464,13 @@ const AccountManagement: React.FC = () => {
               ))}
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-8 text-muted">
+                  <td colSpan={7} className="text-center py-8 text-muted">
                     Đang tải dữ liệu...
                   </td>
                 </tr>
               ) : filteredAccounts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-8 text-muted">
+                  <td colSpan={7} className="text-center py-8 text-muted">
                     Không tìm thấy tài khoản nào.
                   </td>
                 </tr>
@@ -453,7 +483,7 @@ const AccountManagement: React.FC = () => {
       {/* Modal Sửa Khách hàng */}
       {isEditModalOpen && (
         <div className="modal-overlay">
-          <div className="modal-content">
+          <div className="modal-content" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
             <div className="modal-header">
               <h2>Sửa thông tin Khách hàng</h2>
               <button className="close-btn" onClick={() => setIsEditModalOpen(false)}>
@@ -461,29 +491,42 @@ const AccountManagement: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleEditSubmit}>
+            <form onSubmit={handleEditSubmit} noValidate>
               <div className="modal-body">
                 {isModalLoading ? (
                   <p className="text-center text-muted">Đang tải dữ liệu...</p>
                 ) : (
                   <div className="customer-details">
                     <div className="form-group" style={{ marginBottom: '16px' }}>
-                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Họ và tên</label>
+                      <label style={labelStyle}>Họ và tên</label>
                       <input
                         type="text"
                         required
                         value={editFormData.fullName}
                         onChange={(e) => setEditFormData({...editFormData, fullName: e.target.value})}
-                        style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' }}
+                        style={inputStyle}
                       />
                     </div>
 
                     <div className="form-group" style={{ marginBottom: '16px' }}>
-                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Giới tính</label>
+                      <label style={labelStyle}>Email *</label>
+                      <input
+                        type="email"
+                        required
+                        maxLength={100}
+                        placeholder="ten@gmail.com"
+                        value={editFormData.email}
+                        onChange={(e) => setEditFormData({...editFormData, email: e.target.value})}
+                        style={inputStyle}
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: '16px' }}>
+                      <label style={labelStyle}>Giới tính</label>
                       <select
                         value={editFormData.gender}
                         onChange={(e) => setEditFormData({...editFormData, gender: e.target.value})}
-                        style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' }}
+                        style={inputStyle}
                       >
                         <option value="Nam">Nam</option>
                         <option value="Nữ">Nữ</option>
@@ -491,33 +534,33 @@ const AccountManagement: React.FC = () => {
                     </div>
 
                     <div className="form-group" style={{ marginBottom: '16px' }}>
-                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Ngày sinh</label>
+                      <label style={labelStyle}>Ngày sinh</label>
                       <input
                         type="date"
                         required
                         value={editFormData.dateOfBirth}
                         onChange={(e) => setEditFormData({...editFormData, dateOfBirth: e.target.value})}
-                        style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' }}
+                        style={inputStyle}
                       />
                     </div>
 
                     <div className="form-group" style={{ marginBottom: '16px' }}>
-                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Số điện thoại</label>
+                      <label style={labelStyle}>Số điện thoại</label>
                       <input
                         type="text"
                         value={editFormData.phone}
                         onChange={(e) => setEditFormData({...editFormData, phone: e.target.value})}
-                        style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' }}
+                        style={inputStyle}
                       />
                     </div>
 
                     <div className="form-group" style={{ marginBottom: '16px' }}>
-                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Địa chỉ</label>
+                      <label style={labelStyle}>Địa chỉ</label>
                       <input
                         type="text"
                         value={editFormData.address}
                         onChange={(e) => setEditFormData({...editFormData, address: e.target.value})}
-                        style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' }}
+                        style={inputStyle}
                       />
                     </div>
                   </div>
@@ -642,49 +685,63 @@ const AccountManagement: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleAddSubmit}>
+            <form onSubmit={handleAddSubmit} noValidate>
               <div className="modal-body">
                 <div className="customer-details">
                   <div className="form-group" style={{ marginBottom: '16px' }}>
-                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Tên đăng nhập *</label>
+                    <label style={labelStyle}>Tên đăng nhập *</label>
                     <input
                       type="text"
                       required
                       value={addFormData.username}
                       onChange={(e) => setAddFormData({...addFormData, username: e.target.value})}
-                      style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' }}
+                      style={inputStyle}
                     />
                   </div>
 
                   <div className="form-group" style={{ marginBottom: '16px' }}>
-                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Mật khẩu *</label>
+                    <label style={labelStyle}>Email * <span className="text-muted" style={{ fontWeight: 400, fontSize: 12 }}>(dùng để khách lấy lại mật khẩu bằng OTP)</span></label>
+                    <input
+                      type="email"
+                      required
+                      maxLength={100}
+                      placeholder="ten@gmail.com"
+                      value={addFormData.email}
+                      onChange={(e) => setAddFormData({...addFormData, email: e.target.value})}
+                      style={inputStyle}
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: '16px' }}>
+                    <label style={labelStyle}>Mật khẩu khởi tạo *</label>
                     <input
                       type="password"
                       required
-                      minLength={6}
+                      maxLength={50}
                       value={addFormData.password}
                       onChange={(e) => setAddFormData({...addFormData, password: e.target.value})}
-                      style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' }}
+                      style={inputStyle}
                     />
+                    <span className="text-muted" style={{ display: 'block', marginTop: 6, fontSize: 12 }}>{PASSWORD_HINT}</span>
                   </div>
 
                   <div className="form-group" style={{ marginBottom: '16px' }}>
-                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Họ và tên *</label>
+                    <label style={labelStyle}>Họ và tên *</label>
                     <input
                       type="text"
                       required
                       value={addFormData.fullName}
                       onChange={(e) => setAddFormData({...addFormData, fullName: e.target.value})}
-                      style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' }}
+                      style={inputStyle}
                     />
                   </div>
 
                   <div className="form-group" style={{ marginBottom: '16px' }}>
-                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Giới tính</label>
+                    <label style={labelStyle}>Giới tính</label>
                     <select
                       value={addFormData.gender}
                       onChange={(e) => setAddFormData({...addFormData, gender: e.target.value})}
-                      style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' }}
+                      style={inputStyle}
                     >
                       <option value="Nam">Nam</option>
                       <option value="Nữ">Nữ</option>
@@ -692,33 +749,33 @@ const AccountManagement: React.FC = () => {
                   </div>
 
                   <div className="form-group" style={{ marginBottom: '16px' }}>
-                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Ngày sinh *</label>
+                    <label style={labelStyle}>Ngày sinh *</label>
                     <input
                       type="date"
                       required
                       value={addFormData.dateOfBirth}
                       onChange={(e) => setAddFormData({...addFormData, dateOfBirth: e.target.value})}
-                      style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' }}
+                      style={inputStyle}
                     />
                   </div>
 
                   <div className="form-group" style={{ marginBottom: '16px' }}>
-                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Số điện thoại</label>
+                    <label style={labelStyle}>Số điện thoại</label>
                     <input
                       type="text"
                       value={addFormData.phone}
                       onChange={(e) => setAddFormData({...addFormData, phone: e.target.value})}
-                      style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' }}
+                      style={inputStyle}
                     />
                   </div>
 
                   <div className="form-group" style={{ marginBottom: '16px' }}>
-                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Địa chỉ</label>
+                    <label style={labelStyle}>Địa chỉ</label>
                     <input
                       type="text"
                       value={addFormData.address}
                       onChange={(e) => setAddFormData({...addFormData, address: e.target.value})}
-                      style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' }}
+                      style={inputStyle}
                     />
                   </div>
                 </div>

@@ -104,6 +104,38 @@ async function createAccountWithNewCustomer({
   return sanitize(account);
 }
 
+/**
+ * Kiểm tra email + OTP. Sai OTP -> tăng bộ đếm, quá OTP_MAX_ATTEMPTS lần thì hủy mã.
+ * Đúng OTP -> trả { account, record } và KHÔNG hủy mã (mã chỉ bị hủy khi đặt mật khẩu thành công).
+ */
+async function checkOtpOrThrow(rawEmail, otp) {
+  const customer = await customerRepository.findByEmail(normalizeEmail(rawEmail));
+  if (!customer || customer.isDeleted || customer.account.isLocked) {
+    throw new ValidationError(OTP_INVALID_MESSAGE);
+  }
+  const account = customer.account;
+
+  const record = await passwordResetOtpRepository.findLatestUnused(account.accountId);
+  if (!record || record.expiresAt.getTime() < Date.now()) {
+    throw new ValidationError(OTP_INVALID_MESSAGE);
+  }
+  if (record.attempts >= OTP_MAX_ATTEMPTS) {
+    await passwordResetOtpRepository.markUsed(record.otpId);
+    throw new ValidationError('Bạn đã nhập sai quá nhiều lần. Vui lòng gửi lại mã mới.');
+  }
+
+  if (!verifyOtpHash(account.accountId, otp, record.otpHash)) {
+    const updated = await passwordResetOtpRepository.incrementAttempts(record.otpId);
+    const left = OTP_MAX_ATTEMPTS - updated.attempts;
+    if (left <= 0) {
+      await passwordResetOtpRepository.markUsed(record.otpId);
+      throw new ValidationError('Bạn đã nhập sai quá nhiều lần. Vui lòng gửi lại mã mới.');
+    }
+    throw new ValidationError(`Mã OTP không đúng. Bạn còn ${left} lần thử.`);
+  }
+  return { account, record };
+}
+
 export const accountService = {
   async list({ roleId } = {}) {
     const accounts = await accountRepository.findAll({ roleId });
@@ -201,36 +233,19 @@ export const accountService = {
   },
 
   /**
-   * Quên mật khẩu — bước 2: kiểm tra OTP rồi đặt mật khẩu mới. Nhập sai quá
-   * OTP_MAX_ATTEMPTS lần thì mã bị hủy; OTP chỉ dùng được 1 lần.
+   * Quên mật khẩu — bước 2: kiểm tra mã OTP có đúng không (CHƯA đổi mật khẩu, CHƯA hủy mã)
+   * để frontend cho phép sang bước nhập mật khẩu mới. Nhập sai vẫn bị tính vào số lần thử.
    */
-  async resetPassword({ email: rawEmail, otp, newPassword }) {
-    const email = normalizeEmail(rawEmail);
-    const customer = await customerRepository.findByEmail(email);
-    if (!customer || customer.isDeleted || customer.account.isLocked) {
-      throw new ValidationError(OTP_INVALID_MESSAGE);
-    }
-    const account = customer.account;
+  async verifyPasswordResetOtp({ email, otp }) {
+    await checkOtpOrThrow(email, otp);
+  },
+
+  /**
+   * Quên mật khẩu — bước 3: kiểm tra lại OTP rồi đặt mật khẩu mới. OTP chỉ dùng được 1 lần.
+   */
+  async resetPassword({ email, otp, newPassword }) {
+    const { account } = await checkOtpOrThrow(email, otp);
     assertStrongPassword(newPassword, account.username);
-
-    const record = await passwordResetOtpRepository.findLatestUnused(account.accountId);
-    if (!record || record.expiresAt.getTime() < Date.now()) {
-      throw new ValidationError(OTP_INVALID_MESSAGE);
-    }
-    if (record.attempts >= OTP_MAX_ATTEMPTS) {
-      await passwordResetOtpRepository.markUsed(record.otpId);
-      throw new ValidationError('Bạn đã nhập sai quá nhiều lần. Vui lòng gửi lại mã mới.');
-    }
-
-    if (!verifyOtpHash(account.accountId, otp, record.otpHash)) {
-      const updated = await passwordResetOtpRepository.incrementAttempts(record.otpId);
-      const left = OTP_MAX_ATTEMPTS - updated.attempts;
-      if (left <= 0) {
-        await passwordResetOtpRepository.markUsed(record.otpId);
-        throw new ValidationError('Bạn đã nhập sai quá nhiều lần. Vui lòng gửi lại mã mới.');
-      }
-      throw new ValidationError(`Mã OTP không đúng. Bạn còn ${left} lần thử.`);
-    }
 
     if (await comparePassword(newPassword, account.passwordHash)) {
       throw new ValidationError('Mật khẩu mới phải khác mật khẩu hiện tại.');

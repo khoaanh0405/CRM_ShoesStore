@@ -72,6 +72,13 @@ export const accountController = {
     });
   },
 
+  /** POST /api/accounts/verify-otp — body { email, otp }. Đúng mã thì 200, frontend mới cho nhập mật khẩu mới. */
+  async verifyOtp(req, res) {
+    const { email, otp } = req.body;
+    await accountService.verifyPasswordResetOtp({ email, otp });
+    res.json({ message: 'Mã OTP hợp lệ.' });
+  },
+
   /** POST /api/accounts/reset-password — body { email, otp, newPassword }. */
   async resetPassword(req, res) {
     const { email, otp, newPassword } = req.body;

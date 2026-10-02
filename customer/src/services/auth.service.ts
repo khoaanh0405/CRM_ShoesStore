@@ -24,7 +24,11 @@ export const authService = {
   async forgotPassword(email: string): Promise<void> {
     await apiClient.post('/accounts/forgot-password', { email });
   },
-  /** Quên mật khẩu — bước 2: nhập OTP + mật khẩu mới để đặt lại mật khẩu (endpoint công khai). */
+  /** Quên mật khẩu — bước 2: kiểm tra mã OTP (đúng mới được nhập mật khẩu mới). */
+  async verifyOtp(payload: { email: string; otp: string }): Promise<void> {
+    await apiClient.post('/accounts/verify-otp', payload);
+  },
+  /** Quên mật khẩu — bước 3: nhập OTP + mật khẩu mới để đặt lại mật khẩu (endpoint công khai). */
   async resetPassword(payload: ResetPasswordPayload): Promise<void> {
     await apiClient.post('/accounts/reset-password', payload);
   },

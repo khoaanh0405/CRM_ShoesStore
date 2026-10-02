@@ -58,7 +58,17 @@ export const accountValidator = {
     validateEmailFormat,
   ],
 
-  /** Bước 2 quên mật khẩu: email + OTP + mật khẩu mới (độ mạnh do Service kiểm tra). */
+  /** Bước 2 quên mật khẩu: kiểm tra OTP. */
+  verifyOtp: [
+    validateBody({
+      email: { required: true, type: 'string', maxLength: EMAIL_MAX_LENGTH },
+      otp: { required: true, type: 'string' },
+    }),
+    validateEmailFormat,
+    validateOtpFormat,
+  ],
+
+  /** Bước 3 quên mật khẩu: email + OTP + mật khẩu mới (độ mạnh do Service kiểm tra). */
   resetPassword: [
     validateBody({
       email: { required: true, type: 'string', maxLength: EMAIL_MAX_LENGTH },

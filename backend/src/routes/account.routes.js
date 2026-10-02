@@ -27,6 +27,12 @@ router.post(
   accountController.forgotPassword
 );
 router.post(
+  '/verify-otp',
+  rateLimit({ windowMs: 15 * 60 * 1000, max: 15, message: 'Bạn nhập mã OTP quá nhiều lần.' }),
+  accountValidator.verifyOtp,
+  accountController.verifyOtp
+);
+router.post(
   '/reset-password',
   rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: 'Bạn thử đặt lại mật khẩu quá nhiều lần.' }),
   accountValidator.resetPassword,
