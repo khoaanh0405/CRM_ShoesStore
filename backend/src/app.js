@@ -6,7 +6,7 @@ import routes from './routes/index.js';
 const app = express();
 
 // Parse JSON body cho mọi request (bắt buộc để đọc req.body trong Controller).
-app.use(express.json());
+app.use(express.json({ limit: '8mb' }));
 
 // CORS — cho phép React Web / React Native gọi vào.
 app.use(cors);

@@ -191,7 +191,6 @@ export default function ProfilePage() {
           <div className="account-avatar"><User size={40} /></div>
           <div>
             <div style={{ fontSize: 17, fontWeight: 800, color: AppColors.textPrimary }}>{profile.fullName}</div>
-            <div style={{ fontSize: 13, color: AppColors.textSecondary }}>@{profile.username}</div>
           </div>
         </div>
         <nav className="account-menu">
@@ -244,7 +243,6 @@ export default function ProfilePage() {
                   <InfoRow label="Số điện thoại" value={profile.phone} />
                   <InfoRow label="Email" value={profile.email} />
                   <InfoRow label="Địa chỉ" value={profile.address} />
-                  <InfoRow label="Tên đăng nhập" value={`@${profile.username}`} />
                   <InfoRow label="Ngày tạo tài khoản" value={account?.createdAt ? formatDate(account.createdAt) : null} />
                   <InfoRow label="Trạng thái" value={profile.isLocked ? 'Đã khóa' : 'Đang hoạt động'} />
                 </div>

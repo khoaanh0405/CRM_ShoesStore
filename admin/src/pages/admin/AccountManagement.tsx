@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Plus, RefreshCw, Search, X } from 'lucide-react';
+import { Plus, Search, X } from 'lucide-react';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import api, { getAccounts } from '../../services/api';
 import Pagination from '../../components/Pagination';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -42,7 +43,6 @@ const AccountManagement: React.FC = () => {
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
   const [roles, setRoles] = useState<RoleLite[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
 
   // Bộ lọc: chỉ áp dụng khi bấm "Tìm kiếm" / Enter
   const [searchDraft, setSearchDraft] = useState('');
@@ -60,8 +60,7 @@ const AccountManagement: React.FC = () => {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
 
-  const load = useCallback(async (manual = false) => {
-    if (manual) setRefreshing(true);
+    const load = useCallback(async (silent = false) => {
     try {
       const [accs, rolesRes] = await Promise.all([
         getAccounts(),
@@ -70,14 +69,15 @@ const AccountManagement: React.FC = () => {
       setAccounts(accs);
       setRoles(rolesRes);
     } catch (e) {
-      toast.error(errMsg(e, 'Không tải được danh sách tài khoản'));
+      if (!silent) toast.error(errMsg(e, 'Không tải được danh sách tài khoản'));
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  // Real-time: tự cập nhật mỗi 5 giây
+  useAutoRefresh(() => load(true), 5000);
 
   const roleOptions: RoleLite[] = useMemo(() => {
     if (roles.length) return roles;
@@ -99,7 +99,14 @@ const AccountManagement: React.FC = () => {
         const matchStatus = filters.status === 'ALL' || (filters.status === 'LOCKED') === a.isLocked;
         return matchSearch && matchRole && matchStatus;
       })
-      .sort((a, b) => b.accountId - a.accountId);
+      .sort((a, b) => {
+        const rank: Record<string, number> = { Admin: 0, Manager: 1, Customer: 2 };
+        const ra = rank[a.role?.roleName ?? ''] ?? 9;
+        const rb = rank[b.role?.roleName ?? ''] ?? 9;
+        if (ra !== rb) return ra - rb;
+        const t = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        return t !== 0 ? t : b.accountId - a.accountId; // mới đăng ký lên trước
+      });
   }, [accounts, filters]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
@@ -192,12 +199,9 @@ const AccountManagement: React.FC = () => {
           <p className="page-subtitle">Quản lý toàn bộ tài khoản hệ thống. Tài khoản khách hàng do Manager thêm.</p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn-refresh" onClick={() => load(true)} disabled={refreshing}>
-            <RefreshCw size={16} className={refreshing ? 'spinning' : ''} /> Làm mới
-          </button>
-          <button className="btn-primary" onClick={() => setShowAdd(true)}>
-            <Plus size={16} /> Thêm tài khoản
-          </button>
+            <button className="btn-primary" onClick={() => setShowAdd(true)}>
+              <Plus size={16} /> Thêm tài khoản
+            </button>
         </div>
       </div>
 

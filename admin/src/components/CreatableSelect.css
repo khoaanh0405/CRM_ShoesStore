@@ -1,0 +1,18 @@
+.cs { position: relative; display: flex; flex-direction: column; gap: 6px; }
+.cs-trigger { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 11px 12px; border-radius: 8px; border: 1.5px solid var(--color-border); background: var(--color-surface); font-size: 13.5px; color: var(--color-text-main); text-align: left; cursor: pointer; }
+.cs-trigger.open, .cs-trigger:focus { border-color: var(--color-primary); outline: none; box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15); }
+.cs-trigger .ph { color: #9A8CB8; }
+.cs-panel { border: 1.5px solid var(--color-border); border-radius: 10px; background: #fff; overflow: hidden; }
+.cs-list { max-height: 180px; overflow-y: auto; }
+.cs-item { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 9px 12px; border: none; background: transparent; font-size: 13.5px; color: var(--color-text-main); text-align: left; cursor: pointer; }
+.cs-item:hover { background: #F5F1FE; }
+.cs-item.sel { background: #EDE4FD; color: #7C3AED; font-weight: 600; }
+.cs-empty { padding: 10px 12px; font-size: 13px; color: var(--color-text-muted); }
+.cs-create { display: flex; align-items: center; gap: 6px; width: 100%; padding: 10px 12px; border: none; border-top: 1px solid var(--color-border); background: #FBF9FF; color: var(--color-primary); font-size: 13.5px; font-weight: 700; cursor: pointer; }
+.cs-create:hover { background: #F5F1FE; }
+.cs-new { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--color-border); background: #FBF9FF; }
+.cs-new input { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 8px; border: 1.5px solid var(--color-border); font-size: 13.5px; }
+.cs-new input:focus { outline: none; border-color: var(--color-primary); }
+.cs-new button { padding: 0 12px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; }
+.cs-new .ok { background: var(--color-primary); color: #fff; }
+.cs-new .no { background: #f1f5f9; color: var(--color-text-muted); }

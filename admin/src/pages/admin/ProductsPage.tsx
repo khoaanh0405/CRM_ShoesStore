@@ -1,967 +1,570 @@
-import React, { useCallback, useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Plus, Search, Power, Package, Truck, X, Upload, Image as ImageIcon } from 'lucide-react';
 import {
+  Plus, Search, X, ImageOff, Pencil, Trash2, Power, PowerOff, Upload,
+  Package, Truck, Image as ImageIcon,
+} from 'lucide-react';
+import api, {
   getProducts, createProduct, updateProduct, toggleProductActive,
-  getSuppliers, createSupplier, updateSupplier, deleteSupplier
+  getSuppliers, createSupplier, updateSupplier, deleteSupplier,
 } from '../../services/api';
 import type { Product, Supplier, CreateProductForm, CreateSupplierForm } from '../../types/product';
 import Pagination from '../../components/Pagination';
-import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import CreatableSelect from '../../components/CreatableSelect';
+import { showConfirm } from '../../lib/dialog';
 import './ProductsPage.css';
+import './BannerManager.css';
 
-type MainTab = 'products' | 'suppliers';
+type Tab = 'products' | 'suppliers' | 'banners';
+type SupplierRow = Supplier & { _count?: { products: number } };
+interface Banner { bannerId: number; imageUrl: string; title?: string | null; sortOrder: number; isActive: boolean }
 
-// Format VND currency
-const formatVND = (price: number | string) => {
-  const num = typeof price === 'string' ? parseFloat(price) : price;
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num || 0);
-};
+const PER_PAGE = 10;
+const errMsg = (e: any, fb: string) => e?.response?.data?.message ?? fb;
+const formatVND = (v: number | string) =>
+  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(v) || 0);
+const uniq = (arr: (string | null | undefined)[]) =>
+  Array.from(new Set(arr.map((v) => v?.trim()).filter((v): v is string => !!v))).sort((a, b) => a.localeCompare(b, 'vi'));
 
-// ──────────────────────────────────────────────────────────
-// Modal Thêm / Sửa Sản phẩm
-// ──────────────────────────────────────────────────────────
-const ProductModal: React.FC<{
-  product: Product | null;
-  suppliers: Supplier[];
-  onClose: () => void;
-  onSaved: () => void;
-}> = ({ product, suppliers, onClose, onSaved }) => {
-  const [form, setForm] = useState<CreateProductForm>({
-    supplierId: product?.supplierId || (suppliers[0]?.supplierId ?? 1),
-    productName: product?.productName || '',
-    category: product?.category || '',
-    brand: product?.brand || '',
-    size: product?.size || '',
-    color: product?.color || '',
-    material: product?.material || '',
-    price: product ? parseFloat(product.price as string) : 1000000,
-    stockQuantity: product?.stockQuantity ?? 50,
-    isActive: product?.isActive ?? true,
-    imageUrl: product?.imageUrl || '',
-  });
-  const [loading, setLoading] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string>(product?.imageUrl || '');
-  const [isDragging, setIsDragging] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileSelect = (file: File) => {
-    if (!file.type.startsWith('image/')) { toast.error('Vui lòng chọn file ảnh'); return; }
-    if (file.size > 5242880) { toast.error('Ảnh quá lớn, tối đa 5MB'); return; }
+/** Thu nhỏ ảnh tải lên về tối đa 1600px, nén JPEG để lưu gọn. */
+const fileToDataUrl = (file: File, maxW = 1600) =>
+  new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target?.result as string;
-      setImagePreview(dataUrl);
-      setForm(function(prev) { return { ...prev, imageUrl: dataUrl }; });
+    reader.onerror = reject;
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const s = Math.min(1, maxW / img.width);
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * s);
+        c.height = Math.round(img.height * s);
+        c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
+        resolve(c.toDataURL('image/jpeg', 0.82));
+      };
+      img.src = reader.result as string;
     };
     reader.readAsDataURL(file);
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (file) handleFileSelect(file);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault(); setIsDragging(false);
-    const file = e.dataTransfer.files?.[0]; if (file) handleFileSelect(file);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.productName.trim()) { toast.error('Tên sản phẩm không được trống'); return; }
-    if (!form.supplierId) { toast.error('Vui lòng chọn nhà cung cấp'); return; }
-    setLoading(true);
-    try {
-      if (product) {
-        await updateProduct(product.productId, form);
-        toast.success('✅ Cập nhật sản phẩm thành công!');
-      } else {
-        await createProduct(form);
-        toast.success('✅ Thêm sản phẩm thành công!');
-      }
-      onSaved();
-      onClose();
-    } catch {
-      toast.error(product ? 'Cập nhật thất bại' : 'Thêm sản phẩm thất bại');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card product-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>{product ? 'Sửa sản phẩm' : 'Thêm sản phẩm mới'}</h3>
-          <button className="modal-close-btn" onClick={onClose}><X size={20} /></button>
-        </div>
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-          <div className="modal-body modal-grid-2">
-
-            {/* Tên sản phẩm */}
-            <div className="form-group full-width">
-              <label className="form-label">Tên sản phẩm <span className="required">*</span></label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="VD: Giày Sneaker Nike Air Zoom 2026"
-                value={form.productName}
-                onChange={(e) => setForm({ ...form, productName: e.target.value })}
-                required
-                autoFocus
-              />
-            </div>
-
-            {/* Nhà cung cấp */}
-            <div className="form-group">
-              <label className="form-label">Nhà cung cấp <span className="required">*</span></label>
-              <select
-                className="form-input form-select"
-                value={form.supplierId}
-                onChange={(e) => setForm({ ...form, supplierId: Number(e.target.value) })}
-              >
-                {suppliers.map((s) => (
-                  <option key={s.supplierId} value={s.supplierId}>{s.supplierName}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Danh mục */}
-            <div className="form-group">
-              <label className="form-label">Danh mục</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Sneaker, Cao gót, Sandal..."
-                value={form.category || ''}
-                onChange={(e) => setForm({ ...form, category: e.target.value })}
-              />
-            </div>
-
-            {/* Thương hiệu */}
-            <div className="form-group">
-              <label className="form-label">Thương hiệu</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Nike, Adidas, Puma..."
-                value={form.brand || ''}
-                onChange={(e) => setForm({ ...form, brand: e.target.value })}
-              />
-            </div>
-
-            {/* Giá */}
-            <div className="form-group">
-              <label className="form-label">Giá bán (VNĐ) <span className="required">*</span></label>
-              <input
-                type="number"
-                className="form-input"
-                value={form.price}
-                onChange={(e) => setForm({ ...form, price: parseFloat(e.target.value) || 0 })}
-                min={0}
-                step={10000}
-                required
-              />
-            </div>
-
-            {/* Tồn kho */}
-            <div className="form-group">
-              <label className="form-label">Số lượng tồn kho</label>
-              <input
-                type="number"
-                className="form-input"
-                value={form.stockQuantity}
-                onChange={(e) => setForm({ ...form, stockQuantity: parseInt(e.target.value) || 0 })}
-                min={0}
-              />
-            </div>
-
-            {/* Size */}
-            <div className="form-group">
-              <label className="form-label">Size / Kích thước</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="38, 39, 40, 41, 42..."
-                value={form.size || ''}
-                onChange={(e) => setForm({ ...form, size: e.target.value })}
-              />
-            </div>
-
-            {/* Màu sắc */}
-            <div className="form-group">
-              <label className="form-label">Màu sắc</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Đen, Trắng, Đỏ..."
-                value={form.color || ''}
-                onChange={(e) => setForm({ ...form, color: e.target.value })}
-              />
-            </div>
-
-            {/* Chất liệu */}
-            <div className="form-group full-width">
-              <label className="form-label">Chất liệu</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Da thật, Vải dệt mesh..."
-                value={form.material || ''}
-                onChange={(e) => setForm({ ...form, material: e.target.value })}
-              />
-            </div>
-
-            {/* Image upload - drag & drop or click */}
-            <div className="form-group full-width">
-              <label className="form-label">Hình ảnh sản phẩm</label>
-              <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
-              <div
-                className={`image-upload-dropzone ${isDragging ? 'dragging' : ''} ${imagePreview ? 'has-image' : ''}`.trim()}
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {imagePreview ? (
-                  <div className="upload-preview-container">
-                    <img src={imagePreview} alt="Preview" className="upload-preview-img" />
-                    <div className="upload-preview-overlay">
-                      <Upload size={20} />
-                      <span>Click để thay ảnh khác</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="upload-placeholder">
-                    <ImageIcon size={32} className="upload-icon" />
-                    <p className="upload-text">Kéo thả ảnh vào đây hoặc <span className="upload-link">click để chọn file</span></p>
-                    <p className="upload-hint">Hỗ trợ JPG, PNG, WEBP — Tối đa 5MB</p>
-                  </div>
-                )}
-              </div>
-              {imagePreview && (
-                <button
-                  type="button"
-                  className="upload-remove-btn"
-                  onClick={(e) => { e.stopPropagation(); setImagePreview(''); setForm((prev) => ({ ...prev, imageUrl: '' })); }}
-                >
-                  <X size={14} /> Xóa ảnh
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>Hủy</button>
-            <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? 'Đang lưu...' : product ? 'Lưu thay đổi' : 'Tạo sản phẩm'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-// ──────────────────────────────────────────────────────────
-// Modal xác nhận ẩn / "xóa" sản phẩm (soft-delete)
-// ──────────────────────────────────────────────────────────
-const DeactivateConfirmModal: React.FC<{
-  product: Product;
-  onClose: () => void;
-  onConfirm: () => Promise<void>;
-}> = ({ product, onClose, onConfirm }) => {
-  const [loading, setLoading] = useState(false);
-
-  const handleConfirm = async () => {
-    setLoading(true);
-    try {
-      await onConfirm();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" style={{ width: '440px' }} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>Xác nhận ẩn sản phẩm</h3>
-          <button className="modal-close-btn" onClick={onClose}><X size={20} /></button>
-        </div>
-        <div className="modal-body">
-          <p style={{ fontSize: 14, color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
-            Bạn có chắc muốn ẩn sản phẩm{' '}
-            <strong style={{ color: 'var(--color-text-main)' }}>"{product.productName}"</strong>?
-          </p>
-          <p className="deactivate-note" style={{ marginTop: 8 }}>
-            ✅ Sản phẩm sẽ được ẩn khỏi danh sách kinh doanh nhưng <strong>dữ liệu vẫn được giữ lại</strong> trong hệ thống. Bạn có thể hiện lại sản phẩm bất cứ lúc nào.
-          </p>
-        </div>
-        <div className="modal-footer">
-          <button type="button" className="btn btn-secondary" onClick={onClose}>Hủy</button>
-          <button
-            type="button"
-            className="btn"
-            style={{ background: '#FEE2E2', color: '#DC2626' }}
-            onClick={handleConfirm}
-            disabled={loading}
-          >
-            {loading ? 'Đang xử lý...' : 'Xác nhận ẩn'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ──────────────────────────────────────────────────────────
-// Modal Thêm / Sửa Nhà cung cấp
-// ──────────────────────────────────────────────────────────
-const SupplierModal: React.FC<{
-  supplier: Supplier | null;
-  onClose: () => void;
-  onSaved: () => void;
-}> = ({ supplier, onClose, onSaved }) => {
-  const [form, setForm] = useState<CreateSupplierForm>({
-    supplierName: supplier?.supplierName || '',
-    phone: supplier?.phone || '',
-    email: supplier?.email || '',
-    address: supplier?.address || '',
   });
-  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.supplierName.trim()) { toast.error('Tên nhà cung cấp không được trống'); return; }
-    setLoading(true);
+const Modal: React.FC<{ title: string; onClose: () => void; wide?: boolean; footer: React.ReactNode; children: React.ReactNode }> = ({ title, onClose, wide, footer, children }) => (
+  <div className="modal-overlay" onClick={onClose}>
+    <div className={`modal-card${wide ? ' product-modal' : ''}`} onClick={(e) => e.stopPropagation()}>
+      <div className="modal-header">
+        <h3>{title}</h3>
+        <button className="modal-close-btn" onClick={onClose}><X size={18} /></button>
+      </div>
+      <div className="modal-body">{children}</div>
+      <div className="modal-footer">{footer}</div>
+    </div>
+  </div>
+);
+
+const EMPTY_P = { productName: '', supplierId: '', category: '', brand: '', material: '', size: '', color: '', price: '', stockQuantity: '0', imageUrl: '' };
+const EMPTY_S = { supplierName: '', phone: '', email: '', address: '' };
+const EMPTY_B = { imageUrl: '', title: '', sortOrder: '0', isActive: true };
+
+const ProductsPage: React.FC = () => {
+  const [tab, setTab] = useState<Tab>('products');
+  const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [suppliers, setSuppliers] = useState<SupplierRow[]>([]);
+  const [banners, setBanners] = useState<Banner[]>([]);
+
+  // lọc sản phẩm (áp dụng khi bấm Tìm kiếm)
+  const [searchDraft, setSearchDraft] = useState('');
+  const [catDraft, setCatDraft] = useState('ALL');
+  const [statusDraft, setStatusDraft] = useState('ALL');
+  const [filters, setFilters] = useState({ search: '', category: 'ALL', status: 'ALL' });
+  const [page, setPage] = useState(1);
+
+  // modal sản phẩm
+  const [pModal, setPModal] = useState<{ editing: Product | null } | null>(null);
+  const [pf, setPf] = useState(EMPTY_P);
+  // modal NCC
+  const [sModal, setSModal] = useState<{ editing: SupplierRow | null } | null>(null);
+  const [sf, setSf] = useState(EMPTY_S);
+  // modal banner
+  const [bModal, setBModal] = useState<{ editing: Banner | null } | null>(null);
+  const [bf, setBf] = useState(EMPTY_B);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const [saving, setSaving] = useState(false);
+  const [busyId, setBusyId] = useState<number | null>(null);
+
+  const load = useCallback(async () => {
     try {
-      if (supplier) {
-        await updateSupplier(supplier.supplierId, form);
-        toast.success('✅ Cập nhật nhà cung cấp thành công!');
-      } else {
-        await createSupplier(form);
-        toast.success('✅ Thêm nhà cung cấp thành công!');
-      }
-      onSaved();
-      onClose();
-    } catch {
-      toast.error(supplier ? 'Cập nhật thất bại' : 'Thêm nhà cung cấp thất bại');
+      const [p, s, b] = await Promise.all([
+        getProducts(),
+        getSuppliers(),
+        api.get('/banners/all').then((r) => r.data?.data ?? r.data ?? []).catch(() => []),
+      ]);
+      setProducts(p);
+      setSuppliers(s as SupplierRow[]);
+      setBanners(b);
+    } catch (e) {
+      toast.error(errMsg(e, 'Không tải được dữ liệu'));
     } finally {
       setLoading(false);
-    }
-  };
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>{supplier ? 'Sửa nhà cung cấp' : 'Thêm nhà cung cấp mới'}</h3>
-          <button className="modal-close-btn" onClick={onClose}><X size={20} /></button>
-        </div>
-        <form onSubmit={handleSubmit}>
-          <div className="modal-body">
-            <div className="form-group" style={{ marginBottom: 14 }}>
-              <label className="form-label">Tên nhà cung cấp <span className="required">*</span></label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="VD: Công ty TNHH Sản xuất Giày Việt"
-                value={form.supplierName}
-                onChange={(e) => setForm({ ...form, supplierName: e.target.value })}
-                required
-                autoFocus
-              />
-            </div>
-            <div className="form-group" style={{ marginBottom: 14 }}>
-              <label className="form-label">Số điện thoại</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="0901234567"
-                value={form.phone || ''}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              />
-            </div>
-            <div className="form-group" style={{ marginBottom: 14 }}>
-              <label className="form-label">Email</label>
-              <input
-                type="email"
-                className="form-input"
-                placeholder="contact@supplier.com"
-                value={form.email || ''}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Địa chỉ</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="123 Nguyễn Văn Cừ, Q.5, TP.HCM"
-                value={form.address || ''}
-                onChange={(e) => setForm({ ...form, address: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>Hủy</button>
-            <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? 'Đang lưu...' : supplier ? 'Lưu thay đổi' : 'Tạo nhà cung cấp'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-// ──────────────────────────────────────────────────────────
-// Main Page
-// ──────────────────────────────────────────────────────────
-const ProductsPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<MainTab>('products');
-  const [products, setProducts] = useState<Product[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // Search & Filter — các giá trị ĐÃ ÁP DỤNG, dùng để lọc danh sách thật sự
-  const [searchTerm, setSearchTerm] = useState('');
-  const [supplierFilter, setSupplierFilter] = useState<number | 'ALL'>('ALL');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
-  const [stockFilter, setStockFilter] = useState<'ALL' | 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK'>('ALL');
-  const [sortBy, setSortBy] = useState<'NEWEST' | 'NAME_ASC' | 'PRICE_ASC' | 'PRICE_DESC' | 'STOCK_ASC' | 'STOCK_DESC'>('NEWEST');
-  const [supplierSortBy, setSupplierSortBy] = useState<'NAME_ASC' | 'NAME_DESC' | 'PRODUCTS_DESC' | 'PRODUCTS_ASC'>('NAME_ASC');
-
-  // Giá trị đang nhập/chọn trên thanh công cụ — chưa lọc dữ liệu.
-  // Chỉ khi bấm nút "Tìm kiếm" hoặc nhấn Enter mới đẩy sang các state phía trên.
-  const [searchDraft, setSearchDraft] = useState('');
-  const [supplierDraft, setSupplierDraft] = useState<number | 'ALL'>('ALL');
-  const [statusDraft, setStatusDraft] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
-  const [stockDraft, setStockDraft] = useState<'ALL' | 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK'>('ALL');
-
-  const handleApplySearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSearchTerm(searchDraft);
-    setSupplierFilter(supplierDraft);
-    setStatusFilter(statusDraft);
-    setStockFilter(stockDraft);
-  };
-
-  const handleClearSearch = () => {
-    setSearchDraft('');
-    setSearchTerm('');
-  };
-
-  // Modals
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [showProductModal, setShowProductModal] = useState(false);
-
-  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
-  const [showSupplierModal, setShowSupplierModal] = useState(false);
-
-  // Deactivate confirm modal
-  const [deactivatingProduct, setDeactivatingProduct] = useState<Product | null>(null);
-
-  const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
-
-  /** silent = true: dùng cho auto-refresh, không bật spinner, không báo lỗi. */
-  const loadData = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
-    try {
-      const [prods, sups] = await Promise.all([
-        getProducts({ includeInactive: true }),
-        getSuppliers(),
-      ]);
-      setProducts(prods);
-      setSuppliers(sups);
-    } catch {
-      if (!silent) toast.error('Không tải được dữ liệu sản phẩm & nhà cung cấp');
-    } finally {
-      if (!silent) setLoading(false);
     }
   }, []);
+  useEffect(() => { load(); }, [load]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const categories = useMemo(() => uniq(products.map((p) => p.category)), [products]);
+  const brands = useMemo(() => uniq(products.map((p) => p.brand)), [products]);
+  const materials = useMemo(() => uniq(products.map((p) => p.material)), [products]);
 
-  // Real-time: tự cập nhật mỗi 5 giây (tồn kho, sản phẩm, nhà cung cấp...)
-  useAutoRefresh(() => loadData(true), 5000);
+  const filtered = useMemo(() => {
+    const k = filters.search.trim().toLowerCase();
+    return products
+      .filter((p) =>
+        (!k || p.productName.toLowerCase().includes(k) || (p.brand ?? '').toLowerCase().includes(k)) &&
+        (filters.category === 'ALL' || p.category === filters.category) &&
+        (filters.status === 'ALL' || (filters.status === 'ACTIVE') === p.isActive))
+      .sort((a, b) => b.productId - a.productId);
+  }, [products, filters]);
 
-  // Filter products
-  const filteredProducts = products
-    .filter((p) => {
-      const matchSearch =
-        p.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.brand ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.category ?? '').toLowerCase().includes(searchTerm.toLowerCase());
-      const matchSupplier = supplierFilter === 'ALL' || p.supplierId === supplierFilter;
-      const matchStatus =
-        statusFilter === 'ALL' ||
-        (statusFilter === 'ACTIVE' && p.isActive) ||
-        (statusFilter === 'INACTIVE' && !p.isActive);
-      const matchStock =
-        stockFilter === 'ALL' ||
-        (stockFilter === 'OUT_OF_STOCK' && p.stockQuantity === 0) ||
-        (stockFilter === 'LOW_STOCK' && p.stockQuantity > 0 && p.stockQuantity < 10) ||
-        (stockFilter === 'IN_STOCK' && p.stockQuantity >= 10);
-      return matchSearch && matchSupplier && matchStatus && matchStock;
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case 'NAME_ASC':
-          return a.productName.localeCompare(b.productName);
-        case 'PRICE_ASC':
-          return (parseFloat(a.price as unknown as string) || 0) - (parseFloat(b.price as unknown as string) || 0);
-        case 'PRICE_DESC':
-          return (parseFloat(b.price as unknown as string) || 0) - (parseFloat(a.price as unknown as string) || 0);
-        case 'STOCK_ASC':
-          return a.stockQuantity - b.stockQuantity;
-        case 'STOCK_DESC':
-          return b.stockQuantity - a.stockQuantity;
-        case 'NEWEST':
-        default:
-          return (b.productId || 0) - (a.productId || 0);
-      }
-    });
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  useEffect(() => { if (page > totalPages) setPage(totalPages); }, [page, totalPages]);
+  const rows = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
-  // Pagination for products (15 items per page)
-  const PRODUCTS_PER_PAGE = 15;
-  const [currentPage, setCurrentPage] = useState(1);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, supplierFilter, statusFilter, stockFilter, sortBy, supplierSortBy, activeTab]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE));
-  const paginatedProducts = filteredProducts.slice(
-    (currentPage - 1) * PRODUCTS_PER_PAGE,
-    currentPage * PRODUCTS_PER_PAGE
-  );
-
-  // Filter + sort suppliers
-  const supplierProductCount = (s: Supplier) =>
-    s._count?.products !== undefined ? s._count.products : products.filter((p) => p.supplierId === s.supplierId).length;
-
-  const filteredSuppliers = suppliers
-    .filter((s) =>
-      s.supplierName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (s.phone ?? '').includes(searchTerm) ||
-      (s.email ?? '').toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    .sort((a, b) => {
-      switch (supplierSortBy) {
-        case 'NAME_DESC':
-          return b.supplierName.localeCompare(a.supplierName);
-        case 'PRODUCTS_DESC':
-          return supplierProductCount(b) - supplierProductCount(a);
-        case 'PRODUCTS_ASC':
-          return supplierProductCount(a) - supplierProductCount(b);
-        case 'NAME_ASC':
-        default:
-          return a.supplierName.localeCompare(b.supplierName);
-      }
-    });
-
-  const handleToggleProductActive = async (p: Product) => {
-    setActionLoadingId(p.productId);
-    try {
-      const updated = await toggleProductActive(p.productId, !p.isActive);
-      setProducts((prev) =>
-        prev.map((item) => (item.productId === p.productId ? { ...item, isActive: updated.isActive } : item))
-      );
-      toast.success(p.isActive ? '🔴 Đã ẩn sản phẩm' : '🟢 Đã hiện sản phẩm');
-    } catch {
-      toast.error('Thao tác thất bại');
-    } finally {
-      setActionLoadingId(null);
-    }
+  const applyFilters = (e: React.FormEvent) => {
+    e.preventDefault();
+    setFilters({ search: searchDraft, category: catDraft, status: statusDraft });
+    setPage(1);
   };
 
-  /**
-   * "Xóa" sản phẩm = soft-delete: gọi API setActive(false).
-   * Sản phẩm vẫn còn trong DB và trong danh sách (hiển thị trạng thái "Tạm ẩn").
-   */
-  const handleDeactivateProduct = async (p: Product) => {
-    setActionLoadingId(p.productId);
-    try {
-      await toggleProductActive(p.productId, false);
-      setProducts((prev) =>
-        prev.map((item) => item.productId === p.productId ? { ...item, isActive: false } : item)
-      );
-      toast.success(`✅ Đã ẩn sản phẩm "${p.productName}"`);
-    } catch {
-      toast.error('Không thể ẩn sản phẩm');
-    } finally {
-      setActionLoadingId(null);
-      setDeactivatingProduct(null);
-    }
+  /* ================= Sản phẩm ================= */
+  const openProduct = (p: Product | null) => {
+    setPf(p ? {
+      productName: p.productName, supplierId: String(p.supplierId), category: p.category ?? '', brand: p.brand ?? '',
+      material: p.material ?? '', size: p.size ?? '', color: p.color ?? '', price: String(Number(p.price)),
+      stockQuantity: String(p.stockQuantity), imageUrl: p.imageUrl ?? '',
+    } : EMPTY_P);
+    setPModal({ editing: p });
   };
 
-  const handleDeleteSupplier = async (s: Supplier) => {
-    if (!confirm(`Bạn có chắc muốn xóa nhà cung cấp "${s.supplierName}"?`)) return;
+  const saveProduct = async () => {
+    if (!pf.productName.trim()) return void toast.error('Vui lòng nhập tên sản phẩm.');
+    if (!pf.supplierId) return void toast.error('Vui lòng chọn nhà cung cấp.');
+    const price = Number(pf.price);
+    if (pf.price === '' || Number.isNaN(price) || price < 0) return void toast.error('Giá phải là số không âm.');
+    const stock = Number(pf.stockQuantity || 0);
+    if (!Number.isInteger(stock) || stock < 0) return void toast.error('Tồn kho phải là số nguyên không âm.');
+
+    const payload = {
+      supplierId: Number(pf.supplierId),
+      productName: pf.productName.trim(),
+      category: pf.category.trim() || undefined,
+      brand: pf.brand.trim() || undefined,
+      material: pf.material.trim() || undefined,
+      size: pf.size.trim() || undefined,
+      color: pf.color.trim() || undefined,
+      price,
+      stockQuantity: stock,
+      imageUrl: pf.imageUrl.trim() || undefined,
+    } as unknown as CreateProductForm;
+
+    setSaving(true);
+    try {
+      if (pModal?.editing) await updateProduct(pModal.editing.productId, payload);
+      else await createProduct(payload);
+      toast.success(pModal?.editing ? 'Đã cập nhật sản phẩm' : 'Đã thêm sản phẩm');
+      setPModal(null);
+      await load();
+    } catch (e) {
+      toast.error(errMsg(e, 'Lưu sản phẩm thất bại'));
+    } finally { setSaving(false); }
+  };
+
+  const toggleProduct = async (p: Product) => {
+    setBusyId(p.productId);
+    try {
+      await toggleProductActive(p.productId, !p.isActive);
+      toast.success(p.isActive ? 'Đã ẩn sản phẩm' : 'Đã hiện sản phẩm');
+      await load();
+    } catch (e) { toast.error(errMsg(e, 'Thao tác thất bại')); }
+    finally { setBusyId(null); }
+  };
+
+  /* ================= Nhà cung cấp ================= */
+  const openSupplier = (s: SupplierRow | null) => {
+    setSf(s ? { supplierName: s.supplierName, phone: s.phone ?? '', email: s.email ?? '', address: s.address ?? '' } : EMPTY_S);
+    setSModal({ editing: s });
+  };
+
+  const saveSupplier = async () => {
+    if (!sf.supplierName.trim()) return void toast.error('Vui lòng nhập tên nhà cung cấp.');
+    const payload = {
+      supplierName: sf.supplierName.trim(),
+      phone: sf.phone.trim() || undefined,
+      email: sf.email.trim() || undefined,
+      address: sf.address.trim() || undefined,
+    } as CreateSupplierForm;
+    setSaving(true);
+    try {
+      if (sModal?.editing) await updateSupplier(sModal.editing.supplierId, payload);
+      else await createSupplier(payload);
+      toast.success(sModal?.editing ? 'Đã cập nhật nhà cung cấp' : 'Đã thêm nhà cung cấp');
+      setSModal(null);
+      await load();
+    } catch (e) { toast.error(errMsg(e, 'Lưu nhà cung cấp thất bại')); }
+    finally { setSaving(false); }
+  };
+
+  const removeSupplier = async (s: SupplierRow) => {
+    const ok = await showConfirm({ title: 'Xóa nhà cung cấp?', message: `"${s.supplierName}" sẽ bị xóa.`, confirmLabel: 'Xóa', tone: 'warning', danger: true });
+    if (!ok) return;
     try {
       await deleteSupplier(s.supplierId);
-      setSuppliers((prev) => prev.filter((item) => item.supplierId !== s.supplierId));
       toast.success('Đã xóa nhà cung cấp');
-    } catch {
-      toast.error('Không thể xóa nhà cung cấp (đang có sản phẩm liên kết)');
-    }
+      await load();
+    } catch (e) { toast.error(errMsg(e, 'Không thể xóa nhà cung cấp')); }
   };
 
-  const activeProductsCount = products.filter((p) => p.isActive).length;
+  /* ================= Banner ================= */
+  const openBanner = (b: Banner | null) => {
+    setBf(b ? { imageUrl: b.imageUrl, title: b.title ?? '', sortOrder: String(b.sortOrder), isActive: b.isActive } : { ...EMPTY_B, sortOrder: String(banners.length) });
+    setBModal({ editing: b });
+  };
+
+  const onPickFile = async (file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) return void toast.error('Vui lòng chọn file ảnh.');
+    try {
+      setBf((f) => ({ ...f, imageUrl: '' }));
+      const url = await fileToDataUrl(file);
+      setBf((f) => ({ ...f, imageUrl: url }));
+    } catch { toast.error('Không đọc được ảnh.'); }
+  };
+
+  const saveBanner = async () => {
+    if (!bf.imageUrl.trim()) return void toast.error('Vui lòng chọn ảnh banner.');
+    const body = {
+      imageUrl: bf.imageUrl.trim(),
+      title: bf.title.trim() || undefined,
+      sortOrder: Number(bf.sortOrder) || 0,
+      isActive: bf.isActive,
+    };
+    setSaving(true);
+    try {
+      if (bModal?.editing) await api.put(`/banners/${bModal.editing.bannerId}`, body);
+      else await api.post('/banners', body);
+      toast.success(bModal?.editing ? 'Đã cập nhật banner' : 'Đã thêm banner');
+      setBModal(null);
+      await load();
+    } catch (e) { toast.error(errMsg(e, 'Lưu banner thất bại')); }
+    finally { setSaving(false); }
+  };
+
+  const toggleBanner = async (b: Banner) => {
+    setBusyId(b.bannerId);
+    try {
+      await api.patch(`/banners/${b.bannerId}/active`, { isActive: !b.isActive });
+      await load();
+    } catch (e) { toast.error(errMsg(e, 'Thao tác thất bại')); }
+    finally { setBusyId(null); }
+  };
+
+  const removeBanner = async (b: Banner) => {
+    const ok = await showConfirm({ title: 'Xóa banner?', message: 'Banner sẽ bị xóa khỏi trang khách hàng.', confirmLabel: 'Xóa', tone: 'warning', danger: true });
+    if (!ok) return;
+    try {
+      await api.delete(`/banners/${b.bannerId}`);
+      toast.success('Đã xóa banner');
+      await load();
+    } catch (e) { toast.error(errMsg(e, 'Không thể xóa banner')); }
+  };
+
+  const addLabel = tab === 'products' ? 'Thêm sản phẩm' : tab === 'suppliers' ? 'Thêm nhà cung cấp' : 'Thêm banner';
+  const onAdd = () => (tab === 'products' ? openProduct(null) : tab === 'suppliers' ? openSupplier(null) : openBanner(null));
+  const setP = (k: keyof typeof EMPTY_P) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setPf({ ...pf, [k]: e.target.value });
 
   return (
     <div className="products-page">
-      {/* Header */}
       <div className="page-header">
         <div>
-          <h1 className="page-title">Quản lý Sản phẩm & Nhà cung cấp</h1>
-          <p className="page-subtitle">Quản lý danh mục sản phẩm, tồn kho và các đối tác nhà cung cấp</p>
+          <h1 className="page-title">Quản lý sản phẩm, nhà cung cấp & banner</h1>
+          <p className="page-subtitle">Quản lý kho hàng, đối tác cung cấp và banner hiển thị ở trang khách hàng.</p>
         </div>
         <div className="header-actions">
-          {activeTab === 'products' ? (
-            <button
-              id="add-product-btn"
-              className="btn btn-primary"
-              onClick={() => { setEditingProduct(null); setShowProductModal(true); }}
-            >
-              <Plus size={18} />
-              Thêm sản phẩm
-            </button>
-          ) : (
-            <button
-              id="add-supplier-btn"
-              className="btn btn-primary"
-              onClick={() => { setEditingSupplier(null); setShowSupplierModal(true); }}
-            >
-              <Plus size={18} />
-              Thêm nhà cung cấp
-            </button>
-          )}
+          <button className="btn btn-primary" onClick={onAdd}><Plus size={16} /> {addLabel}</button>
         </div>
       </div>
 
-      {/* Stats overview */}
       <div className="products-stats">
-        <div className="stat-chip">
-          <Package size={16} />
-          <span>Tổng sản phẩm: <strong>{products.length}</strong></span>
-        </div>
-        <div className="stat-chip active">
-          <Power size={16} />
-          <span>Đang kinh doanh: <strong>{activeProductsCount}</strong></span>
-        </div>
-        <div className="stat-chip supplier">
-          <Truck size={16} />
-          <span>Nhà cung cấp: <strong>{suppliers.length}</strong></span>
-        </div>
+        <span className="stat-chip active">Đang bán: <b>{products.filter((p) => p.isActive).length}</b></span>
+        <span className="stat-chip">Tổng sản phẩm: <b>{products.length}</b></span>
+        <span className="stat-chip supplier">Nhà cung cấp: <b>{suppliers.length}</b></span>
+        <span className="stat-chip">Banner: <b>{banners.length}</b></span>
       </div>
 
-      {/* Navigation Tabs */}
       <div className="main-tabs">
-        <button
-          className={`main-tab ${activeTab === 'products' ? 'active' : ''}`}
-          onClick={() => setActiveTab('products')}
-        >
-          <Package size={16} />
-          Sản phẩm ({products.length})
-        </button>
-        <button
-          className={`main-tab ${activeTab === 'suppliers' ? 'active' : ''}`}
-          onClick={() => setActiveTab('suppliers')}
-        >
-          <Truck size={16} />
-          Nhà cung cấp ({suppliers.length})
-        </button>
+        <button className={`main-tab${tab === 'products' ? ' active' : ''}`} onClick={() => setTab('products')}><Package size={16} /> Sản phẩm</button>
+        <button className={`main-tab${tab === 'suppliers' ? ' active' : ''}`} onClick={() => setTab('suppliers')}><Truck size={16} /> Nhà cung cấp</button>
+        <button className={`main-tab${tab === 'banners' ? ' active' : ''}`} onClick={() => setTab('banners')}><ImageIcon size={16} /> Banner</button>
       </div>
 
-      {/* Thanh tìm kiếm & lọc — bấm "Tìm kiếm" hoặc Enter mới ra kết quả */}
-      <form className="pp-toolbar" onSubmit={handleApplySearch}>
-        <label className="pp-toolbar__search">
-          <Search size={16} className="pp-toolbar__search-icon" />
-          <input
-            type="text"
-            className="pp-toolbar__search-input"
-            placeholder={
-              activeTab === 'products'
-                ? 'Tìm theo tên sản phẩm, thương hiệu...'
-                : 'Tìm theo tên nhà cung cấp, SĐT, email...'
-            }
-            value={searchDraft}
-            onChange={(e) => setSearchDraft(e.target.value)}
-          />
-          {searchDraft && (
-            <button
-              type="button"
-              className="pp-toolbar__search-reset"
-              onClick={handleClearSearch}
-              title="Xóa từ khóa"
-            >
-              <X size={13} />
-            </button>
-          )}
-        </label>
-
-        {activeTab === 'products' && (
-          <>
-            <select
-              className="form-select"
-              value={supplierDraft}
-              onChange={(e) => setSupplierDraft(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
-            >
-              <option value="ALL">Tất cả nhà cung cấp</option>
-              {suppliers.map((s) => (
-                <option key={s.supplierId} value={s.supplierId}>{s.supplierName}</option>
-              ))}
-            </select>
-
-            <select
-              className="form-select"
-              value={statusDraft}
-              onChange={(e) => setStatusDraft(e.target.value as any)}
-            >
-              <option value="ALL">Tất cả trạng thái</option>
-              <option value="ACTIVE">Đang kinh doanh</option>
-              <option value="INACTIVE">Đã ẩn</option>
-            </select>
-
-            <select
-              className="form-select"
-              value={stockDraft}
-              onChange={(e) => setStockDraft(e.target.value as any)}
-            >
-              <option value="ALL">Tất cả tồn kho</option>
-              <option value="IN_STOCK">Còn hàng (≥10)</option>
-              <option value="LOW_STOCK">Sắp hết (&lt;10)</option>
-              <option value="OUT_OF_STOCK">Hết hàng</option>
-            </select>
-
-            <select
-              className="form-select"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-            >
-              <option value="NEWEST">Mới nhất</option>
-              <option value="NAME_ASC">Tên A-Z</option>
-              <option value="PRICE_ASC">Giá tăng dần</option>
-              <option value="PRICE_DESC">Giá giảm dần</option>
-              <option value="STOCK_ASC">Tồn kho tăng dần</option>
-              <option value="STOCK_DESC">Tồn kho giảm dần</option>
-            </select>
-          </>
-        )}
-
-        {activeTab === 'suppliers' && (
-          <select
-            className="form-select"
-            value={supplierSortBy}
-            onChange={(e) => setSupplierSortBy(e.target.value as any)}
-          >
-            <option value="NAME_ASC">Tên A-Z</option>
-            <option value="NAME_DESC">Tên Z-A</option>
-            <option value="PRODUCTS_DESC">Nhiều sản phẩm nhất</option>
-            <option value="PRODUCTS_ASC">Ít sản phẩm nhất</option>
-          </select>
-        )}
-
-        <button type="submit" className="pp-toolbar__submit">
-          <Search size={16} />
-          Tìm kiếm
-        </button>
-      </form>
-
-      {/* TAB CONTENT 1: SẢN PHẨM */}
-      {activeTab === 'products' && (
+      {loading ? (
+        <div className="loading-state"><div className="spinner" /><p>Đang tải...</p></div>
+      ) : tab === 'products' ? (
         <>
-          {loading ? (
-            <div className="loading-state"><div className="spinner" /><p>Đang tải danh sách sản phẩm...</p></div>
-          ) : filteredProducts.length === 0 ? (
-            <div className="empty-state">
-              <Package size={48} strokeWidth={1} />
-              <p>Không tìm thấy sản phẩm nào</p>
-            </div>
+          <form className="pp-toolbar" onSubmit={applyFilters}>
+            <label className="pp-toolbar__search">
+              <Search size={16} className="pp-toolbar__search-icon" />
+              <input className="pp-toolbar__search-input" placeholder="Tìm theo tên sản phẩm, thương hiệu..." value={searchDraft} onChange={(e) => setSearchDraft(e.target.value)} />
+              {searchDraft && (
+                <button type="button" className="pp-toolbar__search-reset" onClick={() => { setSearchDraft(''); setFilters((f) => ({ ...f, search: '' })); }}><X size={13} /></button>
+              )}
+            </label>
+            <select className="form-select" value={catDraft} onChange={(e) => setCatDraft(e.target.value)}>
+              <option value="ALL">Tất cả danh mục</option>
+              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <select className="form-select" value={statusDraft} onChange={(e) => setStatusDraft(e.target.value)}>
+              <option value="ALL">Tất cả trạng thái</option>
+              <option value="ACTIVE">Đang bán</option>
+              <option value="HIDDEN">Đã ẩn</option>
+            </select>
+            <button type="submit" className="pp-toolbar__submit"><Search size={16} /> Tìm kiếm</button>
+          </form>
+
+          {rows.length === 0 ? (
+            <div className="empty-state"><p>Không có sản phẩm nào</p></div>
           ) : (
             <div className="table-wrapper">
               <table className="custom-table">
                 <thead>
                   <tr>
-                    <th>#</th>
-                    <th>Sản phẩm</th>
-                    <th>Danh mục</th>
-                    <th>Nhà cung cấp</th>
-                    <th>Giá bán</th>
-                    <th>Tồn kho</th>
-                    <th>Trạng thái</th>
-                    <th className="col-actions">Thao tác</th>
+                    <th>#</th><th>Sản phẩm</th><th>Danh mục</th><th>Giá</th><th>Tồn kho</th><th>Nhà cung cấp</th><th>Trạng thái</th><th className="col-actions">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedProducts.map((p, idx) => (
+                  {rows.map((p, i) => (
                     <tr key={p.productId}>
-                      <td className="col-idx">{(currentPage - 1) * PRODUCTS_PER_PAGE + idx + 1}</td>
+                      <td className="col-idx">{(page - 1) * PER_PAGE + i + 1}</td>
                       <td className="col-product-info">
                         <div className="product-item">
-                          {p.imageUrl ? (
-                            <img src={p.imageUrl} alt="" className="product-img" />
-                          ) : (
-                            <div className="product-img-placeholder">
-                              <Package size={18} />
-                            </div>
-                          )}
+                          {p.imageUrl ? <img className="product-img" src={p.imageUrl} alt="" /> : <div className="product-img-placeholder"><ImageOff size={18} /></div>}
                           <div className="product-name-block">
-                            <span className="product-title">{p.productName}</span>
-                            <span className="product-brand">
-                              {p.brand ? `Hãng: ${p.brand}` : ''}{p.brand && p.size ? ' • ' : ''}{p.size ? `Size: ${p.size}` : ''}
-                            </span>
+                            <span className="product-title" title={p.productName}>{p.productName}</span>
+                            <span className="product-brand">{p.brand || '—'}</span>
                           </div>
                         </div>
                       </td>
-                      <td><span className="tag-category">{p.category || 'N/A'}</span></td>
-                      <td>{p.supplier?.supplierName || `NCC #${p.supplierId}`}</td>
-                      <td><strong className="price-tag">{formatVND(p.price)}</strong></td>
-                      <td><span className={`stock-badge ${p.stockQuantity < 10 ? 'low' : ''}`}>{p.stockQuantity} sp</span></td>
-                      <td>
-                        <span className={`status-badge ${p.isActive ? 'badge-approved' : 'badge-pending'}`}>
-                          {p.isActive ? '● Đang kinh doanh' : '○ Tạm ẩn'}
-                        </span>
-                      </td>
+                      <td>{p.category ? <span className="tag-category">{p.category}</span> : '—'}</td>
+                      <td><span className="price-tag">{formatVND(p.price)}</span></td>
+                      <td><span className={`stock-badge${p.stockQuantity < 10 ? ' low' : ''}`}>{p.stockQuantity}</span></td>
+                      <td>{p.supplier?.supplierName ?? `NCC #${p.supplierId}`}</td>
+                      <td><span className={`status-badge ${p.isActive ? 'badge-approved' : 'badge-rejected'}`}>{p.isActive ? '● Đang bán' : '● Đã ẩn'}</span></td>
                       <td className="col-actions">
                         <div className="action-group">
-                          <button
-                            className="action-btn edit-btn"
-                            title="Sửa"
-                            onClick={() => { setEditingProduct(p); setShowProductModal(true); }}
-                          >
-                            Sửa
+                          <button className="action-btn edit-btn" onClick={() => openProduct(p)}><Pencil size={13} /> Sửa</button>
+                          <button className={`action-btn ${p.isActive ? 'toggle-off-btn' : 'toggle-on-btn'}`} disabled={busyId === p.productId} onClick={() => toggleProduct(p)}>
+                            {p.isActive ? <><PowerOff size={13} /> Ẩn</> : <><Power size={13} /> Hiện</>}
                           </button>
-                          <button
-                            className={`action-btn ${p.isActive ? 'toggle-off-btn' : 'toggle-on-btn'}`}
-                            title={p.isActive ? 'Ẩn sản phẩm' : 'Hiện sản phẩm'}
-                            onClick={() => handleToggleProductActive(p)}
-                            disabled={actionLoadingId === p.productId}
-                          >
-                            {p.isActive ? 'Ẩn' : 'Hiện'}
-                          </button>
-                          {p.isActive && (
-                            <button
-                              className="action-btn delete-btn"
-                              title="Ẩn sản phẩm (giữ dữ liệu)"
-                              onClick={() => setDeactivatingProduct(p)}
-                              disabled={actionLoadingId === p.productId}
-                            >
-                              Xóa
-                            </button>
-                          )}
                         </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                totalItems={filteredProducts.length}
-                itemsPerPage={PRODUCTS_PER_PAGE}
-                itemLabel="sản phẩm"
-                onPageChange={setCurrentPage}
-              />
+              <Pagination currentPage={page} totalPages={totalPages} totalItems={filtered.length} itemsPerPage={PER_PAGE} itemLabel="sản phẩm" onPageChange={setPage} />
             </div>
           )}
         </>
-      )}
-
-      {/* TAB CONTENT 2: NHÀ CUNG CẤP */}
-      {activeTab === 'suppliers' && (
-        <>
-          {loading ? (
-            <div className="loading-state"><div className="spinner" /><p>Đang tải nhà cung cấp...</p></div>
-          ) : filteredSuppliers.length === 0 ? (
-            <div className="empty-state">
-              <Truck size={48} strokeWidth={1} />
-              <p>Không tìm thấy nhà cung cấp nào</p>
-            </div>
-          ) : (
-            <div className="table-wrapper">
-              <table className="custom-table">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Tên Nhà Cung Cấp</th>
-                    <th>Số Điện Thoại</th>
-                    <th>Email</th>
-                    <th>Địa Chỉ</th>
-                    <th>Sản phẩm</th>
-                    <th className="col-actions">Thao tác</th>
+      ) : tab === 'suppliers' ? (
+        suppliers.length === 0 ? (
+          <div className="empty-state"><p>Chưa có nhà cung cấp nào</p></div>
+        ) : (
+          <div className="table-wrapper">
+            <table className="custom-table">
+              <thead>
+                <tr><th>#</th><th>Nhà cung cấp</th><th>Điện thoại</th><th>Email</th><th>Địa chỉ</th><th>Số SP</th><th className="col-actions">Thao tác</th></tr>
+              </thead>
+              <tbody>
+                {suppliers.map((s, i) => (
+                  <tr key={s.supplierId}>
+                    <td className="col-idx">{i + 1}</td>
+                    <td><b>{s.supplierName}</b></td>
+                    <td>{s.phone || '—'}</td>
+                    <td>{s.email || '—'}</td>
+                    <td>{s.address || '—'}</td>
+                    <td>{s._count?.products ?? products.filter((p) => p.supplierId === s.supplierId).length}</td>
+                    <td className="col-actions">
+                      <div className="action-group">
+                        <button className="action-btn edit-btn" onClick={() => openSupplier(s)}><Pencil size={13} /> Sửa</button>
+                        <button className="action-btn delete-btn" onClick={() => removeSupplier(s)}><Trash2 size={13} /> Xóa</button>
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {filteredSuppliers.map((s, idx) => (
-                    <tr key={s.supplierId}>
-                      <td className="col-idx">{idx + 1}</td>
-                      <td><strong>{s.supplierName}</strong></td>
-                      <td>{s.phone || '—'}</td>
-                      <td>{s.email || '—'}</td>
-                      <td>{s.address || '—'}</td>
-                      <td><span className="tag-category">{s._count?.products !== undefined ? s._count.products : products.filter(p => p.supplierId === s.supplierId).length} sản phẩm</span></td>
-                      <td className="col-actions">
-                        <div className="action-group">
-                          <button
-                            className="action-btn edit-btn"
-                            title="Sửa"
-                            onClick={() => { setEditingSupplier(s); setShowSupplierModal(true); }}
-                          >
-                            Sửa
-                          </button>
-                          <button
-                            className="action-btn delete-btn"
-                            title="Xóa"
-                            onClick={() => handleDeleteSupplier(s)}
-                          >
-                            Xóa
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      ) : banners.length === 0 ? (
+        <div className="empty-state">
+          <ImageIcon size={44} strokeWidth={1} />
+          <p>Chưa có banner nào — web khách hàng đang dùng ảnh mặc định.</p>
+          <button className="btn btn-primary" onClick={() => openBanner(null)}><Plus size={16} /> Thêm banner</button>
+        </div>
+      ) : (
+        <div className="bn-grid">
+          {banners.map((b) => (
+            <div key={b.bannerId} className={`bn-card${b.isActive ? '' : ' off'}`}>
+              <div className="bn-img"><img src={b.imageUrl} alt={b.title ?? 'Banner'} /></div>
+              <div className="bn-body">
+                <div className="bn-meta">
+                  <b>{b.title || `Banner #${b.bannerId}`}</b>
+                  <span>Thứ tự: {b.sortOrder}</span>
+                </div>
+                <div className="action-group">
+                  <button className="action-btn edit-btn" onClick={() => openBanner(b)}><Pencil size={13} /> Sửa</button>
+                  <button className={`action-btn ${b.isActive ? 'toggle-off-btn' : 'toggle-on-btn'}`} disabled={busyId === b.bannerId} onClick={() => toggleBanner(b)}>
+                    {b.isActive ? <><PowerOff size={13} /> Tắt</> : <><Power size={13} /> Bật</>}
+                  </button>
+                  <button className="action-btn delete-btn" onClick={() => removeBanner(b)}><Trash2 size={13} /> Xóa</button>
+                </div>
+              </div>
             </div>
-          )}
-        </>
+          ))}
+        </div>
       )}
 
-      {/* Product Modal */}
-      {showProductModal && (
-        <ProductModal
-          product={editingProduct}
-          suppliers={suppliers}
-          onClose={() => setShowProductModal(false)}
-          onSaved={() => loadData()}
-        />
+      {/* ===== Modal sản phẩm ===== */}
+      {pModal && (
+        <Modal
+          wide
+          title={pModal.editing ? 'Sửa sản phẩm' : 'Thêm sản phẩm'}
+          onClose={() => !saving && setPModal(null)}
+          footer={<>
+            <button className="btn btn-secondary" onClick={() => setPModal(null)} disabled={saving}>Hủy</button>
+            <button className="btn btn-primary" onClick={saveProduct} disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu'}</button>
+          </>}
+        >
+          <div className="modal-grid-2">
+            <div className="form-group full-width">
+              <label className="form-label">Tên sản phẩm<span className="required">*</span></label>
+              <input className="form-input" maxLength={150} value={pf.productName} onChange={setP('productName')} autoFocus />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Nhà cung cấp<span className="required">*</span></label>
+              <select className="form-input" value={pf.supplierId} onChange={setP('supplierId')}>
+                <option value="">-- Chọn nhà cung cấp --</option>
+                {suppliers.map((s) => <option key={s.supplierId} value={s.supplierId}>{s.supplierName}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Giá (VNĐ)<span className="required">*</span></label>
+              <input className="form-input" type="number" min={0} value={pf.price} onChange={setP('price')} />
+            </div>
+            <CreatableSelect label="Danh mục" value={pf.category} options={categories} onChange={(v) => setPf({ ...pf, category: v })} createLabel="Tạo danh mục mới" />
+            <CreatableSelect label="Thương hiệu" value={pf.brand} options={brands} onChange={(v) => setPf({ ...pf, brand: v })} createLabel="Tạo thương hiệu mới" />
+            <CreatableSelect label="Chất liệu" value={pf.material} options={materials} onChange={(v) => setPf({ ...pf, material: v })} createLabel="Tạo chất liệu mới" />
+            <div className="form-group">
+              <label className="form-label">Kích cỡ</label>
+              <input className="form-input" maxLength={10} value={pf.size} onChange={setP('size')} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Màu sắc</label>
+              <input className="form-input" maxLength={30} value={pf.color} onChange={setP('color')} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Tồn kho</label>
+              <input className="form-input" type="number" min={0} value={pf.stockQuantity} onChange={setP('stockQuantity')} />
+            </div>
+            <div className="form-group full-width">
+              <label className="form-label">Đường dẫn ảnh</label>
+              <div className="image-url-row">
+                <input className="form-input" maxLength={500} placeholder="https://..." value={pf.imageUrl} onChange={setP('imageUrl')} />
+                <div className="image-preview-thumb">
+                  {pf.imageUrl ? <img src={pf.imageUrl} alt="" /> : <ImageOff size={18} className="image-preview-thumb-placeholder" />}
+                </div>
+              </div>
+            </div>
+          </div>
+        </Modal>
       )}
 
-      {/* Supplier Modal */}
-      {showSupplierModal && (
-        <SupplierModal
-          supplier={editingSupplier}
-          onClose={() => setShowSupplierModal(false)}
-          onSaved={() => loadData()}
-        />
+      {/* ===== Modal nhà cung cấp ===== */}
+      {sModal && (
+        <Modal
+          title={sModal.editing ? 'Sửa nhà cung cấp' : 'Thêm nhà cung cấp'}
+          onClose={() => !saving && setSModal(null)}
+          footer={<>
+            <button className="btn btn-secondary" onClick={() => setSModal(null)} disabled={saving}>Hủy</button>
+            <button className="btn btn-primary" onClick={saveSupplier} disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu'}</button>
+          </>}
+        >
+          <div className="modal-grid-2">
+            <div className="form-group full-width">
+              <label className="form-label">Tên nhà cung cấp<span className="required">*</span></label>
+              <input className="form-input" maxLength={150} value={sf.supplierName} onChange={(e) => setSf({ ...sf, supplierName: e.target.value })} autoFocus />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Điện thoại</label>
+              <input className="form-input" maxLength={20} value={sf.phone} onChange={(e) => setSf({ ...sf, phone: e.target.value })} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Email</label>
+              <input className="form-input" maxLength={100} value={sf.email} onChange={(e) => setSf({ ...sf, email: e.target.value })} />
+            </div>
+            <div className="form-group full-width">
+              <label className="form-label">Địa chỉ</label>
+              <input className="form-input" maxLength={255} value={sf.address} onChange={(e) => setSf({ ...sf, address: e.target.value })} />
+            </div>
+          </div>
+        </Modal>
       )}
 
-      {/* Deactivate Confirm Modal */}
-      {deactivatingProduct && (
-        <DeactivateConfirmModal
-          product={deactivatingProduct}
-          onClose={() => setDeactivatingProduct(null)}
-          onConfirm={() => handleDeactivateProduct(deactivatingProduct)}
-        />
+      {/* ===== Modal banner ===== */}
+      {bModal && (
+        <Modal
+          wide
+          title={bModal.editing ? 'Sửa banner' : 'Thêm banner'}
+          onClose={() => !saving && setBModal(null)}
+          footer={<>
+            <button className="btn btn-secondary" onClick={() => setBModal(null)} disabled={saving}>Hủy</button>
+            <button className="btn btn-primary" onClick={saveBanner} disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu'}</button>
+          </>}
+        >
+          <div className="modal-grid-2">
+            <div className="form-group full-width">
+              <label className="form-label">Ảnh banner<span className="required">*</span></label>
+              <div className="image-upload-dropzone has-image" onClick={() => fileRef.current?.click()} style={{ minHeight: 120 }}>
+                {bf.imageUrl ? (
+                  <div className="upload-preview-container" style={{ height: 'auto', aspectRatio: '16 / 5' }}>
+                    <img className="upload-preview-img" src={bf.imageUrl} alt="" style={{ height: '100%' }} />
+                    <div className="upload-preview-overlay"><Upload size={20} /> Đổi ảnh</div>
+                  </div>
+                ) : (
+                  <div className="upload-placeholder">
+                    <Upload size={26} className="upload-icon" />
+                    <p className="upload-text"><span className="upload-link">Chọn ảnh</span> từ máy tính</p>
+                    <p className="upload-hint">Khuyến nghị tỉ lệ 16:5 (vd 1600×500)</p>
+                  </div>
+                )}
+              </div>
+              <input ref={fileRef} className="bn-file" type="file" accept="image/*" onChange={(e) => { onPickFile(e.target.files?.[0]); e.target.value = ''; }} />
+              <input className="form-input" style={{ marginTop: 8 }} placeholder="Hoặc dán đường dẫn ảnh https://..." value={bf.imageUrl.startsWith('data:') ? '' : bf.imageUrl} onChange={(e) => setBf({ ...bf, imageUrl: e.target.value })} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Tiêu đề (không bắt buộc)</label>
+              <input className="form-input" maxLength={150} value={bf.title} onChange={(e) => setBf({ ...bf, title: e.target.value })} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Thứ tự hiển thị</label>
+              <input className="form-input" type="number" min={0} value={bf.sortOrder} onChange={(e) => setBf({ ...bf, sortOrder: e.target.value })} />
+              <span className="bn-hint">Số nhỏ hiển thị trước.</span>
+            </div>
+            <div className="form-group full-width">
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, fontWeight: 600 }}>
+                <input type="checkbox" checked={bf.isActive} onChange={(e) => setBf({ ...bf, isActive: e.target.checked })} /> Hiển thị trên trang khách hàng
+              </label>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

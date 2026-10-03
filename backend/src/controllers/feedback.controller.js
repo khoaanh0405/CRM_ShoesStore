@@ -1,5 +1,7 @@
 import { feedbackService } from '../services/index.js';
 import { parseId, parseNumber } from '../utils/index.js';
+import { ForbiddenError, ConflictError } from '../errors/AppError.js';
+import { ROLE_NAMES, FEEDBACK_STATUS } from '../constants/index.js';
 
 export const feedbackController = {
   /** GET /api/feedbacks?status=&productId=&customerId= */
@@ -26,7 +28,6 @@ export const feedbackController = {
     res.json(await feedbackService.listByProduct(productId));
   },
 
-  /** Khách hàng gửi phản hồi — status luôn khởi tạo 'Pending'. */
   async create(req, res) {
     const { customerId, productId, title, content, rating, imageUrl } = req.body;
     const feedback = await feedbackService.create({
@@ -41,7 +42,6 @@ export const feedbackController = {
     res.json(await feedbackService.update(feedbackId, { title, content, rating, imageUrl }));
   },
 
-  /** Admin duyệt phản hồi — body { status: 'Approved' | 'Rejected' | 'Pending' }. */
   async updateStatus(req, res) {
     const feedbackId = parseId(req.params.id, 'feedbackId');
     res.json(await feedbackService.updateStatus(feedbackId, req.body.status));
@@ -49,6 +49,17 @@ export const feedbackController = {
 
   async remove(req, res) {
     const feedbackId = parseId(req.params.id, 'feedbackId');
+
+    if (req.user?.roleName === ROLE_NAMES.CUSTOMER) {
+      const fb = await feedbackService.getById(feedbackId);
+      if (fb.customerId !== req.user.customerId) {
+        throw new ForbiddenError('Bạn chỉ được thu hồi đánh giá của chính mình.');
+      }
+      if (fb.status !== FEEDBACK_STATUS.PENDING) {
+        throw new ConflictError('Chỉ thu hồi được đánh giá đang chờ duyệt.');
+      }
+    }
+
     await feedbackService.remove(feedbackId);
     res.status(204).send();
   },

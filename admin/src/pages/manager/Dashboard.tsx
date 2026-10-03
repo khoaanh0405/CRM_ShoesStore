@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Users, Wifi, Star, FileText, X } from 'lucide-react';
 import { getCustomers, getFeedbacks, getSurveys, getCustomerReport, getOnlineCustomerCount } from '../../services/api';
 import DonutChart from '../../components/DonutChart';
+import { RatingStars, FeedbackStatusBadge } from '../../components/FeedbackBits';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useNavigate } from 'react-router-dom';
 import './Dashboard.css';
 
@@ -34,23 +36,24 @@ const ManagerDashboard: React.FC = () => {
   const [detailTag, setDetailTag] = useState<string | null>(null);
   const [onlineCount, setOnlineCount] = useState<number | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const [custs, fbs, svs] = await Promise.all([getCustomers(), getFeedbacks(), getSurveys()]);
-        setCustomers(custs);
-        setFeedbacks(fbs);
-        setSurveys(svs);
-        getCustomerReport()
-          .then((rpt: any) => setPreferences(rpt?.byPreference ?? []))
-          .catch(() => setPreferences([]));
-      } catch {
-        toast.error('Không thể tải dữ liệu dashboard');
-      } finally {
-        setLoading(false);
-      }
-    })();
+  const loadAll = useCallback(async (silent = false) => {
+    try {
+      const [custs, fbs, svs] = await Promise.all([getCustomers(), getFeedbacks(), getSurveys()]);
+      setCustomers(custs);
+      setFeedbacks(fbs);
+      setSurveys(svs);
+      getCustomerReport()
+        .then((rpt: any) => setPreferences(rpt?.byPreference ?? []))
+        .catch(() => { if (!silent) setPreferences([]); });
+    } catch {
+      if (!silent) toast.error('Không thể tải dữ liệu dashboard');
+    } finally {
+      if (!silent) setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { loadAll(); }, [loadAll]);
+  useAutoRefresh(() => loadAll(true), 5000);
 
   // Polling số khách online, tự dừng khi rời trang
   useEffect(() => {
@@ -76,6 +79,7 @@ const ManagerDashboard: React.FC = () => {
     }).length,
   }));
 
+  // Giống trang Quản lý đánh giá: mới nhất trước
   const recentFeedbacks = [...feedbacks]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 5);
@@ -202,23 +206,38 @@ const ManagerDashboard: React.FC = () => {
       <div className="panel" style={{ marginTop: 16 }}>
         <div className="panel-header-row">
           <h3 className="panel-title">Phản hồi gần đây</h3>
-          <span className="link-muted">Xem tất cả</span>
+          <span className="link-muted" onClick={() => navigate('/feedbacks')}>Xem tất cả</span>
         </div>
         {recentFeedbacks.length === 0 ? (
           <p className="empty-hint">Chưa có phản hồi nào.</p>
         ) : (
           <table className="mini-table">
-            <thead><tr><th>Khách hàng</th><th>Sản phẩm</th><th>Nội dung</th><th>Trạng thái</th><th>Thời gian</th></tr></thead>
+            <thead>
+              <tr><th>#</th><th>Sản phẩm</th><th>Khách hàng</th><th>Tiêu đề</th><th>Rating</th><th>Ngày gửi</th><th>Trạng thái</th></tr>
+            </thead>
             <tbody>
-              {recentFeedbacks.map((f) => (
-                <tr key={f.feedbackId}>
-                  <td>{f.customer?.fullName ?? `KH #${f.customerId}`}</td>
-                  <td>{f.product?.productName ?? `SP #${f.productId}`}</td>
-                  <td>{f.title}</td>
-                  <td>{f.status}</td>
-                  <td>{new Date(f.createdAt).toLocaleDateString('vi-VN')}</td>
-                </tr>
-              ))}
+              {recentFeedbacks.map((f, idx) => {
+                const name = f.customer?.fullName ?? `KH #${f.customerId}`;
+                return (
+                  <tr key={f.feedbackId}>
+                    <td style={{ color: 'var(--color-text-muted)' }}>{idx + 1}</td>
+                    <td>{f.product?.productName ?? `SP #${f.productId}`}</td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <img
+                          src={`https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=8B5CF6&color=fff&size=32`}
+                          alt="" width={24} height={24} style={{ borderRadius: '50%' }}
+                        />
+                        <span>{name}</span>
+                      </div>
+                    </td>
+                    <td>{f.title}</td>
+                    <td><RatingStars rating={f.rating} /></td>
+                    <td>{new Date(f.createdAt).toLocaleDateString('vi-VN')}</td>
+                    <td><FeedbackStatusBadge status={f.status} /></td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -249,12 +268,7 @@ const ManagerDashboard: React.FC = () => {
                 <div className="pref-table-wrapper">
                   <table className="pref-customer-table">
                     <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Họ tên</th>
-                        <th>SĐT</th>
-                        <th>Giới tính</th>
-                      </tr>
+                      <tr><th>#</th><th>Họ tên</th><th>SĐT</th><th>Giới tính</th></tr>
                     </thead>
                     <tbody>
                       {customersWithTag(detailTag).map((c, i) => (

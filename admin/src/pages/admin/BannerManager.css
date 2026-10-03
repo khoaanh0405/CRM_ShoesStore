@@ -1,0 +1,10 @@
+.bn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+.bn-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 14px; overflow: hidden; }
+.bn-card.off { opacity: .6; }
+.bn-img { width: 100%; aspect-ratio: 16 / 5; background: #f1ebfc; display: flex; align-items: center; justify-content: center; color: var(--color-text-muted); }
+.bn-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bn-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.bn-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--color-text-muted); }
+.bn-meta b { color: var(--color-text-main); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bn-hint { font-size: 12px; color: var(--color-text-muted); margin-top: 4px; }
+.bn-file { display: none; }

@@ -1,15 +1,14 @@
 import { Router } from 'express';
 import { feedbackController } from '../controllers/index.js';
 import { feedbackValidator } from '../validators/index.js';
-import { authenticate, managerOnly, rateLimit, ownCustomerOnly, feedbackSpamGuard } from '../middleware/index.js';
+import { authenticate, authorize, managerOnly, rateLimit, ownCustomerOnly, feedbackSpamGuard } from '../middleware/index.js';
+import { ROLE_NAMES } from '../constants/index.js';
 
 const router = Router();
 
 router.get('/', managerOnly, feedbackController.list);
 router.get('/:id', authenticate, feedbackValidator.idParam, feedbackController.getById);
 
-// Gửi phản hồi: đăng nhập -> giới hạn tần suất -> validate -> chỉ gửi dưới tên mình -> chống spam.
-// (Trước đây khai báo POST / hai lần, bản đầu không có chống spam nên luôn khớp trước.)
 router.post(
   '/',
   authenticate,
@@ -35,6 +34,14 @@ router.patch(
   feedbackValidator.updateStatus,
   feedbackController.updateStatus
 );
-router.delete('/:id', managerOnly, feedbackValidator.idParam, feedbackController.remove);
+
+// Manager xóa bất kỳ; Customer chỉ thu hồi đánh giá Pending của chính mình (kiểm tra trong controller).
+router.delete(
+  '/:id',
+  authenticate,
+  authorize(ROLE_NAMES.MANAGER, ROLE_NAMES.CUSTOMER),
+  feedbackValidator.idParam,
+  feedbackController.remove
+);
 
 export default router;
