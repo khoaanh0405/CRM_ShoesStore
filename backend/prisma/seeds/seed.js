@@ -33,6 +33,15 @@ const daysAgo = (n, hour = 10) => {
   return d;
 };
 
+// Ngày tạo tài khoản ngẫu nhiên (RNG riêng để không làm đổi dữ liệu demo khác).
+const randAcc = mulberry32(7);
+const randomPast = (minDays, maxDays) => {
+  const d = new Date();
+  d.setDate(d.getDate() - (minDays + Math.floor(randAcc() * (maxDays - minDays + 1))));
+  d.setHours(Math.floor(randAcc() * 24), Math.floor(randAcc() * 60), Math.floor(randAcc() * 60), 0);
+  return d;
+};
+
 /* ---------- email khách hàng ---------- */
 // Mỗi khách hàng có 1 email duy nhất (chữ thường). Mặc định: <username>@example.com.
 // Tài khoản 'nguyenvana' dùng email THẬT của bạn để test luồng Quên mật khẩu (OTP gửi qua email).
@@ -218,7 +227,7 @@ async function main() {
     RESTART IDENTITY CASCADE
   `);
 
-  // 1. Vai trò + tài khoản nội bộ (Admin & Manager có thêm hồ sơ Customer tương ứng để lưu Email)
+  // 1. Vai trò + tài khoản nội bộ (Admin & Manager lưu email ngay trong bảng accounts, không có hồ sơ Customer)
   const [adminRole, managerRole, customerRole] = await Promise.all([
     prisma.role.create({ data: { roleName: 'Admin', description: 'Quản trị viên hệ thống' } }),
     prisma.role.create({ data: { roleName: 'Manager', description: 'Quản lý CRM (khách hàng, phản hồi, khảo sát)' } }),
@@ -228,33 +237,15 @@ async function main() {
 
   await prisma.account.create({
     data: {
-      username: 'admin',
-      passwordHash,
-      roleId: adminRole.roleId,
-      customer: {
-        create: {
-          fullName: 'Quản Trị Viên',
-          email: 'admin@ouran.com',
-          phone: '0900000000',
-          dateOfBirth: new Date('1990-01-01'), // Bổ sung ngày sinh mặc định
-        },
-      },
+      username: 'admin', email: 'admin@ouran.com', passwordHash,
+      roleId: adminRole.roleId, createdAt: randomPast(300, 420),
     },
   });
 
   await prisma.account.create({
     data: {
-      username: 'manager',
-      passwordHash,
-      roleId: managerRole.roleId,
-      customer: {
-        create: {
-          fullName: 'Quản Lý CRM',
-          email: 'manager@ouran.com',
-          phone: '0900000001',
-          dateOfBirth: new Date('1992-01-01'), // Bổ sung ngày sinh mặc định
-        },
-      },
+      username: 'manager', email: 'manager@ouran.com', passwordHash,
+      roleId: managerRole.roleId, createdAt: randomPast(200, 299),
     },
   });
 
@@ -276,6 +267,7 @@ async function main() {
     const acc = await prisma.account.create({
       data: {
         username, passwordHash, roleId: customerRole.roleId, isLocked,
+        email: emailOf(username), createdAt: randomPast(5, 280),
         customer: {
           create: {
             fullName, dateOfBirth: new Date(dob), gender, phone, address,

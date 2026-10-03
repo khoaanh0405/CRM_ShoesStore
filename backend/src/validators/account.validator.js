@@ -1,5 +1,5 @@
 import { validateBody, validateParams } from './common.validator.js';
-import { MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH, OTP_LENGTH } from '../constants/index.js';
+import { MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH, OTP_LENGTH, ROLE_NAMES } from '../constants/index.js';
 import { EMAIL_MAX_LENGTH, isValidEmail } from '../utils/validation.util.js';
 import { ValidationError } from '../errors/AppError.js';
 
@@ -34,13 +34,19 @@ export const accountValidator = {
   /** Đăng ký khách hàng: tạo Account + Customer cùng lúc nên validate cả 2 nhóm trường (email bắt buộc). */
   register: [validateBody(CUSTOMER_FIELDS), validateEmailFormat],
 
-  /**
-   * Admin thêm khách hàng mới (mục 4.1.1, POST /api/admin/customers) — cùng
-   * hình dạng dữ liệu với register vì đều tạo Account+Customer, chỉ khác
-   * người gọi (Admin) và ý nghĩa của `password` (mật khẩu khởi tạo do Admin
-   * nhập hộ, không phải khách hàng tự đặt).
-   */
+  /** Staff (Admin/Manager) thêm khách hàng mới (POST /api/admin/customers). */
   createCustomerByAdmin: [validateBody(CUSTOMER_FIELDS), validateEmailFormat],
+
+  /** Admin thêm tài khoản nội bộ (POST /api/admin/staff) — chỉ Admin hoặc Manager, không có hồ sơ khách hàng. */
+  createStaff: [
+    validateBody({
+      username: { required: true, type: 'string', maxLength: 50 },
+      email: { required: true, type: 'string', maxLength: EMAIL_MAX_LENGTH },
+      password: { required: true, type: 'string', maxLength: MAX_PASSWORD_LENGTH },
+      roleName: { required: true, type: 'string', enum: [ROLE_NAMES.ADMIN, ROLE_NAMES.MANAGER] },
+    }),
+    validateEmailFormat,
+  ],
 
   login: validateBody({
     username: { required: true, type: 'string' },
@@ -79,11 +85,7 @@ export const accountValidator = {
     validateOtpFormat,
   ],
 
-  /**
-   * Khớp với AccountManagement.tsx (PATCH /accounts/:id/role, body
-   * { roleName }) — không phải { roleId }. accountService.updateRole tự tra
-   * roleId tương ứng từ roleName này.
-   */
+  /** PATCH /accounts/:id/role, body { roleName }. */
   updateRole: validateBody({
     roleName: { required: true, type: 'string', maxLength: 50 },
   }),

@@ -3,24 +3,21 @@
  *
  * customers.customer_id KHÔNG tự tăng — nó CHÍNH LÀ accounts.account_id
  * (quan hệ 1-1 dùng chung PK, onDelete Cascade từ phía Account -> Customer).
- * => create() bắt buộc phải nhận customerId của 1 Account đã tồn tại (role
- * Customer), Repository này KHÔNG tự tạo Account. Việc tạo Account trước rồi
- * tạo Customer sau nên được điều phối ở Service layer (transaction) hoặc
- * dùng prisma.account.create({ data: { ..., customer: { create: {...} } } }).
  *
- * "Xóa khách hàng" (4.1.2) = SOFT DELETE (is_deleted/deleted_at) theo đúng
- * comment trong schema.prisma — KHÔNG có hàm hard delete ở đây. Sau khi
- * isDeleted=true, khách hàng biến mất khỏi danh sách hoạt động nhưng toàn bộ
- * Feedback/SurveyResponse lịch sử vẫn giữ nguyên.
+ * "Xóa khách hàng" (4.1.2) = SOFT DELETE (is_deleted/deleted_at) — KHÔNG có hàm hard delete.
  *
- * email luôn được Service chuẩn hóa về chữ thường trước khi truyền xuống đây.
+ * Mọi danh sách khách hàng CHỈ gồm tài khoản có vai trò Customer (ONLY_CUSTOMER_ROLE),
+ * kể cả khi một tài khoản từng là khách hàng rồi được đổi sang Admin/Manager.
  */
 import prisma from '../config/database.js';
+import { ROLE_NAMES } from '../constants/index.js';
+
+const ONLY_CUSTOMER_ROLE = { account: { role: { roleName: ROLE_NAMES.CUSTOMER } } };
 
 export const customerRepository = {
   findAll({ includeDeleted = false } = {}) {
     return prisma.customer.findMany({
-      where: includeDeleted ? undefined : { isDeleted: false },
+      where: { ...ONLY_CUSTOMER_ROLE, ...(includeDeleted ? {} : { isDeleted: false }) },
       orderBy: { customerId: 'asc' },
       include: { customerPreferences: true, account: { select: { isLocked: true } } },
     });
@@ -61,6 +58,7 @@ export const customerRepository = {
   search({ keyword, gender, includeDeleted = false } = {}) {
     return prisma.customer.findMany({
       where: {
+        ...ONLY_CUSTOMER_ROLE,
         ...(includeDeleted ? {} : { isDeleted: false }),
         ...(keyword && {
           OR: [
@@ -99,11 +97,11 @@ export const customerRepository = {
     });
   },
 
-  /** Thống kê tỷ lệ giới tính (mục 4.1.5 "Báo cáo về khách hàng, tỷ lệ độ tuổi, sở thích"). */
+  /** Thống kê tỷ lệ giới tính (mục 4.1.5) — chỉ tính khách hàng. */
   countByGender({ includeDeleted = false } = {}) {
     return prisma.customer.groupBy({
       by: ['gender'],
-      where: includeDeleted ? undefined : { isDeleted: false },
+      where: { ...ONLY_CUSTOMER_ROLE, ...(includeDeleted ? {} : { isDeleted: false }) },
       _count: { _all: true },
     });
   },

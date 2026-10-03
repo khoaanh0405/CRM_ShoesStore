@@ -1,408 +1,235 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Trash2, X, AlertCircle, CheckCircle, Plus } from 'lucide-react';
-import api from '../../utils/api';
-import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import toast from 'react-hot-toast';
+import { Plus, RefreshCw, Search, X } from 'lucide-react';
+import api, { getAccounts } from '../../services/api';
+import Pagination from '../../components/Pagination';
+import { useAuthStore } from '../../store/useAuthStore';
 import { normalizeEmail, validateEmail, validateNewPassword, PASSWORD_HINT } from '../../utils/validation';
 import './AccountManagement.css';
 
-interface Account {
+interface RoleLite { roleId: number; roleName: string }
+interface AccountRow {
   accountId: number;
   username: string;
+  email?: string | null;
   isLocked: boolean;
   createdAt: string;
-  role: { roleName: string };
-  customer?: { email?: string | null } | null;
+  role?: RoleLite;
+  customer?: {
+    fullName?: string; phone?: string | null; gender?: string | null;
+    address?: string | null; dateOfBirth?: string | null; email?: string | null;
+  } | null;
 }
 
+const ITEMS_PER_PAGE = 10;
+const STAFF_ROLES = ['Admin', 'Manager'] as const;
+type StaffRole = (typeof STAFF_ROLES)[number];
+
+const ROLE_LABELS: Record<string, string> = { Admin: 'Admin', Manager: 'Manager', Customer: 'Khách hàng' };
+const ROLE_CLASS: Record<string, string> = {
+  Admin: 'role-admin', Manager: 'role-manager', Customer: 'role-customer',
+};
+
+const errMsg = (e: any, fallback: string) => e?.response?.data?.message ?? fallback;
+const emailOf = (a: AccountRow) => a.email || a.customer?.email || '';
+const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString('vi-VN') : '—');
+
+const EMPTY_FORM = { username: '', email: '', password: '', roleName: 'Manager' as StaffRole };
+
 const AccountManagement: React.FC = () => {
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState<'ALL' | 'Admin' | 'Manager' | 'Customer'>('ALL');
-  const [statusFilterAcc, setStatusFilterAcc] = useState<'ALL' | 'ACTIVE' | 'LOCKED'>('ALL');
-  const [sortByAcc, setSortByAcc] = useState<'NEWEST' | 'OLDEST' | 'USERNAME_ASC'>('NEWEST');
+  const me = useAuthStore((s) => s.user);
 
-  // Giá trị đang gõ/chọn trên thanh công cụ — CHƯA áp dụng vào bảng.
-  // Chỉ khi bấm "Tìm kiếm" hoặc nhấn Enter (submit form) thì mới copy
-  // sang các state phía trên để lọc lại danh sách.
+  const [accounts, setAccounts] = useState<AccountRow[]>([]);
+  const [roles, setRoles] = useState<RoleLite[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Bộ lọc: chỉ áp dụng khi bấm "Tìm kiếm" / Enter
   const [searchDraft, setSearchDraft] = useState('');
-  const [roleDraft, setRoleDraft] = useState<'ALL' | 'Admin' | 'Manager' | 'Customer'>('ALL');
-  const [statusDraft, setStatusDraft] = useState<'ALL' | 'ACTIVE' | 'LOCKED'>('ALL');
+  const [roleDraft, setRoleDraft] = useState('ALL');
+  const [statusDraft, setStatusDraft] = useState('ALL');
+  const [filters, setFilters] = useState({ search: '', role: 'ALL', status: 'ALL' });
+  const [page, setPage] = useState(1);
 
-  const handleApplyFilters = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSearchTerm(searchDraft);
-    setRoleFilter(roleDraft);
-    setStatusFilterAcc(statusDraft);
-  };
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const [detail, setDetail] = useState<AccountRow | null>(null);
+  const [roleChange, setRoleChange] = useState<{ account: AccountRow; roleName: string } | null>(null);
+  const [roleSaving, setRoleSaving] = useState(false);
 
-  const handleClearSearch = () => {
-    setSearchDraft('');
-    setSearchTerm('');
-  };
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
-  const [isModalLoading, setIsModalLoading] = useState(false);
-
-  // Add Modal state
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const EMPTY_ADD_FORM = {
-    username: '',
-    email: '',
-    password: '',
-    fullName: '',
-    gender: 'Nam',
-    dateOfBirth: '',
-    phone: '',
-    address: ''
-  };
-  const [addFormData, setAddFormData] = useState(EMPTY_ADD_FORM);
-  const [isAdding, setIsAdding] = useState(false);
-
-  // Edit Modal state
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editFormData, setEditFormData] = useState({
-    fullName: '',
-    email: '',
-    gender: 'Nam',
-    dateOfBirth: '',
-    phone: '',
-    address: ''
-  });
-  const [isSaving, setIsSaving] = useState(false);
-
-  // Confirm Modal state
-  const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, accountId: number | null}>({isOpen: false, accountId: null});
-
-  // Confirm Role Change Modal state
-  const [roleChangeModal, setRoleChangeModal] = useState<{
-    isOpen: boolean;
-    account: Account | null;
-    newRole: string;
-  }>({
-    isOpen: false,
-    account: null,
-    newRole: ''
-  });
-
-  // Toast state
-  const [toast, setToast] = useState<{message: string, type: 'success' | 'error', id: number}[]>([]);
-
-  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-    const id = Date.now();
-    setToast(prev => [...prev, {message, type, id}]);
-    setTimeout(() => {
-      setToast(prev => prev.filter(t => t.id !== id));
-    }, 3000);
-  };
-
-  /** silent = true: dùng cho auto-refresh, không bật spinner, không báo lỗi. */
-  const fetchAccounts = useCallback(async (silent = false) => {
-    if (!silent) {
-      setLoading(true);
-      setError('');
-    }
+  const load = useCallback(async (manual = false) => {
+    if (manual) setRefreshing(true);
     try {
-      const res = await api.get('/accounts');
-      // Backend trả về { success, data: [...] } — cần unwrap giống các API khác trong dự án,
-      // nếu không "accounts" sẽ là object thay vì array và toàn bộ .filter/.map phía dưới sẽ lỗi.
-      const list = res.data?.data ?? res.data ?? [];
-      setAccounts(Array.isArray(list) ? list : []);
-      if (silent) setError('');
-    } catch (err: any) {
-      if (!silent) setError(err.response?.data?.message || 'Lỗi khi tải dữ liệu tài khoản');
+      const [accs, rolesRes] = await Promise.all([
+        getAccounts(),
+        api.get('/roles').then((r) => r.data?.data ?? r.data ?? []).catch(() => []),
+      ]);
+      setAccounts(accs);
+      setRoles(rolesRes);
+    } catch (e) {
+      toast.error(errMsg(e, 'Không tải được danh sách tài khoản'));
     } finally {
-      if (!silent) setLoading(false);
+      setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
-  useEffect(() => {
-    fetchAccounts();
-  }, [fetchAccounts]);
+  useEffect(() => { load(); }, [load]);
 
-  // Real-time: tự cập nhật mỗi 5 giây, không cần bấm làm mới
-  useAutoRefresh(() => fetchAccounts(true), 5000);
+  const roleOptions: RoleLite[] = useMemo(() => {
+    if (roles.length) return roles;
+    const map = new Map<number, RoleLite>();
+    accounts.forEach((a) => a.role && map.set(a.role.roleId, a.role));
+    return Array.from(map.values());
+  }, [roles, accounts]);
 
-  const ROLE_OPTIONS = ['Admin', 'Manager', 'Customer'];
+  const filtered = useMemo(() => {
+    const k = filters.search.trim().toLowerCase();
+    return accounts
+      .filter((a) => {
+        const matchSearch =
+          !k ||
+          a.username.toLowerCase().includes(k) ||
+          emailOf(a).toLowerCase().includes(k) ||
+          (a.customer?.fullName ?? '').toLowerCase().includes(k);
+        const matchRole = filters.role === 'ALL' || a.role?.roleName === filters.role;
+        const matchStatus = filters.status === 'ALL' || (filters.status === 'LOCKED') === a.isLocked;
+        return matchSearch && matchRole && matchStatus;
+      })
+      .sort((a, b) => b.accountId - a.accountId);
+  }, [accounts, filters]);
 
-  const getRoleLabel = (roleName?: string) => {
-    switch (roleName) {
-      case 'Admin':
-        return 'Quản trị viên';
-      case 'Manager':
-        return 'Quản lý';
-      case 'Customer':
-        return 'Khách hàng';
-      default:
-        return roleName || 'Không xác định';
-    }
-  };
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+  useEffect(() => { if (page > totalPages) setPage(totalPages); }, [page, totalPages]);
+  const rows = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
-  const requestChangeRole = (account: Account, newRole: string) => {
-    if (newRole === account.role?.roleName) return;
-
-    setRoleChangeModal({
-      isOpen: true,
-      account,
-      newRole
-    });
-  };
-
-  const executeChangeRole = async () => {
-    if (!roleChangeModal.account || !roleChangeModal.newRole) return;
-
-    const account = roleChangeModal.account;
-    const newRole = roleChangeModal.newRole;
-
-    try {
-      await api.patch(`/accounts/${account.accountId}/role`, { roleName: newRole });
-      showToast(`Đã đổi vai trò thành ${getRoleLabel(newRole)}`, 'success');
-      setRoleChangeModal({ isOpen: false, account: null, newRole: '' });
-      fetchAccounts();
-    } catch (err: any) {
-      showToast(err.response?.data?.message || 'Đổi vai trò thất bại', 'error');
-    }
-  };
-
-  const toggleLock = async (account: Account) => {
-    try {
-      const endpoint = `/accounts/${account.accountId}/${account.isLocked ? 'unlock' : 'lock'}`;
-      await api.patch(endpoint);
-      // Reload or update state
-      setAccounts(accounts.map(acc =>
-        acc.accountId === account.accountId ? { ...acc, isLocked: !acc.isLocked } : acc
-      ));
-      showToast(account.isLocked ? 'Đã mở khóa tài khoản' : 'Đã khóa tài khoản', 'success');
-    } catch (err: any) {
-      showToast(err.response?.data?.message || 'Có lỗi xảy ra', 'error');
-    }
-  };
-
-  const openEdit = async (account: Account) => {
-    if (account.role?.roleName !== 'Customer') {
-      showToast('Chỉ hỗ trợ sửa thông tin cho tài khoản Khách hàng.', 'error');
-      return;
-    }
-
-    setSelectedAccountId(account.accountId);
-    setIsEditModalOpen(true);
-    setIsModalLoading(true);
-
-    try {
-      const res = await api.get(`/customers/${account.accountId}/profile`);
-      const data = res.data;
-      setEditFormData({
-        fullName: data.fullName || '',
-        email: data.email || '',
-        gender: data.gender || 'Nam',
-        dateOfBirth: data.dateOfBirth ? data.dateOfBirth.substring(0, 10) : '',
-        phone: data.phone || '',
-        address: data.address || ''
-      });
-    } catch (err: any) {
-      showToast(err.response?.data?.message || 'Lỗi khi tải thông tin chi tiết.', 'error');
-      setIsEditModalOpen(false);
-    } finally {
-      setIsModalLoading(false);
-    }
-  };
-
-  const handleEditSubmit = async (e: React.FormEvent) => {
+  const applyFilters = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedAccountId) return;
+    setFilters({ search: searchDraft, role: roleDraft, status: statusDraft });
+    setPage(1);
+  };
+  const clearSearch = () => {
+    setSearchDraft('');
+    setFilters((f) => ({ ...f, search: '' }));
+    setPage(1);
+  };
 
-    const emailErr = validateEmail(editFormData.email);
-    if (emailErr) {
-      showToast(emailErr, 'error');
-      return;
-    }
-
-    setIsSaving(true);
+  /* ---------- khóa / mở khóa ---------- */
+  const toggleLock = async (a: AccountRow) => {
+    setBusyId(a.accountId);
     try {
-      await api.put(`/customers/${selectedAccountId}`, {
-        ...editFormData,
-        email: normalizeEmail(editFormData.email),
-      });
-      showToast('Cập nhật thông tin thành công!', 'success');
-      setIsEditModalOpen(false);
-      fetchAccounts();
-    } catch (err: any) {
-      showToast(err.response?.data?.message || 'Lỗi khi cập nhật thông tin.', 'error');
+      await api.patch(`/accounts/${a.accountId}/${a.isLocked ? 'unlock' : 'lock'}`);
+      toast.success(a.isLocked ? '🔓 Đã mở khóa tài khoản' : '🔒 Đã khóa tài khoản');
+      await load();
+    } catch (e) {
+      toast.error(errMsg(e, 'Thao tác thất bại'));
     } finally {
-      setIsSaving(false);
+      setBusyId(null);
     }
   };
 
-  const handleAddSubmit = async (e: React.FormEvent) => {
+  /* ---------- đổi vai trò ---------- */
+  const confirmRoleChange = async () => {
+    if (!roleChange) return;
+    const role = roleOptions.find((r) => r.roleName === roleChange.roleName);
+    if (!role) { toast.error('Không tìm thấy vai trò'); return; }
+    setRoleSaving(true);
+    try {
+      await api.patch(`/accounts/${roleChange.account.accountId}/role`, { roleId: role.roleId, roleName: role.roleName });
+      toast.success('Đã cập nhật vai trò');
+      setRoleChange(null);
+      await load();
+    } catch (e) {
+      toast.error(errMsg(e, 'Đổi vai trò thất bại'));
+    } finally {
+      setRoleSaving(false);
+    }
+  };
+
+  /* ---------- thêm tài khoản Admin / Manager ---------- */
+  const closeAdd = () => { if (!saving) { setShowAdd(false); setForm(EMPTY_FORM); } };
+
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
+    const username = form.username.trim();
+    if (username.length < 4) return void toast.error('Tên đăng nhập tối thiểu 4 ký tự.');
+    if (!/^[A-Za-z0-9._]+$/.test(username)) return void toast.error('Tên đăng nhập chỉ gồm chữ cái không dấu, số, dấu chấm và gạch dưới.');
+    const emailErr = validateEmail(form.email);
+    if (emailErr) return void toast.error(emailErr);
+    const pwErr = validateNewPassword(form.password, username);
+    if (pwErr) return void toast.error(pwErr);
 
-    const emailErr = validateEmail(addFormData.email);
-    if (emailErr) {
-      showToast(emailErr, 'error');
-      return;
-    }
-    const pwErr = validateNewPassword(addFormData.password, addFormData.username);
-    if (pwErr) {
-      showToast(pwErr, 'error');
-      return;
-    }
-
-    setIsAdding(true);
+    setSaving(true);
     try {
-      await api.post('/admin/customers', {
-        ...addFormData,
-        username: addFormData.username.trim(),
-        fullName: addFormData.fullName.trim(),
-        email: normalizeEmail(addFormData.email),
+      await api.post('/admin/staff', {
+        username,
+        email: normalizeEmail(form.email),
+        password: form.password,
+        roleName: form.roleName,
       });
-      showToast('Thêm khách hàng thành công!', 'success');
-      setIsAddModalOpen(false);
-      setAddFormData(EMPTY_ADD_FORM);
-      fetchAccounts();
-    } catch (err: any) {
-      showToast(err.response?.data?.message || 'Lỗi khi thêm khách hàng mới.', 'error');
+      toast.success(`✅ Đã tạo tài khoản ${form.roleName}`);
+      setShowAdd(false);
+      setForm(EMPTY_FORM);
+      await load();
+    } catch (err) {
+      toast.error(errMsg(err, 'Tạo tài khoản thất bại'));
     } finally {
-      setIsAdding(false);
+      setSaving(false);
     }
   };
 
-  const requestDeleteCustomer = (account: Account) => {
-    if (account.role?.roleName !== 'Customer') {
-      showToast('Chỉ hỗ trợ xóa tài khoản Khách hàng.', 'error');
-      return;
-    }
-    setConfirmModal({isOpen: true, accountId: account.accountId});
-  };
-
-  const executeDeleteCustomer = async () => {
-    if (!confirmModal.accountId) return;
-
-    try {
-      await api.delete(`/customers/${confirmModal.accountId}`);
-      showToast('Đã xóa khách hàng thành công!', 'success');
-      setConfirmModal({isOpen: false, accountId: null});
-      fetchAccounts(); // Làm mới lại bảng
-    } catch (err: any) {
-      showToast(err.response?.data?.message || 'Lỗi khi xóa khách hàng.', 'error');
-    }
-  };
-
-  const filteredAccounts = accounts
-    .filter(acc => {
-      const searchLower = searchTerm.trim().toLowerCase();
-      const isUsernameMatch = acc.username.toLowerCase().includes(searchLower);
-      const isEmailMatch = (acc.customer?.email ?? '').toLowerCase().includes(searchLower);
-      const isExactIdMatch = searchTerm.trim() !== '' && !isNaN(Number(searchTerm)) && acc.accountId.toString() === searchTerm.trim();
-      const matchSearch = searchLower === '' || isUsernameMatch || isEmailMatch || isExactIdMatch;
-
-      const matchRole = roleFilter === 'ALL' || acc.role?.roleName === roleFilter;
-      const matchStatus =
-        statusFilterAcc === 'ALL' ||
-        (statusFilterAcc === 'ACTIVE' && !acc.isLocked) ||
-        (statusFilterAcc === 'LOCKED' && acc.isLocked);
-
-      return matchSearch && matchRole && matchStatus;
-    })
-    .sort((a, b) => {
-      // Luôn ưu tiên nhóm theo vai trò: Admin → Manager → Customer.
-      const ROLE_PRIORITY: Record<string, number> = { Admin: 0, Manager: 1, Customer: 2 };
-      const roleDiff =
-        (ROLE_PRIORITY[a.role?.roleName ?? ''] ?? 99) -
-        (ROLE_PRIORITY[b.role?.roleName ?? ''] ?? 99);
-      if (roleDiff !== 0) return roleDiff;
-
-      // Trong cùng một vai trò, áp dụng tiêu chí sắp xếp đang chọn.
-      switch (sortByAcc) {
-        case 'OLDEST':
-          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-        case 'USERNAME_ASC':
-          return a.username.localeCompare(b.username);
-        case 'NEWEST':
-        default:
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      }
-    });
-
-  const inputStyle = { width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--color-border)' } as const;
-  const labelStyle = { display: 'block', marginBottom: '8px', fontWeight: 500 } as const;
+  const labelStyle: React.CSSProperties = { fontSize: 13, fontWeight: 600, color: 'var(--color-text-main)' };
+  const fieldStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 };
 
   return (
     <div className="account-management">
       <div className="page-header">
         <div>
           <h1 className="page-title">Quản lý tài khoản</h1>
-          <p className="page-subtitle">Xem và quản lý danh sách tài khoản hệ thống</p>
+          <p className="page-subtitle">Quản lý toàn bộ tài khoản hệ thống. Tài khoản khách hàng do Manager thêm.</p>
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button className="btn-refresh" onClick={() => load(true)} disabled={refreshing}>
+            <RefreshCw size={16} className={refreshing ? 'spinning' : ''} /> Làm mới
+          </button>
+          <button className="btn-primary" onClick={() => setShowAdd(true)}>
+            <Plus size={16} /> Thêm tài khoản
+          </button>
         </div>
       </div>
 
-      {error && <div className="error-message" style={{marginBottom: 16}}>{error}</div>}
-
       <div className="table-card">
         <div className="table-toolbar">
-          <button className="btn-primary" onClick={() => setIsAddModalOpen(true)} title="Thêm khách hàng">
-            <Plus size={18} />
-            Thêm mới
-          </button>
-
-          <form className="acc-toolbar" onSubmit={handleApplyFilters}>
+          <form className="acc-toolbar" onSubmit={applyFilters}>
             <label className="acc-toolbar__search">
               <Search size={16} className="acc-toolbar__search-icon" />
               <input
-                type="text"
                 className="acc-toolbar__search-input"
-                placeholder="Tìm kiếm tên đăng nhập, email hoặc ID..."
+                placeholder="Tìm theo tên đăng nhập, email, họ tên..."
                 value={searchDraft}
                 onChange={(e) => setSearchDraft(e.target.value)}
               />
               {searchDraft && (
-                <button
-                  type="button"
-                  className="acc-toolbar__search-reset"
-                  onClick={handleClearSearch}
-                  title="Xóa từ khóa"
-                >
+                <button type="button" className="acc-toolbar__search-reset" onClick={clearSearch} title="Xóa từ khóa">
                   <X size={13} />
                 </button>
               )}
             </label>
-
-            <select
-              className="form-select"
-              value={roleDraft}
-              onChange={(e) => setRoleDraft(e.target.value as any)}
-            >
+            <select className="form-select" value={roleDraft} onChange={(e) => setRoleDraft(e.target.value)}>
               <option value="ALL">Tất cả vai trò</option>
-              {ROLE_OPTIONS.map((r) => (
-                <option key={r} value={r}>{getRoleLabel(r)}</option>
-              ))}
+              <option value="Admin">Admin</option>
+              <option value="Manager">Manager</option>
+              <option value="Customer">Khách hàng</option>
             </select>
-
-            <select
-              className="form-select"
-              value={statusDraft}
-              onChange={(e) => setStatusDraft(e.target.value as any)}
-            >
+            <select className="form-select" value={statusDraft} onChange={(e) => setStatusDraft(e.target.value)}>
               <option value="ALL">Tất cả trạng thái</option>
               <option value="ACTIVE">Đang hoạt động</option>
               <option value="LOCKED">Đã khóa</option>
             </select>
-
-            <select
-              className="form-select"
-              value={sortByAcc}
-              onChange={(e) => setSortByAcc(e.target.value as any)}
-            >
-              <option value="NEWEST">Mới nhất</option>
-              <option value="OLDEST">Cũ nhất</option>
-              <option value="USERNAME_ASC">Tên đăng nhập A-Z</option>
-            </select>
-
-            <button type="submit" className="acc-toolbar__submit">
-              <Search size={16} />
-              Tìm kiếm
-            </button>
+            <button type="submit" className="acc-toolbar__submit"><Search size={16} /> Tìm kiếm</button>
           </form>
         </div>
 
@@ -410,169 +237,135 @@ const AccountManagement: React.FC = () => {
           <table className="data-table">
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Tên đăng nhập</th>
+                <th>#</th>
+                <th>Tài khoản</th>
                 <th>Email</th>
                 <th>Vai trò</th>
-                <th>Trạng thái</th>
                 <th>Ngày tạo</th>
-                <th className="text-right">Hành động</th>
+                <th>Trạng thái</th>
+                <th className="text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody>
-              {filteredAccounts.map(account => (
-                <tr key={account.accountId}>
-                  <td>#{account.accountId}</td>
-                  <td className="font-medium">{account.username}</td>
-                  <td className="text-muted">{account.customer?.email || '—'}</td>
-                  <td>
-                    <select
-                      className={`role-badge role-${account.role?.roleName.toLowerCase()}`}
-                      value={account.role?.roleName}
-                      onChange={(e) => requestChangeRole(account, e.target.value)}
-                      style={{ border: 'none', cursor: 'pointer' }}
-                    >
-                      {ROLE_OPTIONS.map((r) => (
-                        <option key={r} value={r}>{getRoleLabel(r)}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    {account.isLocked ? (
-                      <span className="status-badge status-locked">Đã khóa</span>
-                    ) : (
-                      <span className="status-badge status-active">Hoạt động</span>
-                    )}
-                  </td>
-                  <td className="text-muted">{new Date(account.createdAt).toLocaleDateString('vi-VN')}</td>
-                  <td className="text-right actions-cell">
-                    <button className="action-btn-text lock-btn" title="Xóa khách hàng" onClick={() => requestDeleteCustomer(account)}>
-                      Xóa
-                    </button>
-                    <button className="action-btn-text edit-btn" title="Chỉnh sửa" onClick={() => openEdit(account)}>
-                      Sửa
-                    </button>
-                    <button
-                      className={`action-btn-text ${account.isLocked ? 'unlock-btn' : 'lock-btn'}`}
-                      title={account.isLocked ? 'Mở khóa' : 'Khóa tài khoản'}
-                      onClick={() => toggleLock(account)}
-                    >
-                      {account.isLocked ? 'Mở khóa' : 'Khóa'}
-                    </button>
-                  </td>
-                </tr>
-              ))}
               {loading ? (
-                <tr>
-                  <td colSpan={7} className="text-center py-8 text-muted">
-                    Đang tải dữ liệu...
-                  </td>
-                </tr>
-              ) : filteredAccounts.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="text-center py-8 text-muted">
-                    Không tìm thấy tài khoản nào.
-                  </td>
-                </tr>
-              ) : null}
+                <tr><td colSpan={7} className="text-center text-muted py-8">Đang tải...</td></tr>
+              ) : rows.length === 0 ? (
+                <tr><td colSpan={7} className="text-center text-muted py-8">Không có tài khoản nào</td></tr>
+              ) : rows.map((a, idx) => {
+                const roleName = a.role?.roleName ?? '';
+                const isSelf = a.accountId === me?.accountId;
+                return (
+                  <tr key={a.accountId}>
+                    <td className="text-muted">{(page - 1) * ITEMS_PER_PAGE + idx + 1}</td>
+                    <td>
+                      <div className="font-medium">{a.username}</div>
+                      {a.customer?.fullName && <div className="text-muted" style={{ fontSize: 12 }}>{a.customer.fullName}</div>}
+                    </td>
+                    <td>{emailOf(a) || <span className="text-muted">—</span>}</td>
+                    <td>
+                      <select
+                        className={`role-badge ${ROLE_CLASS[roleName] ?? 'role-customer'}`}
+                        value={roleName}
+                        disabled={isSelf}
+                        title={isSelf ? 'Không thể đổi vai trò của chính mình' : 'Đổi vai trò'}
+                        onChange={(e) => e.target.value !== roleName && setRoleChange({ account: a, roleName: e.target.value })}
+                      >
+                        {(roleOptions.length ? roleOptions.map((r) => r.roleName) : [roleName]).map((r) => (
+                          <option key={r} value={r}>{ROLE_LABELS[r] ?? r}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>{fmtDate(a.createdAt)}</td>
+                    <td>
+                      <span className={`status-badge ${a.isLocked ? 'status-locked' : 'status-active'}`}>
+                        {a.isLocked ? 'Đã khóa' : 'Hoạt động'}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="actions-cell">
+                        <button className="action-btn-text view-btn" onClick={() => setDetail(a)}>Chi tiết</button>
+                        <button
+                          className={`action-btn-text ${a.isLocked ? 'unlock-btn' : 'lock-btn'}`}
+                          onClick={() => toggleLock(a)}
+                          disabled={busyId === a.accountId || isSelf}
+                          title={isSelf ? 'Không thể khóa chính mình' : undefined}
+                        >
+                          {a.isLocked ? 'Mở khóa' : 'Khóa'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          totalItems={filtered.length}
+          itemsPerPage={ITEMS_PER_PAGE}
+          itemLabel="tài khoản"
+          onPageChange={setPage}
+        />
       </div>
 
-      {/* Modal Sửa Khách hàng */}
-      {isEditModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
+      {/* Thêm tài khoản Admin / Manager */}
+      {showAdd && (
+        <div className="modal-overlay" onClick={closeAdd}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Sửa thông tin Khách hàng</h2>
-              <button className="close-btn" onClick={() => setIsEditModalOpen(false)}>
-                <X size={20} />
-              </button>
+              <h2>Thêm tài khoản nội bộ</h2>
+              <button className="close-btn" onClick={closeAdd}><X size={18} /></button>
             </div>
-
-            <form onSubmit={handleEditSubmit} noValidate>
+            <form onSubmit={handleAdd}>
               <div className="modal-body">
-                {isModalLoading ? (
-                  <p className="text-center text-muted">Đang tải dữ liệu...</p>
-                ) : (
-                  <div className="customer-details">
-                    <div className="form-group" style={{ marginBottom: '16px' }}>
-                      <label style={labelStyle}>Họ và tên</label>
-                      <input
-                        type="text"
-                        required
-                        value={editFormData.fullName}
-                        onChange={(e) => setEditFormData({...editFormData, fullName: e.target.value})}
-                        style={inputStyle}
-                      />
-                    </div>
-
-                    <div className="form-group" style={{ marginBottom: '16px' }}>
-                      <label style={labelStyle}>Email *</label>
-                      <input
-                        type="email"
-                        required
-                        maxLength={100}
-                        placeholder="ten@gmail.com"
-                        value={editFormData.email}
-                        onChange={(e) => setEditFormData({...editFormData, email: e.target.value})}
-                        style={inputStyle}
-                      />
-                    </div>
-
-                    <div className="form-group" style={{ marginBottom: '16px' }}>
-                      <label style={labelStyle}>Giới tính</label>
-                      <select
-                        value={editFormData.gender}
-                        onChange={(e) => setEditFormData({...editFormData, gender: e.target.value})}
-                        style={inputStyle}
-                      >
-                        <option value="Nam">Nam</option>
-                        <option value="Nữ">Nữ</option>
-                      </select>
-                    </div>
-
-                    <div className="form-group" style={{ marginBottom: '16px' }}>
-                      <label style={labelStyle}>Ngày sinh</label>
-                      <input
-                        type="date"
-                        required
-                        value={editFormData.dateOfBirth}
-                        onChange={(e) => setEditFormData({...editFormData, dateOfBirth: e.target.value})}
-                        style={inputStyle}
-                      />
-                    </div>
-
-                    <div className="form-group" style={{ marginBottom: '16px' }}>
-                      <label style={labelStyle}>Số điện thoại</label>
-                      <input
-                        type="text"
-                        value={editFormData.phone}
-                        onChange={(e) => setEditFormData({...editFormData, phone: e.target.value})}
-                        style={inputStyle}
-                      />
-                    </div>
-
-                    <div className="form-group" style={{ marginBottom: '16px' }}>
-                      <label style={labelStyle}>Địa chỉ</label>
-                      <input
-                        type="text"
-                        value={editFormData.address}
-                        onChange={(e) => setEditFormData({...editFormData, address: e.target.value})}
-                        style={inputStyle}
-                      />
-                    </div>
+                <div style={fieldStyle}>
+                  <span style={labelStyle}>Vai trò *</span>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {STAFF_ROLES.map((r) => {
+                      const on = form.roleName === r;
+                      return (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => setForm({ ...form, roleName: r })}
+                          style={{
+                            flex: 1, height: 40, borderRadius: 8, fontWeight: 600, fontSize: 13.5, cursor: 'pointer',
+                            border: `1.5px solid ${on ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                            background: on ? 'var(--color-primary)' : '#fff',
+                            color: on ? '#fff' : 'var(--color-text-muted)',
+                          }}
+                        >
+                          {r}
+                        </button>
+                      );
+                    })}
                   </div>
-                )}
-              </div>
+                </div>
 
-              <div className="modal-footer" style={{ display: 'flex', gap: '12px' }}>
-                <button type="button" onClick={() => setIsEditModalOpen(false)} style={{ padding: '10px 16px', borderRadius: '6px', border: '1px solid var(--color-border)', backgroundColor: 'transparent', cursor: 'pointer' }}>
-                  Hủy
-                </button>
-                <button type="submit" disabled={isSaving || isModalLoading} style={{ padding: '10px 16px', borderRadius: '6px', border: 'none', backgroundColor: 'var(--color-primary)', color: 'white', fontWeight: 600, cursor: 'pointer' }}>
-                  {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                <div className="form-group" style={fieldStyle}>
+                  <label style={labelStyle}>Tên đăng nhập *</label>
+                  <input value={form.username} maxLength={50} autoFocus autoComplete="off"
+                    onChange={(e) => setForm({ ...form, username: e.target.value })} />
+                </div>
+                <div className="form-group" style={fieldStyle}>
+                  <label style={labelStyle}>Email *</label>
+                  <input type="email" value={form.email} maxLength={100} autoComplete="off"
+                    onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                </div>
+                <div className="form-group" style={{ ...fieldStyle, marginBottom: 0 }}>
+                  <label style={labelStyle}>Mật khẩu khởi tạo *</label>
+                  <input type="password" value={form.password} maxLength={50} autoComplete="new-password"
+                    onChange={(e) => setForm({ ...form, password: e.target.value })} />
+                  <span className="text-muted" style={{ fontSize: 12 }}>{PASSWORD_HINT}</span>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn-refresh" onClick={closeAdd} disabled={saving}>Hủy</button>
+                <button type="submit" className="btn-primary" disabled={saving}>
+                  {saving ? 'Đang tạo...' : `Tạo tài khoản ${form.roleName}`}
                 </button>
               </div>
             </form>
@@ -580,229 +373,73 @@ const AccountManagement: React.FC = () => {
         </div>
       )}
 
-      {/* Modal Xác nhận Đổi Vai trò */}
-      {roleChangeModal.isOpen && roleChangeModal.account && (
-        <div className="modal-overlay">
-          <div className="modal-content role-confirm-modal">
+      {/* Xác nhận đổi vai trò */}
+      {roleChange && (
+        <div className="modal-overlay" onClick={() => !roleSaving && setRoleChange(null)}>
+          <div className="modal-content role-confirm-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Xác nhận đổi vai trò</h2>
-              <button
-                className="close-btn"
-                onClick={() => setRoleChangeModal({ isOpen: false, account: null, newRole: '' })}
-              >
-                <X size={20} />
-              </button>
+              <button className="close-btn" onClick={() => setRoleChange(null)} disabled={roleSaving}><X size={18} /></button>
             </div>
-
-            <div className="modal-body role-confirm-body">
-              <div className="role-confirm-icon">
-                <AlertCircle size={24} />
-              </div>
-
-              <p className="role-confirm-message">
-                Bạn có chắc chắn muốn thay đổi vai trò của tài khoản này không?
-              </p>
-
+            <div className="role-confirm-body">
+              <p className="role-confirm-message">Bạn có chắc muốn đổi vai trò của tài khoản này?</p>
               <div className="role-confirm-info">
-                <div className="role-confirm-row">
-                  <span>Tên đăng nhập</span>
-                  <strong>{roleChangeModal.account.username}</strong>
-                </div>
+                <div className="role-confirm-row"><span>Tài khoản</span><strong>{roleChange.account.username}</strong></div>
                 <div className="role-confirm-row">
                   <span>Vai trò hiện tại</span>
-                  <strong>{getRoleLabel(roleChangeModal.account.role?.roleName)}</strong>
+                  <strong>{ROLE_LABELS[roleChange.account.role?.roleName ?? ''] ?? roleChange.account.role?.roleName}</strong>
                 </div>
                 <div className="role-confirm-row">
                   <span>Vai trò mới</span>
-                  <strong className="role-confirm-new">
-                    {getRoleLabel(roleChangeModal.newRole)}
-                  </strong>
+                  <strong className="role-confirm-new">{ROLE_LABELS[roleChange.roleName] ?? roleChange.roleName}</strong>
                 </div>
               </div>
-
-              <p className="role-confirm-warning">
-                Thay đổi này sẽ có hiệu lực ngay sau khi bạn xác nhận.
-              </p>
+              <p className="role-confirm-warning">Quyền truy cập của tài khoản sẽ thay đổi ngay ở lần đăng nhập tiếp theo.</p>
             </div>
-
             <div className="modal-footer">
-              <button
-                type="button"
-                onClick={() => setRoleChangeModal({ isOpen: false, account: null, newRole: '' })}
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                className="btn-role-confirm"
-                onClick={executeChangeRole}
-              >
-                Xác nhận đổi vai trò
+              <button className="btn-refresh" onClick={() => setRoleChange(null)} disabled={roleSaving}>Hủy</button>
+              <button className="btn-role-confirm" onClick={confirmRoleChange} disabled={roleSaving}>
+                {roleSaving ? 'Đang lưu...' : 'Xác nhận'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal Xác nhận Xóa */}
-      {confirmModal.isOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '400px' }}>
+      {/* Chi tiết tài khoản */}
+      {detail && (
+        <div className="modal-overlay" onClick={() => setDetail(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Xác nhận xóa</h2>
-              <button className="close-btn" onClick={() => setConfirmModal({isOpen: false, accountId: null})}>
-                <X size={20} />
-              </button>
+              <h2>Chi tiết tài khoản</h2>
+              <button className="close-btn" onClick={() => setDetail(null)}><X size={18} /></button>
             </div>
-
             <div className="modal-body">
-              <p style={{ margin: 0, fontSize: '15px', color: 'var(--color-text-main)' }}>
-                Bạn có chắc chắn muốn xóa khách hàng này không? Dữ liệu sẽ được ẩn khỏi hệ thống.
-              </p>
-            </div>
-
-            <div className="modal-footer" style={{ display: 'flex', gap: '12px' }}>
-              <button onClick={() => setConfirmModal({isOpen: false, accountId: null})} style={{ padding: '10px 16px', borderRadius: '6px', border: '1px solid var(--color-border)', backgroundColor: 'transparent', cursor: 'pointer' }}>
-                Hủy
-              </button>
-              <button className="btn-danger" onClick={executeDeleteCustomer}>
-                <Trash2 size={16} />
-                Xóa ngay
-              </button>
+              <div className="customer-details">
+                {([
+                  ['Tên đăng nhập', detail.username],
+                  ['Email', emailOf(detail)],
+                  ['Vai trò', ROLE_LABELS[detail.role?.roleName ?? ''] ?? detail.role?.roleName],
+                  ['Trạng thái', detail.isLocked ? 'Đã khóa' : 'Đang hoạt động'],
+                  ['Ngày tạo', fmtDate(detail.createdAt)],
+                  ['Họ tên', detail.customer?.fullName],
+                  ['Ngày sinh', fmtDate(detail.customer?.dateOfBirth)],
+                  ['Giới tính', detail.customer?.gender],
+                  ['Số điện thoại', detail.customer?.phone],
+                  ['Địa chỉ', detail.customer?.address],
+                ] as [string, string | null | undefined][])
+                  .filter(([label, v]) => v && !(label === 'Ngày sinh' && v === '—'))
+                  .map(([label, v]) => (
+                    <div className="detail-item" key={label}>
+                      <span className="detail-label">{label}</span>
+                      <span className="detail-value">{v}</span>
+                    </div>
+                  ))}
+              </div>
             </div>
           </div>
         </div>
       )}
-
-      {/* Modal Thêm Khách hàng */}
-      {isAddModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
-            <div className="modal-header">
-              <h2>Thêm Khách hàng mới</h2>
-              <button className="close-btn" onClick={() => setIsAddModalOpen(false)}>
-                <X size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddSubmit} noValidate>
-              <div className="modal-body">
-                <div className="customer-details">
-                  <div className="form-group" style={{ marginBottom: '16px' }}>
-                    <label style={labelStyle}>Tên đăng nhập *</label>
-                    <input
-                      type="text"
-                      required
-                      value={addFormData.username}
-                      onChange={(e) => setAddFormData({...addFormData, username: e.target.value})}
-                      style={inputStyle}
-                    />
-                  </div>
-
-                  <div className="form-group" style={{ marginBottom: '16px' }}>
-                    <label style={labelStyle}>Email * <span className="text-muted" style={{ fontWeight: 400, fontSize: 12 }}>(dùng để khách lấy lại mật khẩu bằng OTP)</span></label>
-                    <input
-                      type="email"
-                      required
-                      maxLength={100}
-                      placeholder="ten@gmail.com"
-                      value={addFormData.email}
-                      onChange={(e) => setAddFormData({...addFormData, email: e.target.value})}
-                      style={inputStyle}
-                    />
-                  </div>
-
-                  <div className="form-group" style={{ marginBottom: '16px' }}>
-                    <label style={labelStyle}>Mật khẩu khởi tạo *</label>
-                    <input
-                      type="password"
-                      required
-                      maxLength={50}
-                      value={addFormData.password}
-                      onChange={(e) => setAddFormData({...addFormData, password: e.target.value})}
-                      style={inputStyle}
-                    />
-                    <span className="text-muted" style={{ display: 'block', marginTop: 6, fontSize: 12 }}>{PASSWORD_HINT}</span>
-                  </div>
-
-                  <div className="form-group" style={{ marginBottom: '16px' }}>
-                    <label style={labelStyle}>Họ và tên *</label>
-                    <input
-                      type="text"
-                      required
-                      value={addFormData.fullName}
-                      onChange={(e) => setAddFormData({...addFormData, fullName: e.target.value})}
-                      style={inputStyle}
-                    />
-                  </div>
-
-                  <div className="form-group" style={{ marginBottom: '16px' }}>
-                    <label style={labelStyle}>Giới tính</label>
-                    <select
-                      value={addFormData.gender}
-                      onChange={(e) => setAddFormData({...addFormData, gender: e.target.value})}
-                      style={inputStyle}
-                    >
-                      <option value="Nam">Nam</option>
-                      <option value="Nữ">Nữ</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group" style={{ marginBottom: '16px' }}>
-                    <label style={labelStyle}>Ngày sinh *</label>
-                    <input
-                      type="date"
-                      required
-                      value={addFormData.dateOfBirth}
-                      onChange={(e) => setAddFormData({...addFormData, dateOfBirth: e.target.value})}
-                      style={inputStyle}
-                    />
-                  </div>
-
-                  <div className="form-group" style={{ marginBottom: '16px' }}>
-                    <label style={labelStyle}>Số điện thoại</label>
-                    <input
-                      type="text"
-                      value={addFormData.phone}
-                      onChange={(e) => setAddFormData({...addFormData, phone: e.target.value})}
-                      style={inputStyle}
-                    />
-                  </div>
-
-                  <div className="form-group" style={{ marginBottom: '16px' }}>
-                    <label style={labelStyle}>Địa chỉ</label>
-                    <input
-                      type="text"
-                      value={addFormData.address}
-                      onChange={(e) => setAddFormData({...addFormData, address: e.target.value})}
-                      style={inputStyle}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="modal-footer" style={{ display: 'flex', gap: '12px' }}>
-                <button type="button" onClick={() => setIsAddModalOpen(false)} style={{ padding: '10px 16px', borderRadius: '6px', border: '1px solid var(--color-border)', backgroundColor: 'transparent', cursor: 'pointer' }}>
-                  Hủy
-                </button>
-                <button type="submit" disabled={isAdding} style={{ padding: '10px 16px', borderRadius: '6px', border: 'none', backgroundColor: 'var(--color-primary)', color: 'white', fontWeight: 600, cursor: 'pointer' }}>
-                  {isAdding ? 'Đang thêm...' : 'Thêm khách hàng'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Toast Notifications */}
-      <div className="toast-container">
-        {toast.map(t => (
-          <div key={t.id} className={`toast-message toast-${t.type}`}>
-            {t.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
-            <span>{t.message}</span>
-          </div>
-        ))}
-      </div>
     </div>
   );
 };

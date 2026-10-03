@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { accountController, adminController } from '../controllers/index.js';
 import { accountValidator } from '../validators/index.js';
-import { staffOnly } from '../middleware/index.js';
+import { adminOnly, staffOnly } from '../middleware/index.js';
 
 const router = Router();
 
+// Thêm khách hàng: cả Admin lẫn Manager (giao diện chính nằm ở phía Manager).
 router.post(
   '/customers',
   staffOnly,
@@ -12,11 +13,10 @@ router.post(
   accountController.createCustomerByAdmin
 );
 
-// staffOnly = authorize(ADMIN, MANAGER) trong auth.middleware.js, tức middleware
-// cho phép CẢ Admin lẫn Manager — đây mới là middleware đúng để dùng cho những
-// route cần cả 2 role cùng truy cập. "managerOnly" chỉ authorize đúng role
-// Manager (KHÔNG bao gồm Admin) nên dùng nó ở đây sẽ luôn chặn Admin, và cũng
-// sẽ chặn Manager nếu tài khoản test thực chất mang role Admin.
+// Thêm tài khoản nội bộ (Admin/Manager): chỉ Admin.
+router.post('/staff', adminOnly, accountValidator.createStaff, accountController.createStaff);
+
+// staffOnly = authorize(ADMIN, MANAGER): cho phép CẢ Admin lẫn Manager.
 router.get('/stats', staffOnly, adminController.getDashboardStats);
 router.get('/online-count', staffOnly, adminController.getOnlineCount);
 

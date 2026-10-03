@@ -121,7 +121,7 @@ export default function ResetPasswordPage() {
               </p>
             </div>
 
-            <AuthTextField label="Mã OTP" placeholder="------" inputMode="numeric" autoComplete="one-time-code" maxLength={OTP_LENGTH}
+            <AuthTextField label="Mã OTP" inputMode="numeric" autoComplete="one-time-code" maxLength={OTP_LENGTH}
               value={otp} onChangeText={(v) => { setOtp(v.replace(/\D/g, '').slice(0, OTP_LENGTH)); setErrors({}); }} error={errors.otp} />
 
             {formError ? <div style={{ color: AuthColors.danger, fontSize: 13 }}>{formError}</div> : null}
@@ -151,9 +151,9 @@ export default function ResetPasswordPage() {
             </div>
 
             <div className="auth-grid">
-              <AuthTextField label="Mật khẩu mới" placeholder="Tối thiểu 6 ký tự, có chữ hoa, số, ký tự đặc biệt" type="password" secureToggle maxLength={50}
+              <AuthTextField label="Mật khẩu mới" type="password" secureToggle maxLength={50}
                 value={newPassword} onChangeText={(v) => { setNewPassword(v); setErrors((p) => ({ ...p, newPassword: null })); }} error={errors.newPassword} />
-              <AuthTextField label="Nhập lại mật khẩu mới" placeholder="Nhập lại mật khẩu" type="password" secureToggle maxLength={50}
+              <AuthTextField label="Nhập lại mật khẩu mới" type="password" secureToggle maxLength={50}
                 value={confirm} onChangeText={(v) => { setConfirm(v); setErrors((p) => ({ ...p, confirm: null })); }} error={errors.confirm} />
             </div>
 

@@ -48,7 +48,6 @@ const LoginPage: React.FC = () => {
               id="login-username"
               type="text"
               className="form-input"
-              placeholder="Nhập tên đăng nhập"
               value={form.username}
               onChange={(e) => setForm({ ...form, username: e.target.value })}
               autoFocus
@@ -63,7 +62,6 @@ const LoginPage: React.FC = () => {
                 id="login-password"
                 type={showPassword ? 'text' : 'password'}
                 className="form-input"
-                placeholder="••••••"
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 autoComplete="current-password"

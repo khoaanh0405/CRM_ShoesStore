@@ -95,14 +95,14 @@ export default function RegisterPage() {
         </div>
 
         <div className="auth-grid">
-          <AuthTextField label="Họ và tên" placeholder="Nguyễn Văn A" maxLength={100} value={form.fullName} onChangeText={setField('fullName')} onBlur={blur('fullName')} error={errors.fullName} />
+          <AuthTextField label="Họ và tên" maxLength={100} value={form.fullName} onChangeText={setField('fullName')} onBlur={blur('fullName')} error={errors.fullName} />
           <AuthTextField label="Ngày sinh" type="date" min="1900-01-01" max={new Date().toISOString().slice(0, 10)} value={form.dateOfBirth} onChangeText={setField('dateOfBirth')} onBlur={blur('dateOfBirth')} error={errors.dateOfBirth} />
 
-          <AuthTextField label="Tên đăng nhập" placeholder="ten_dang_nhap" autoCapitalize="none" autoCorrect="off" maxLength={50} value={form.username} onChangeText={setField('username')} onBlur={blur('username')} error={errors.username} />
-          <AuthTextField label="Email" placeholder="ten@gmail.com" type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" maxLength={100} value={form.email} onChangeText={setField('email')} onBlur={blur('email')} error={errors.email} />
+          <AuthTextField label="Tên đăng nhập" autoCapitalize="none" autoCorrect="off" maxLength={50} value={form.username} onChangeText={setField('username')} onBlur={blur('username')} error={errors.username} />
+          <AuthTextField label="Email" type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" maxLength={100} value={form.email} onChangeText={setField('email')} onBlur={blur('email')} error={errors.email} />
 
-          <AuthTextField label="Mật khẩu" placeholder="Tối thiểu 6 ký tự, có chữ hoa, số, ký tự đặc biệt" type="password" secureToggle maxLength={50} value={form.password} onChangeText={setField('password')} onBlur={blur('password')} error={errors.password} />
-          <AuthTextField label="Nhập lại mật khẩu" placeholder="Nhập lại mật khẩu" type="password" secureToggle maxLength={50} value={form.confirm} onChangeText={setField('confirm')} onBlur={blur('confirm')} error={errors.confirm} />
+          <AuthTextField label="Mật khẩu" type="password" secureToggle maxLength={50} value={form.password} onChangeText={setField('password')} onBlur={blur('password')} error={errors.password} />
+          <AuthTextField label="Nhập lại mật khẩu" type="password" secureToggle maxLength={50} value={form.confirm} onChangeText={setField('confirm')} onBlur={blur('confirm')} error={errors.confirm} />
 
           <AuthTextField label="Số điện thoại" placeholder="Không bắt buộc" inputMode="tel" maxLength={15} value={form.phone} onChangeText={setField('phone')} onBlur={blur('phone')} error={errors.phone} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

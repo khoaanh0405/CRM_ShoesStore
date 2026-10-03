@@ -55,7 +55,7 @@ export default function ForgotPasswordPage() {
           </p>
         </div>
 
-        <AuthTextField label="Email đã đăng ký" placeholder="ten@gmail.com" type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" maxLength={100}
+        <AuthTextField label="Email đã đăng ký" type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" maxLength={100}
           value={email} onChangeText={(v) => { setEmail(v); setError(null); }} error={error} />
 
         {formError ? <div style={{ color: AuthColors.danger, fontSize: 13 }}>{formError}</div> : null}

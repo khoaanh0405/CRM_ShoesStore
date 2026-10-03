@@ -18,6 +18,7 @@ model Role {
 model Account {
   accountId        Int                @id @default(autoincrement()) @map("account_id")
   username         String             @unique @db.VarChar(50)
+  email            String?            @unique @db.VarChar(100)
   passwordHash     String             @map("password_hash") @db.VarChar(255)
   roleId           Int                @map("role_id")
   isLocked         Boolean            @default(false) @map("is_locked")
@@ -84,7 +85,6 @@ model Customer {
   dateOfBirth         DateTime             @map("date_of_birth") @db.Date
   gender              String?              @db.VarChar(10)
   phone               String?              @db.VarChar(20)
-  // Email (luôn lưu chữ thường) — dùng để gửi OTP quên mật khẩu. Bắt buộc ở tầng API.
   email               String?              @unique @db.VarChar(100)
   address             String?              @db.VarChar(255)
   isDeleted           Boolean              @default(false) @map("is_deleted")

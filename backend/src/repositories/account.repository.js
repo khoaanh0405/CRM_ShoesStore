@@ -2,22 +2,16 @@
  * Repository cho model Account (bảng accounts).
  * roles.role_id -> accounts (RESTRICT), customers.customer_id -> accounts (CASCADE, 1-1).
  * Repository KHÔNG chịu trách nhiệm hash mật khẩu — việc đó thuộc account.service.js.
+ * accounts.email (unique, nullable, luôn chữ thường) — dùng cho Admin/Manager và đồng bộ với email khách hàng.
  */
 import prisma from '../config/database.js';
 
 export const accountRepository = {
-  /**
-   * Danh sách tài khoản kèm role (và customer nếu có) để AccountManagement.tsx
-   * hiển thị username, role.roleName, isLocked, createdAt.
-   */
   findAll({ roleId } = {}) {
     return prisma.account.findMany({
       where: typeof roleId === 'number' ? { roleId } : undefined,
       orderBy: { accountId: 'asc' },
-      include: {
-        role: true,
-        customer: true,
-      },
+      include: { role: true, customer: true },
     });
   },
 
@@ -32,6 +26,11 @@ export const accountRepository = {
     return prisma.account.findUnique({ where: { username } });
   },
 
+  /** Tìm theo email (đã chuẩn hóa chữ thường) — dùng kiểm tra trùng email. */
+  findByEmail(email) {
+    return prisma.account.findUnique({ where: { email } });
+  },
+
   /** Dùng cho login — cần đủ role + customer để phát hành JWT payload đúng. */
   findByUsernameWithRelations(username) {
     return prisma.account.findUnique({
@@ -40,9 +39,9 @@ export const accountRepository = {
     });
   },
 
-  create({ username, passwordHash, roleId, isLocked = false }) {
+  create({ username, email = null, passwordHash, roleId, isLocked = false }) {
     return prisma.account.create({
-      data: { username, passwordHash, roleId, isLocked },
+      data: { username, email, passwordHash, roleId, isLocked },
       include: { role: true, customer: true },
     });
   },
