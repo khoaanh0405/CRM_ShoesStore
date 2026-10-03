@@ -4,11 +4,13 @@ import { Plus, Search, X } from 'lucide-react';
 import api from '../../utils/api';
 import Pagination from '../../components/Pagination';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { normalizeEmail, validateEmail, validateNewPassword, PASSWORD_HINT } from '../../utils/validation';
 import './CustomersPage.css';
 
 interface Customer {
   customerId: number;
   fullName: string;
+  email?: string | null;
   phone?: string;
   gender?: string;
   isLocked: boolean;
@@ -20,6 +22,17 @@ const ITEMS_PER_PAGE = 10;
 type StatusFilter = 'ALL' | 'ACTIVE' | 'LOCKED';
 type GenderFilter = 'ALL' | 'Nam' | 'Nữ';
 type SortBy = 'NEWEST' | 'OLDEST' | 'NAME_ASC' | 'NAME_DESC';
+
+const EMPTY_FORM = {
+  username: '',
+  email: '',
+  password: '',
+  fullName: '',
+  dateOfBirth: '',
+  gender: '',
+  phone: '',
+  address: '',
+};
 
 const CustomersPage = () => {
   const [all, setAll] = useState<Customer[]>([]);
@@ -49,15 +62,7 @@ const CustomersPage = () => {
     setPage(1);
   };
 
-  const [form, setForm] = useState({
-    username: '',
-    password: '',
-    fullName: '',
-    dateOfBirth: '',
-    gender: '',
-    phone: '',
-    address: '',
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
 
   /** silent = true: dùng cho auto-refresh, không bật spinner, không báo lỗi. */
   const load = useCallback(async (silent = false) => {
@@ -85,7 +90,10 @@ const CustomersPage = () => {
     return all
       .filter((c) => {
         const matchSearch =
-          !k || c.fullName.toLowerCase().includes(k) || (c.phone ?? '').includes(k);
+          !k ||
+          c.fullName.toLowerCase().includes(k) ||
+          (c.phone ?? '').includes(k) ||
+          (c.email ?? '').toLowerCase().includes(k);
         const matchStatus =
           statusFilter === 'ALL' || (statusFilter === 'LOCKED') === c.isLocked;
         const matchGender = genderFilter === 'ALL' || c.gender === genderFilter;
@@ -115,78 +123,70 @@ const CustomersPage = () => {
 
   const totalPages = Math.max(1, Math.ceil(total / ITEMS_PER_PAGE));
 
-// Thêm: tự lùi trang khi trang hiện tại vượt quá tổng số trang sau khi xóa/lọc
+  // Tự lùi trang khi trang hiện tại vượt quá tổng số trang sau khi xóa/lọc
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
   }, [totalPages, page]);
 
   const handleAdd = async () => {
-  // Validate trước khi gọi API, khớp đúng yêu cầu bắt buộc của
-  // backend (account.validator.js#createCustomerByAdmin): username,
-  // password (>=6 ký tự), fullName, dateOfBirth đều required.
-  if (
-    !form.username.trim() ||
-    !form.password ||
-    !form.fullName.trim() ||
-    !form.dateOfBirth
-  ) {
-    toast.error('Vui lòng nhập đầy đủ Username, mật khẩu, họ tên và ngày sinh.');
-    return;
-  }
-  if (form.password.length < 6) {
-    toast.error('Mật khẩu phải có ít nhất 6 ký tự.');
-    return;
-  }
+    // Validate trước khi gọi API, khớp backend (account.validator.js#createCustomerByAdmin):
+    // username, email, password (mạnh), fullName, dateOfBirth đều bắt buộc.
+    if (!form.username.trim() || !form.fullName.trim() || !form.dateOfBirth) {
+      toast.error('Vui lòng nhập đầy đủ Username, họ tên và ngày sinh.');
+      return;
+    }
+    const emailErr = validateEmail(form.email);
+    if (emailErr) {
+      toast.error(emailErr);
+      return;
+    }
+    const pwErr = validateNewPassword(form.password, form.username);
+    if (pwErr) {
+      toast.error(pwErr);
+      return;
+    }
 
-  setSaving(true);
+    setSaving(true);
 
-  try {
-    await api.post('/admin/customers', {
-      ...form,
-      username: form.username.trim(),
-      fullName: form.fullName.trim(),
-      phone: form.phone.trim(),
-      address: form.address.trim(),
-    });
+    try {
+      await api.post('/admin/customers', {
+        ...form,
+        username: form.username.trim(),
+        fullName: form.fullName.trim(),
+        email: normalizeEmail(form.email),
+        phone: form.phone.trim(),
+        address: form.address.trim(),
+      });
 
-    toast.success('✅ Đã thêm khách hàng');
+      toast.success('✅ Đã thêm khách hàng');
 
-    setShowAdd(false);
+      setShowAdd(false);
+      setForm(EMPTY_FORM);
 
-    setForm({
-      username: '',
-      password: '',
-      fullName: '',
-      dateOfBirth: '',
-      gender: '',
-      phone: '',
-      address: '',
-    });
-
-    load();
-  } catch (e: any) {
-    toast.error(
-      e.response?.data?.message ?? 'Thêm thất bại'
-    );
-  } finally {
-    setSaving(false);
-  }
-};
+      load();
+    } catch (e: any) {
+      toast.error(
+        e.response?.data?.message ?? 'Thêm thất bại'
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
 
   const handleLock = async (c: Customer) => {
-  setActionLoadingId(c.customerId);
-  try {
-    await api.patch(`/accounts/${c.customerId}/${c.isLocked ? 'unlock' : 'lock'}`);
-    toast.success(c.isLocked ? '🔓 Đã mở khóa' : '🔒 Đã khóa tài khoản');
-    load();
-  } catch (e: any) {
-    toast.error(e.response?.data?.message ?? 'Thao tác thất bại');
-  } finally {
-    setActionLoadingId(null);
-  }
-};
+    setActionLoadingId(c.customerId);
+    try {
+      await api.patch(`/accounts/${c.customerId}/${c.isLocked ? 'unlock' : 'lock'}`);
+      toast.success(c.isLocked ? '🔓 Đã mở khóa' : '🔒 Đã khóa tài khoản');
+      load();
+    } catch (e: any) {
+      toast.error(e.response?.data?.message ?? 'Thao tác thất bại');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
 
   const handleDelete = async (id: number) => {
     if (!confirm('Xóa (mềm) khách hàng này?')) return;
@@ -233,7 +233,7 @@ const CustomersPage = () => {
           <input
             type="text"
             className="customer-search__input"
-            placeholder="Tìm kiếm tên khách hàng hoặc SĐT..."
+            placeholder="Tìm kiếm tên, email hoặc SĐT..."
             value={searchDraft}
             onChange={(e) => setSearchDraft(e.target.value)}
           />
@@ -302,6 +302,7 @@ const CustomersPage = () => {
             <thead>
               <tr>
                 <th>Họ tên</th>
+                <th>Email</th>
                 <th>SĐT</th>
                 <th>Giới tính</th>
                 <th>Sở thích</th>
@@ -318,6 +319,8 @@ const CustomersPage = () => {
                   <td className="font-medium">
                     {c.fullName}
                   </td>
+
+                  <td>{c.email || <span className="text-muted">—</span>}</td>
 
                   <td>{c.phone || '—'}</td>
 
@@ -419,7 +422,7 @@ const CustomersPage = () => {
             <div className="modal-body modal-grid-2">
               <div className="form-group">
                 <label className="form-label">
-                  Username
+                  Username *
                 </label>
 
                 <input
@@ -436,12 +439,33 @@ const CustomersPage = () => {
 
               <div className="form-group">
                 <label className="form-label">
-                  Mật khẩu
+                  Email *
+                </label>
+
+                <input
+                  type="email"
+                  className="form-input"
+                  maxLength={100}
+                  placeholder="ten@gmail.com"
+                  value={form.email}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      email: e.target.value,
+                    })
+                  }
+                />
+              </div>
+
+              <div className="form-group full-width">
+                <label className="form-label">
+                  Mật khẩu khởi tạo *
                 </label>
 
                 <input
                   type="password"
                   className="form-input"
+                  maxLength={50}
                   value={form.password}
                   onChange={(e) =>
                     setForm({
@@ -450,11 +474,12 @@ const CustomersPage = () => {
                     })
                   }
                 />
+                <span className="text-muted" style={{ fontSize: 12 }}>{PASSWORD_HINT}</span>
               </div>
 
               <div className="form-group full-width">
                 <label className="form-label">
-                  Họ tên
+                  Họ tên *
                 </label>
 
                 <input
@@ -471,7 +496,7 @@ const CustomersPage = () => {
 
               <div className="form-group">
                 <label className="form-label">
-                  Ngày sinh
+                  Ngày sinh *
                 </label>
 
                 <input
@@ -517,7 +542,7 @@ const CustomersPage = () => {
                 />
               </div>
 
-              <div className="form-group full-width">
+              <div className="form-group">
                 <label className="form-label">
                   Địa chỉ
                 </label>
