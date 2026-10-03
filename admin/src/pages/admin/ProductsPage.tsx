@@ -20,14 +20,15 @@ type SupplierRow = Supplier & { _count?: { products: number } };
 interface Banner { bannerId: number; imageUrl: string; title?: string | null; sortOrder: number; isActive: boolean }
 
 const PER_PAGE = 10;
+const MAX_FILE_MB = 15;
 const errMsg = (e: any, fb: string) => e?.response?.data?.message ?? fb;
 const formatVND = (v: number | string) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(v) || 0);
 const uniq = (arr: (string | null | undefined)[]) =>
   Array.from(new Set(arr.map((v) => v?.trim()).filter((v): v is string => !!v))).sort((a, b) => a.localeCompare(b, 'vi'));
 
-/** Thu nhỏ ảnh tải lên về tối đa 1600px, nén JPEG để lưu gọn. */
-const fileToDataUrl = (file: File, maxW = 1600) =>
+/** Thu nhỏ ảnh tải lên (cạnh dài nhất tối đa maxSide px), nén JPEG để lưu gọn. */
+const fileToDataUrl = (file: File, maxSide = 1600) =>
   new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = reject;
@@ -35,17 +36,81 @@ const fileToDataUrl = (file: File, maxW = 1600) =>
       const img = new Image();
       img.onerror = reject;
       img.onload = () => {
-        const s = Math.min(1, maxW / img.width);
+        const s = Math.min(1, maxSide / Math.max(img.width, img.height));
         const c = document.createElement('canvas');
         c.width = Math.round(img.width * s);
         c.height = Math.round(img.height * s);
-        c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
+        const ctx = c.getContext('2d')!;
+        ctx.fillStyle = '#fff'; // ảnh PNG trong suốt không bị nền đen khi chuyển sang JPEG
+        ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(img, 0, 0, c.width, c.height);
         resolve(c.toDataURL('image/jpeg', 0.82));
       };
       img.src = reader.result as string;
     };
     reader.readAsDataURL(file);
   });
+
+/** Ô chọn ảnh từ máy tính (bấm để chọn hoặc kéo-thả). Không nhập đường dẫn. */
+const ImagePicker: React.FC<{
+  value: string;
+  onChange: (dataUrl: string) => void;
+  maxSide?: number;
+  ratio?: string;
+  hint?: string;
+}> = ({ value, onChange, maxSide = 1600, ratio = '4 / 3', hint }) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+
+  const pick = async (file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) return void toast.error('Vui lòng chọn file ảnh.');
+    if (file.size > MAX_FILE_MB * 1024 * 1024) return void toast.error(`Ảnh quá lớn (tối đa ${MAX_FILE_MB}MB).`);
+    try {
+      onChange(await fileToDataUrl(file, maxSide));
+    } catch {
+      toast.error('Không đọc được ảnh.');
+    }
+  };
+
+  return (
+    <div>
+      <div
+        className={`image-upload-dropzone${value ? ' has-image' : ''}${dragging ? ' dragging' : ''}`}
+        style={{ minHeight: 120 }}
+        onClick={() => inputRef.current?.click()}
+        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => { e.preventDefault(); setDragging(false); pick(e.dataTransfer.files?.[0]); }}
+      >
+        {value ? (
+          <div className="upload-preview-container" style={{ height: 'auto', aspectRatio: ratio }}>
+            <img className="upload-preview-img" src={value} alt="" style={{ height: '100%' }} />
+            <div className="upload-preview-overlay"><Upload size={20} /> Đổi ảnh</div>
+          </div>
+        ) : (
+          <div className="upload-placeholder">
+            <Upload size={26} className="upload-icon" />
+            <p className="upload-text"><span className="upload-link">Chọn ảnh</span> từ máy tính hoặc kéo thả vào đây</p>
+            {hint && <p className="upload-hint">{hint}</p>}
+          </div>
+        )}
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ''; }}
+      />
+      {value && (
+        <button type="button" className="upload-remove-btn" onClick={() => onChange('')}>
+          <Trash2 size={12} /> Xóa ảnh
+        </button>
+      )}
+    </div>
+  );
+};
 
 const Modal: React.FC<{ title: string; onClose: () => void; wide?: boolean; footer: React.ReactNode; children: React.ReactNode }> = ({ title, onClose, wide, footer, children }) => (
   <div className="modal-overlay" onClick={onClose}>
@@ -87,7 +152,6 @@ const ProductsPage: React.FC = () => {
   // modal banner
   const [bModal, setBModal] = useState<{ editing: Banner | null } | null>(null);
   const [bf, setBf] = useState(EMPTY_B);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -162,7 +226,8 @@ const ProductsPage: React.FC = () => {
       color: pf.color.trim() || undefined,
       price,
       stockQuantity: stock,
-      imageUrl: pf.imageUrl.trim() || undefined,
+      // null = xóa ảnh (undefined sẽ bị bỏ qua khi gửi JSON nên không xóa được)
+      imageUrl: pf.imageUrl || null,
     } as unknown as CreateProductForm;
 
     setSaving(true);
@@ -228,20 +293,10 @@ const ProductsPage: React.FC = () => {
     setBModal({ editing: b });
   };
 
-  const onPickFile = async (file?: File) => {
-    if (!file) return;
-    if (!file.type.startsWith('image/')) return void toast.error('Vui lòng chọn file ảnh.');
-    try {
-      setBf((f) => ({ ...f, imageUrl: '' }));
-      const url = await fileToDataUrl(file);
-      setBf((f) => ({ ...f, imageUrl: url }));
-    } catch { toast.error('Không đọc được ảnh.'); }
-  };
-
   const saveBanner = async () => {
-    if (!bf.imageUrl.trim()) return void toast.error('Vui lòng chọn ảnh banner.');
+    if (!bf.imageUrl) return void toast.error('Vui lòng chọn ảnh banner.');
     const body = {
-      imageUrl: bf.imageUrl.trim(),
+      imageUrl: bf.imageUrl,
       title: bf.title.trim() || undefined,
       sortOrder: Number(bf.sortOrder) || 0,
       isActive: bf.isActive,
@@ -407,7 +462,6 @@ const ProductsPage: React.FC = () => {
         <div className="empty-state">
           <ImageIcon size={44} strokeWidth={1} />
           <p>Chưa có banner nào — web khách hàng đang dùng ảnh mặc định.</p>
-          <button className="btn btn-primary" onClick={() => openBanner(null)}><Plus size={16} /> Thêm banner</button>
         </div>
       ) : (
         <div className="bn-grid">
@@ -475,13 +529,14 @@ const ProductsPage: React.FC = () => {
               <input className="form-input" type="number" min={0} value={pf.stockQuantity} onChange={setP('stockQuantity')} />
             </div>
             <div className="form-group full-width">
-              <label className="form-label">Đường dẫn ảnh</label>
-              <div className="image-url-row">
-                <input className="form-input" maxLength={500} placeholder="https://..." value={pf.imageUrl} onChange={setP('imageUrl')} />
-                <div className="image-preview-thumb">
-                  {pf.imageUrl ? <img src={pf.imageUrl} alt="" /> : <ImageOff size={18} className="image-preview-thumb-placeholder" />}
-                </div>
-              </div>
+              <label className="form-label">Ảnh sản phẩm</label>
+              <ImagePicker
+                value={pf.imageUrl}
+                onChange={(v) => setPf((f) => ({ ...f, imageUrl: v }))}
+                maxSide={900}
+                ratio="4 / 3"
+                hint="Nên dùng ảnh vuông hoặc tỉ lệ 4:3"
+              />
             </div>
           </div>
         </Modal>
@@ -532,22 +587,13 @@ const ProductsPage: React.FC = () => {
           <div className="modal-grid-2">
             <div className="form-group full-width">
               <label className="form-label">Ảnh banner<span className="required">*</span></label>
-              <div className="image-upload-dropzone has-image" onClick={() => fileRef.current?.click()} style={{ minHeight: 120 }}>
-                {bf.imageUrl ? (
-                  <div className="upload-preview-container" style={{ height: 'auto', aspectRatio: '16 / 5' }}>
-                    <img className="upload-preview-img" src={bf.imageUrl} alt="" style={{ height: '100%' }} />
-                    <div className="upload-preview-overlay"><Upload size={20} /> Đổi ảnh</div>
-                  </div>
-                ) : (
-                  <div className="upload-placeholder">
-                    <Upload size={26} className="upload-icon" />
-                    <p className="upload-text"><span className="upload-link">Chọn ảnh</span> từ máy tính</p>
-                    <p className="upload-hint">Khuyến nghị tỉ lệ 16:5 (vd 1600×500)</p>
-                  </div>
-                )}
-              </div>
-              <input ref={fileRef} className="bn-file" type="file" accept="image/*" onChange={(e) => { onPickFile(e.target.files?.[0]); e.target.value = ''; }} />
-              <input className="form-input" style={{ marginTop: 8 }} placeholder="Hoặc dán đường dẫn ảnh https://..." value={bf.imageUrl.startsWith('data:') ? '' : bf.imageUrl} onChange={(e) => setBf({ ...bf, imageUrl: e.target.value })} />
+              <ImagePicker
+                value={bf.imageUrl}
+                onChange={(v) => setBf((f) => ({ ...f, imageUrl: v }))}
+                maxSide={1600}
+                ratio="16 / 5"
+                hint="Khuyến nghị tỉ lệ 16:5 (vd 1600×500)"
+              />
             </div>
             <div className="form-group">
               <label className="form-label">Tiêu đề (không bắt buộc)</label>

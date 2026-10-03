@@ -1,6 +1,6 @@
 import { AUTH_ACCOUNT_KEY, AUTH_TOKEN_KEY } from '@/constants/config';
 import { showAlert } from '@/lib/dialog';
-import { AUTH_EXPIRED_EVENT } from '@/services/api-client';
+import { AUTH_EXPIRED_EVENT, ClientError } from '@/services/api-client';
 import { authService } from '@/services/auth.service';
 import type { Account, LoginPayload, RegisterPayload } from '@/types/auth';
 import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
@@ -18,6 +18,15 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const CUSTOMER_ROLE = 'Customer';
+
+/** Web này chỉ dành cho khách hàng. Admin/Manager không có hồ sơ Customer nên sẽ bị 404 ở mọi API của khách. */
+const isCustomerRole = (acc: Account | null | undefined) => acc?.role?.roleName === CUSTOMER_ROLE;
+
+/** Phải đúng vai trò Customer VÀ có hồ sơ khách hàng (bảng customers), nếu không mọi API /customers/:id/... đều 404. */
+const isCustomerAccount = (acc: Account | null | undefined) =>
+  isCustomerRole(acc) && acc?.customer?.customerId != null;
+
 // Đổi từ sessionStorage -> localStorage: khách đóng tab/tắt trình duyệt rồi
 // mở lại vẫn còn đăng nhập, chỉ mất phiên khi bấm "Đăng xuất" tường minh.
 function persistSession(token: string, account: Account) {
@@ -33,10 +42,8 @@ function clearSession() {
 /**
  * Quản lý phiên đăng nhập của khách hàng cho toàn app web (mục 4.3.1/4.3.2).
  * Token JWT + account lưu trong localStorage để giữ phiên xuyên suốt các lần
- * mở lại trình duyệt (khác sessionStorage — mất khi đóng tab). Mất phiên khi
- * gọi logout() tường minh HOẶC khi server báo token sai/hết hạn (api-client
- * phát AUTH_EXPIRED_EVENT). services/api-client.ts đọc cùng key này để gắn
- * Authorization header.
+ * mở lại trình duyệt. Mất phiên khi gọi logout() tường minh HOẶC khi server
+ * báo token sai/hết hạn (api-client phát AUTH_EXPIRED_EVENT).
  */
 export function AuthProvider({ children }: PropsWithChildren) {
   const [status, setStatus] = useState<AuthStatus>('loading');
@@ -48,13 +55,21 @@ export function AuthProvider({ children }: PropsWithChildren) {
       const storedToken = localStorage.getItem(AUTH_TOKEN_KEY);
       const storedAccount = localStorage.getItem(AUTH_ACCOUNT_KEY);
       if (storedToken && storedAccount) {
+        const parsed = JSON.parse(storedAccount) as Account;
+        // Phiên cũ của Admin/Manager còn sót lại -> xóa, tránh gọi API khách hàng bằng accountId không có hồ sơ.
+        if (!isCustomerAccount(parsed)) {
+          clearSession();
+          setStatus('signedOut');
+          return;
+        }
         setToken(storedToken);
-        setAccount(JSON.parse(storedAccount) as Account);
+        setAccount(parsed);
         setStatus('signedIn');
       } else {
         setStatus('signedOut');
       }
     } catch {
+      clearSession();
       setStatus('signedOut');
     }
   }, []);
@@ -74,6 +89,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const login = async (payload: LoginPayload) => {
     const { token: newToken, account: newAccount } = await authService.login(payload);
+    if (!isCustomerRole(newAccount)) {
+      throw new ClientError('Đây là tài khoản quản trị nên không thể đăng nhập vào trang khách hàng. Vui lòng dùng trang quản trị.');
+    }
+    if (!isCustomerAccount(newAccount)) {
+      throw new ClientError('Tài khoản này chưa có hồ sơ khách hàng. Vui lòng liên hệ quản trị viên để được hỗ trợ.');
+    }
     persistSession(newToken, newAccount);
     setToken(newToken);
     setAccount(newAccount);

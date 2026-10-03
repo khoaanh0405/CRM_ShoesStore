@@ -334,6 +334,15 @@ export const accountService = {
     await this.getById(accountId);
     const role = await roleRepository.findByName(roleName);
     if (!role) throw new NotFoundError(MESSAGES.NOT_FOUND.ROLE);
+
+    // Tài khoản nội bộ (Admin/Manager) không có hồ sơ Customer. Đổi sang Customer sẽ tạo
+    // ra khách hàng "mồ côi" làm hỏng web khách hàng (404 ở mọi API /customers/:id/...).
+    if (role.roleName === ROLE_NAMES.CUSTOMER) {
+      const profile = await customerRepository.findByIdWithAccount(accountId);
+      if (!profile) {
+        throw new ValidationError('Tài khoản nội bộ chưa có hồ sơ khách hàng nên không thể đổi sang vai trò Khách hàng.');
+      }
+    }
     return sanitize(await accountRepository.updateRole(accountId, role.roleId));
   },
 };

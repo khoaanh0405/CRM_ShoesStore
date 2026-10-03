@@ -4,6 +4,18 @@ import { API_BASE_URL, AUTH_ACCOUNT_KEY, AUTH_TOKEN_KEY } from '@/constants/conf
 /** Phát ra khi server báo token sai/hết hạn — AuthProvider lắng nghe để đăng xuất và cho khách đăng nhập lại. */
 export const AUTH_EXPIRED_EVENT = 'crm_shoesstore:auth-expired';
 
+/**
+ * Lỗi do chính ứng dụng tự ném ra (không phải lỗi từ server) mà message đã
+ * viết sẵn cho người dùng đọc. getApiErrorMessage() sẽ hiển thị nguyên văn
+ * message này thay vì câu mặc định.
+ */
+export class ClientError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ClientError';
+  }
+}
+
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15000,
@@ -46,6 +58,7 @@ apiClient.interceptors.response.use(
 );
 
 export function getApiErrorMessage(error: unknown, fallback = 'Có lỗi xảy ra, vui lòng thử lại.'): string {
+  if (error instanceof ClientError) return error.message;
   if (axios.isAxiosError(error)) {
     const body = error.response?.data as { message?: string } | undefined;
     if (body?.message) return body.message;

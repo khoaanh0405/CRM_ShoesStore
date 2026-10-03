@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { apiClient } from '@/services/api-client';
 
-// Ảnh mặc định, chỉ dùng khi không gọi được API banner.
+// Ảnh mặc định, dùng khi chưa có banner nào hoặc không gọi được API banner.
 export const BANNERS = [
   'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1600&q=70',
   'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1600&q=70',
@@ -20,7 +20,12 @@ export function BannerCarousel({ images, interval = 4500 }: { images?: string[];
     if (images) return;
     let alive = true;
     apiClient.get<{ imageUrl: string }[]>('/banners')
-      .then(({ data }) => { if (alive) setRemote(data.map((b) => b.imageUrl).filter(Boolean)); })
+      .then(({ data }) => {
+        if (!alive) return;
+        const urls = (Array.isArray(data) ? data : []).map((b) => b.imageUrl).filter(Boolean);
+        // Admin chưa thêm banner nào -> dùng ảnh mặc định thay vì ẩn cả khối banner.
+        setRemote(urls.length > 0 ? urls : BANNERS);
+      })
       .catch(() => { if (alive) setRemote(BANNERS); });
     return () => { alive = false; };
   }, [images]);

@@ -2,8 +2,18 @@ import { bannerService } from '../services/banner.service.js';
 import { parseId } from '../utils/index.js';
 
 export const bannerController = {
+  /**
+   * Endpoint công khai cho web khách hàng. Banner chỉ là phần trang trí nên nếu
+   * đọc DB lỗi (vd: chưa chạy migration tạo bảng "banners") thì trả mảng rỗng
+   * để trang vẫn hiển thị bình thường, đồng thời log lỗi thật ra terminal để sửa.
+   */
   async listActive(req, res) {
-    res.json(await bannerService.listActive());
+    try {
+      res.json(await bannerService.listActive());
+    } catch (err) {
+      console.error('[BANNER] Không đọc được banner (đã chạy "npx prisma migrate deploy" và "npx prisma generate" chưa?):', err.message);
+      res.json([]);
+    }
   },
   async listAll(req, res) {
     res.json(await bannerService.listAll());
