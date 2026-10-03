@@ -12,6 +12,9 @@
  * nhau — điểm khác nhau duy nhất là AI được phép gọi (route/middleware quyết
  * định: register công khai, createCustomerByAdmin chỉ Admin qua adminOnly).
  *
+ * createStaff() tạo tài khoản nội bộ (Admin/Manager) — không có hồ sơ Customer,
+ * email lưu thẳng trong bảng accounts.
+ *
  * Quên mật khẩu bằng OTP gửi qua email: requestPasswordReset() + resetPassword().
  */
 import prisma from '../config/database.js';
@@ -45,6 +48,18 @@ function sanitize(account) {
 }
 
 const OTP_INVALID_MESSAGE = 'Mã OTP không đúng hoặc đã hết hạn. Vui lòng kiểm tra lại hoặc gửi lại mã mới.';
+const STAFF_ROLE_NAMES = [ROLE_NAMES.ADMIN, ROLE_NAMES.MANAGER];
+
+/** Email phải chưa được dùng ở cả bảng accounts (Admin/Manager/Customer) lẫn customers. */
+async function assertEmailAvailable(normalizedEmail) {
+  const [accountOwner, customerOwner] = await Promise.all([
+    accountRepository.findByEmail(normalizedEmail),
+    customerRepository.findByEmail(normalizedEmail),
+  ]);
+  if (accountOwner || customerOwner) {
+    throw new ConflictError('Email này đã được sử dụng bởi tài khoản khác.');
+  }
+}
 
 /**
  * Tạo đồng thời 1 Account (role Customer, isLocked=false) + 1 Customer
@@ -73,8 +88,7 @@ async function createAccountWithNewCustomer({
   const existed = await accountRepository.findByUsername(username.trim());
   if (existed) throw new ConflictError(`Tên đăng nhập "${username}" đã tồn tại.`);
 
-  const emailOwner = await customerRepository.findByEmail(normalizedEmail);
-  if (emailOwner) throw new ConflictError('Email này đã được sử dụng bởi tài khoản khác.');
+  await assertEmailAvailable(normalizedEmail);
 
   const customerRole = await roleRepository.findByName(ROLE_NAMES.CUSTOMER);
   if (!customerRole) throw new NotFoundError(`Hệ thống chưa cấu hình vai trò "${ROLE_NAMES.CUSTOMER}".`);
@@ -84,6 +98,8 @@ async function createAccountWithNewCustomer({
   const account = await prisma.account.create({
     data: {
       username: username.trim(),
+      // Đồng bộ email vào bảng accounts (giống seed.js) để unique toàn hệ thống.
+      email: normalizedEmail,
       passwordHash,
       roleId: customerRole.roleId,
       isLocked: false,
@@ -159,6 +175,44 @@ export const accountService = {
    */
   createCustomerByAdmin(payload) {
     return createAccountWithNewCustomer(payload);
+  },
+
+  /**
+   * Admin tạo tài khoản nội bộ (Admin hoặc Manager) — POST /api/admin/staff.
+   * Không có hồ sơ Customer; email lưu trực tiếp trong bảng accounts.
+   */
+  async createStaff({ username, email, password, roleName }) {
+    if (!username?.trim()) throw new ValidationError('Vui lòng nhập tên đăng nhập.');
+    const cleanUsername = username.trim();
+
+    if (cleanUsername.length < 4 || cleanUsername.length > 50) {
+      throw new ValidationError('Tên đăng nhập từ 4 đến 50 ký tự.');
+    }
+    if (!/^[A-Za-z0-9._]+$/.test(cleanUsername)) {
+      throw new ValidationError('Tên đăng nhập chỉ gồm chữ cái không dấu, số, dấu chấm và gạch dưới.');
+    }
+    if (!STAFF_ROLE_NAMES.includes(roleName)) {
+      throw new ValidationError('Vai trò chỉ có thể là Admin hoặc Manager.');
+    }
+
+    const normalizedEmail = assertValidEmail(email);
+    assertStrongPassword(password, cleanUsername);
+
+    if (await accountRepository.findByUsername(cleanUsername)) {
+      throw new ConflictError(`Tên đăng nhập "${cleanUsername}" đã tồn tại.`);
+    }
+    await assertEmailAvailable(normalizedEmail);
+
+    const role = await roleRepository.findByName(roleName);
+    if (!role) throw new NotFoundError(MESSAGES.NOT_FOUND.ROLE);
+
+    const account = await accountRepository.create({
+      username: cleanUsername,
+      email: normalizedEmail,
+      passwordHash: await hashPassword(password),
+      roleId: role.roleId,
+    });
+    return sanitize(account);
   },
 
   /**

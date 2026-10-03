@@ -15,13 +15,14 @@ import {
   surveyResponseValidator,
   notificationValidator,
 } from '../validators/index.js';
-import { authenticate, managerOnly, staffOnly } from '../middleware/index.js';
+import { authenticate, staffOnly } from '../middleware/index.js';
 
 const router = Router();
 
 router.get('/report', staffOnly, customerController.report);
 router.get('/search', staffOnly, customerController.search);
 router.get('/', staffOnly, customerController.list);
+// Xóa mềm khách hàng: Admin và Manager đều được (giữ nguyên hành vi cũ — route managerOnly khai báo sau chưa từng chạy).
 router.delete('/:id', staffOnly, customerValidator.idParam, customerController.remove);
 router.get('/:id/profile', authenticate, customerValidator.idParam, customerController.getProfile);
 router.put(
@@ -31,7 +32,6 @@ router.put(
   customerValidator.updateProfile,
   customerController.updateProfile
 );
-router.delete('/:id', managerOnly, customerValidator.idParam, customerController.remove);
 
 router.get(
   '/:customerId/preferences',

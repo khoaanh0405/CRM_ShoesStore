@@ -102,11 +102,15 @@ router.delete(
 );
 
 // --- Khách hàng nộp bài (mục 4.3.4) ---
+// Có giới hạn tần suất + chỉ được nộp dưới tên của chính mình.
+// (Trước đây khai báo trùng 2 lần, bản đầu không có rateLimit/ownCustomerOnly nên luôn khớp trước.)
 router.post(
   '/:surveyId/submit',
   authenticate,
+  rateLimit({ windowMs: 60 * 1000, max: 5, message: 'Bạn nộp khảo sát quá nhiều lần.' }),
   surveyResponseValidator.surveyIdParam,
   surveyResponseValidator.submit,
+  ownCustomerOnly,
   surveyResponseController.submit
 );
 router.get(
@@ -122,16 +126,6 @@ router.get(
   managerOnly,
   surveyResponseValidator.surveyIdParam,
   surveyAnswerController.statsBySurvey
-);
-
-router.post(
-  '/:surveyId/submit',
-  authenticate,
-  rateLimit({ windowMs: 60 * 1000, max: 5, message: 'Bạn nộp khảo sát quá nhiều lần.' }),
-  surveyResponseValidator.surveyIdParam,
-  surveyResponseValidator.submit,
-  ownCustomerOnly,
-  surveyResponseController.submit
 );
 
 export default router;

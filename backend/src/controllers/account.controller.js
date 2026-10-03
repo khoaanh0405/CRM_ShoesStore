@@ -1,6 +1,6 @@
 /**
  * Controller cho Account (đăng ký/đăng nhập/khóa tài khoản/phân quyền/
- * Admin thêm khách hàng/quên mật khẩu bằng OTP qua email).
+ * Admin thêm khách hàng/Admin thêm tài khoản nội bộ/quên mật khẩu bằng OTP qua email).
  */
 import { accountService } from '../services/index.js';
 import { parseId, parseNumber, signToken } from '../utils/index.js';
@@ -35,6 +35,16 @@ export const accountController = {
     const account = await accountService.createCustomerByAdmin({
       username, password, fullName, email, dateOfBirth, gender, phone, address,
     });
+    res.status(201).json(account);
+  },
+
+  /**
+   * Admin thêm tài khoản nội bộ (Admin/Manager) — POST /api/admin/staff.
+   * Body: { username, email, password, roleName }.
+   */
+  async createStaff(req, res) {
+    const { username, email, password, roleName } = req.body;
+    const account = await accountService.createStaff({ username, email, password, roleName });
     res.status(201).json(account);
   },
 

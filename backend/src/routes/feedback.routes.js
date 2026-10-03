@@ -8,7 +8,18 @@ const router = Router();
 router.get('/', managerOnly, feedbackController.list);
 router.get('/:id', authenticate, feedbackValidator.idParam, feedbackController.getById);
 
-router.post('/', authenticate, feedbackValidator.create, feedbackController.create);
+// Gửi phản hồi: đăng nhập -> giới hạn tần suất -> validate -> chỉ gửi dưới tên mình -> chống spam.
+// (Trước đây khai báo POST / hai lần, bản đầu không có chống spam nên luôn khớp trước.)
+router.post(
+  '/',
+  authenticate,
+  rateLimit({ windowMs: 10 * 60 * 1000, max: 5, message: 'Bạn gửi đánh giá quá nhiều lần.' }),
+  feedbackValidator.create,
+  ownCustomerOnly,
+  feedbackSpamGuard,
+  feedbackController.create
+);
+
 router.put(
   '/:id',
   authenticate,
@@ -25,15 +36,5 @@ router.patch(
   feedbackController.updateStatus
 );
 router.delete('/:id', managerOnly, feedbackValidator.idParam, feedbackController.remove);
-
-router.post(
-  '/',
-  authenticate,
-  rateLimit({ windowMs: 10 * 60 * 1000, max: 5, message: 'Bạn gửi đánh giá quá nhiều lần.' }),
-  feedbackValidator.create,
-  ownCustomerOnly,
-  feedbackSpamGuard,
-  feedbackController.create
-);
 
 export default router;
