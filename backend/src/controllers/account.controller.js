@@ -2,6 +2,8 @@
  * Controller cho Account (đăng ký/đăng nhập/khóa tài khoản/phân quyền/
  * Admin thêm khách hàng/Admin thêm tài khoản nội bộ/quên mật khẩu bằng OTP qua email).
  */
+import { auditLogService } from '../services/auditLog.service.js';
+import { AUDIT_ACTION, AUDIT_ENTITY } from '../constants/audit.constant.js';
 import { accountService } from '../services/index.js';
 import { parseId, parseNumber, signToken } from '../utils/index.js';
 import { OTP_TTL_MINUTES, OTP_RESEND_SECONDS } from '../constants/index.js';
@@ -40,16 +42,20 @@ export const accountController = {
     const account = await accountService.createCustomerByAdmin({
       username, password, fullName, email, dateOfBirth, gender, phone, address,
     });
+    await auditLogService.record(req, {
+      action: AUDIT_ACTION.CREATE_CUSTOMER, entityType: AUDIT_ENTITY.CUSTOMER, entityId: account.accountId,
+      description: `Thêm khách hàng "${fullName}" (tài khoản ${username})`,
+    });
     res.status(201).json(account);
   },
 
-  /**
-   * Admin thêm tài khoản nội bộ (Admin/Manager) — POST /api/admin/staff.
-   * Body: { username, email, password, roleName }.
-   */
   async createStaff(req, res) {
     const { username, email, password, roleName } = req.body;
     const account = await accountService.createStaff({ username, email, password, roleName });
+    await auditLogService.record(req, {
+      action: AUDIT_ACTION.CREATE_STAFF, entityType: AUDIT_ENTITY.ACCOUNT, entityId: account.accountId,
+      description: `Tạo tài khoản ${roleName} "${username}"`,
+    });
     res.status(201).json(account);
   },
 
@@ -101,24 +107,35 @@ export const accountController = {
     res.json({ message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập bằng mật khẩu mới.' });
   },
 
-  async lock(req, res) {
+    async lock(req, res) {
     const accountId = parseId(req.params.id, 'accountId');
-    res.json(await accountService.lock(accountId));
+    const account = await accountService.lock(accountId);
+    await auditLogService.record(req, {
+      action: AUDIT_ACTION.LOCK_ACCOUNT, entityType: AUDIT_ENTITY.ACCOUNT, entityId: accountId,
+      description: `Khóa tài khoản "${account.username}"`,
+    });
+    res.json(account);
   },
 
   async unlock(req, res) {
     const accountId = parseId(req.params.id, 'accountId');
-    res.json(await accountService.unlock(accountId));
+    const account = await accountService.unlock(accountId);
+    await auditLogService.record(req, {
+      action: AUDIT_ACTION.UNLOCK_ACCOUNT, entityType: AUDIT_ENTITY.ACCOUNT, entityId: accountId,
+      description: `Mở khóa tài khoản "${account.username}"`,
+    });
+    res.json(account);
   },
 
-  /**
-   * Body: { roleName } — khớp với AccountManagement.tsx (gửi roleName, không
-   * phải roleId). accountService.updateRole tự tra roleId tương ứng.
-   */
   async updateRole(req, res) {
     const accountId = parseId(req.params.id, 'accountId');
     const { roleName } = req.body;
-    res.json(await accountService.updateRole(accountId, roleName));
+    const account = await accountService.updateRole(accountId, roleName);
+    await auditLogService.record(req, {
+      action: AUDIT_ACTION.CHANGE_ROLE, entityType: AUDIT_ENTITY.ACCOUNT, entityId: accountId,
+      description: `Đổi vai trò tài khoản "${account.username}" thành ${roleName}`,
+    });
+    res.json(account);
   },
 };
 

@@ -22,6 +22,8 @@ export interface Survey {
   createdAt: string;
   isActive: boolean;
   questions?: SurveyQuestion[];
+  createdBy?: number | null;
+  creator?: { accountId: number; username: string; email?: string | null } | null;
   _count?: {
     surveyTargets?: number;
     surveyResponses?: number;

@@ -8,6 +8,7 @@ const HOME: Crumb = { label: 'Trang chủ', to: '/tabs' };
 
 /** Suy ra đường dẫn breadcrumb từ URL hiện tại. Trang chủ không hiển thị breadcrumb. */
 function getTrail(pathname: string): Crumb[] {
+  if (/^\/feedback\/\d+\/edit$/.test(pathname)) return [HOME, { label: 'Đánh giá', to: '/tabs/feedbacks' }, { label: 'Chỉnh sửa đánh giá' }];
   if (pathname === '/tabs') return [];
   if (pathname === '/tabs/products') return [HOME, { label: 'Sản phẩm' }];
   if (pathname.startsWith('/product/')) return [HOME, { label: 'Sản phẩm', to: '/tabs/products' }, { label: 'Chi tiết sản phẩm' }];

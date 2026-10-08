@@ -7,13 +7,14 @@ import { useCustomerId } from '@/hooks/useCustomerId';
 import { notificationService } from '@/services/notification.service';
 import type { AppNotification, NotificationRefType } from '@/types/notification';
 import { formatDate } from '@/utils/format';
-import { BellOff, CheckCircle, XCircle, ClipboardList, Bell as BellIcon } from 'lucide-react';
+import { BellOff, CheckCircle, XCircle, ClipboardList, MessageCircle, Bell as BellIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const ICON_BY_TYPE: Record<AppNotification['type'], typeof ClipboardList> = {
   SURVEY_ASSIGNED: ClipboardList,
   FEEDBACK_APPROVED: CheckCircle,
   FEEDBACK_REJECTED: XCircle,
+  FEEDBACK_REPLIED: MessageCircle,
 };
 
 /** Danh sách thông báo của khách hàng. Mở từ chuông thông báo ở Trang chủ. */

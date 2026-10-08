@@ -61,18 +61,18 @@ const SUPPLIER = {
 
 // 12 sản phẩm KHÁC NHAU hoàn toàn, danh mục khớp với utils/category.ts phía customer.
 const PRODUCTS = [
-  { productName: 'Giày Sneaker Air Classic', category: 'Sneaker', brand: 'Nike', size: '42', color: 'Trắng/Đen', material: 'Da tổng hợp', price: 850000, stockQuantity: 100 },
-  { productName: 'Giày Sneaker Urban Street', category: 'Sneaker', brand: 'Adidas', size: '41', color: 'Xám', material: 'Vải canvas', price: 1250000, stockQuantity: 80 },
-  { productName: 'Giày Sneaker Aero Lite 2027', category: 'Sneaker', brand: 'Puma', size: '42', color: 'Xanh pastel', material: 'Vải dệt siêu nhẹ', price: 1590000, stockQuantity: 20 },
-  { productName: 'Giày Chạy Bộ Pegasus Pro', category: 'Running', brand: 'Nike', size: '42', color: 'Cam', material: 'Vải lưới thoáng khí', price: 1850000, stockQuantity: 60 },
-  { productName: 'Giày Chạy Bộ Ultraboost Light', category: 'Running', brand: 'Adidas', size: '41', color: 'Xanh dương', material: 'Primeknit', price: 2450000, stockQuantity: 45 },
-  { productName: 'Giày Chạy Bộ Fresh Foam Road', category: 'Running', brand: 'New Balance', size: '43', color: 'Đen/Vàng', material: 'Mesh', price: 1650000, stockQuantity: 70 },
-  { productName: 'Giày Bóng Rổ Air Zoom Court', category: 'Basketball', brand: 'Nike', size: '43', color: 'Đỏ/Đen', material: 'Da lộn', price: 2100000, stockQuantity: 40 },
-  { productName: 'Giày Bóng Rổ Curry Elite', category: 'Basketball', brand: 'Under Armour', size: '44', color: 'Trắng/Vàng', material: 'Vải dệt cao cấp', price: 2350000, stockQuantity: 35 },
-  { productName: 'Giày Cao Gót Elegance Nude', category: 'Heels', brand: 'Juno', size: '36', color: 'Be', material: 'Da bò', price: 990000, stockQuantity: 30 },
-  { productName: 'Giày Cao Gót Royal Đỏ', category: 'Heels', brand: 'Vascara', size: '37', color: 'Đỏ đô', material: 'Da lộn', price: 1150000, stockQuantity: 25 },
-  { productName: 'Sandal Quai Mùa Hè', category: 'Sandal', brand: "Biti's", size: '38', color: 'Trắng', material: 'Nhựa dẻo', price: 350000, stockQuantity: 120 },
-  { productName: 'Sandal Thể Thao Đi Biển', category: 'Sandal', brand: 'Bata', size: '40', color: 'Xanh rêu', material: 'Cao su EVA', price: 490000, stockQuantity: 90 },
+  { productName: 'Giày Sneaker Air Classic', category: 'Sneaker', brand: 'Nike', size: '37/38/39/40/41/42', color: 'Trắng/Đen', material: 'Da tổng hợp', price: 850000, stockQuantity: 100 },
+  { productName: 'Giày Sneaker Urban Street', category: 'Sneaker', brand: 'Adidas', size: '38/39/40/41', color: 'Xám', material: 'Vải canvas', price: 1250000, stockQuantity: 80 },
+  { productName: 'Giày Sneaker Aero Lite 2027', category: 'Sneaker', brand: 'Puma', size: '40/41/42', color: 'Xanh pastel', material: 'Vải dệt siêu nhẹ', price: 1590000, stockQuantity: 20 },
+  { productName: 'Giày Chạy Bộ Pegasus Pro', category: 'Running', brand: 'Nike', size: '41/42', color: 'Cam', material: 'Vải lưới thoáng khí', price: 1850000, stockQuantity: 60 },
+  { productName: 'Giày Chạy Bộ Ultraboost Light', category: 'Running', brand: 'Adidas', size: '41/42', color: 'Xanh dương', material: 'Primeknit', price: 2450000, stockQuantity: 45 },
+  { productName: 'Giày Chạy Bộ Fresh Foam Road', category: 'Running', brand: 'New Balance', size: '41/42/43', color: 'Đen/Vàng', material: 'Mesh', price: 1650000, stockQuantity: 70 },
+  { productName: 'Giày Bóng Rổ Air Zoom Court', category: 'Basketball', brand: 'Nike', size: '40/41/41/42/43', color: 'Đỏ/Đen', material: 'Da lộn', price: 2100000, stockQuantity: 40 },
+  { productName: 'Giày Bóng Rổ Curry Elite', category: 'Basketball', brand: 'Under Armour', size: '42/43/44', color: 'Trắng/Vàng', material: 'Vải dệt cao cấp', price: 2350000, stockQuantity: 35 },
+  { productName: 'Giày Cao Gót Elegance Nude', category: 'Heels', brand: 'Juno', size: '36/37/38/39/40', color: 'Be', material: 'Da bò', price: 990000, stockQuantity: 30 },
+  { productName: 'Giày Cao Gót Royal Đỏ', category: 'Heels', brand: 'Vascara', size: '37/38/39', color: 'Đỏ đô', material: 'Da lộn', price: 1150000, stockQuantity: 25 },
+  { productName: 'Sandal Quai Mùa Hè', category: 'Sandal', brand: "Biti's", size: '38/39', color: 'Trắng', material: 'Nhựa dẻo', price: 350000, stockQuantity: 120 },
+  { productName: 'Sandal Thể Thao Đi Biển', category: 'Sandal', brand: 'Bata', size: '40/41', color: 'Xanh rêu', material: 'Cao su EVA', price: 490000, stockQuantity: 90 },
 ];
 
 // [username, họ tên, ngày sinh, giới tính, sđt, địa chỉ, [sở thích], isLocked, isDeleted]
@@ -220,10 +220,10 @@ async function main() {
   console.log('Đang reset và seed dữ liệu CRM...');
 
   // 0. Xóa sạch dữ liệu cũ (seed chạy lại bao nhiêu lần cũng không bị trùng)
-  await prisma.$executeRawUnsafe(`
-    TRUNCATE TABLE "password_reset_otps", "notifications", "survey_answers", "survey_responses", "survey_targets",
+    await prisma.$executeRawUnsafe(`
+    TRUNCATE TABLE "audit_logs", "review_replies", "password_reset_otps", "notifications", "survey_answers", "survey_responses", "survey_targets",
       "survey_question_options", "survey_questions", "surveys", "feedbacks",
-      "customer_preferences", "customers", "products", "suppliers", "accounts", "roles"
+      "customer_preferences", "customers", "products", "categories", "suppliers", "accounts", "roles"
     RESTART IDENTITY CASCADE
   `);
 
@@ -235,14 +235,14 @@ async function main() {
   ]);
   const passwordHash = await bcrypt.hash('123456', 10);
 
-  await prisma.account.create({
+  const adminAccount = await prisma.account.create({
     data: {
       username: 'admin', email: 'admin@ouran.com', passwordHash,
       roleId: adminRole.roleId, createdAt: randomPast(300, 420),
     },
   });
 
-  await prisma.account.create({
+  const managerAccount = await prisma.account.create({
     data: {
       username: 'manager', email: 'manager@ouran.com', passwordHash,
       roleId: managerRole.roleId, createdAt: randomPast(200, 299),
@@ -250,12 +250,24 @@ async function main() {
   });
 
   // 2. Nhà cung cấp duy nhất + sản phẩm
-  const supplier = await prisma.supplier.create({ data: SUPPLIER });
+   const supplier = await prisma.supplier.create({ data: SUPPLIER });
+
+  const CATEGORY_DESC = {
+    Sneaker: 'Giày sneaker thời trang', Running: 'Giày chạy bộ', Basketball: 'Giày bóng rổ',
+    Heels: 'Giày cao gót', Sandal: 'Sandal & dép',
+  };
+  const categoryMap = {};
+  for (const name of [...new Set(PRODUCTS.map((p) => p.category))]) {
+    const c = await prisma.category.create({ data: { categoryName: name, description: CATEGORY_DESC[name] ?? null } });
+    categoryMap[name] = c.categoryId;
+  }
+
   const products = [];
   for (let i = 0; i < PRODUCTS.length; i++) {
+    const { category, ...rest } = PRODUCTS[i];
     products.push(await prisma.product.create({
       data: {
-        supplierId: supplier.supplierId, isActive: true, ...PRODUCTS[i],
+        supplierId: supplier.supplierId, categoryId: categoryMap[category], isActive: true, ...rest,
         imageUrl: `https://picsum.photos/seed/shoe-crm-${i + 1}/600/600`,
       },
     }));
@@ -290,6 +302,13 @@ async function main() {
     })),
   });
 
+    const approved = await prisma.feedback.findMany({ where: { status: 'Approved' }, take: 3, orderBy: { feedbackId: 'asc' } });
+  for (const f of approved) {
+    await prisma.reviewReply.create({
+      data: { feedbackId: f.feedbackId, accountId: managerAccount.accountId, content: 'Cảm ơn bạn đã chia sẻ! Ouran rất vui vì bạn hài lòng với sản phẩm.' },
+    });
+  }
+
   // 5. Khảo sát + đối tượng + bài làm + thông báo
   const notifications = [];
   const surveyRecords = {};
@@ -299,6 +318,7 @@ async function main() {
       data: {
         title: def.title, description: def.description, isActive: def.isActive,
         createdAt: daysAgo(def.daysAgo),
+        createdBy: managerAccount.accountId,
         productId: def.productIdx != null ? products[def.productIdx].productId : null,
         questions: {
           create: def.questions.map(([questionContent, questionType, options]) => ({

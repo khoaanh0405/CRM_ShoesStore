@@ -6,7 +6,7 @@ const IMAGE_MAX_LENGTH = 3_000_000;
 /** maxLength khớp đúng VARCHAR đã khai trong schema.prisma/migration. */
 const PRODUCT_FIELDS = {
   productName: { type: 'string', maxLength: 150 },
-  category: { type: 'string', maxLength: 50 },
+  categoryId: { type: 'int', min: 1 },
   brand: { type: 'string', maxLength: 50 },
   size: { type: 'string', maxLength: 10 },
   color: { type: 'string', maxLength: 30 },

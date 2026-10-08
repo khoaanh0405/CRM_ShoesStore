@@ -14,7 +14,7 @@ import { feedbackService } from '@/services/feedback.service';
 import { productService } from '@/services/product.service';
 import type { Feedback, FeedbackStatus } from '@/types/feedback';
 import { formatDate } from '@/utils/format';
-import { Plus, MessageCircle, Filter, PenLine, Undo2 } from 'lucide-react';
+import { Plus, MessageCircle, Filter, PenLine, Undo2, Edit3, Store } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -36,6 +36,7 @@ const TIPS = [
   'Nêu rõ chất liệu, độ vừa chân, độ êm khi sử dụng.',
   'Cho biết bạn dùng giày vào mục đích nào (đi làm, chạy bộ, chơi thể thao...).',
   'Góp ý thẳng thắn giúp cửa hàng cải thiện sản phẩm mới.',
+  'Đánh giá đang chờ duyệt vẫn có thể chỉnh sửa hoặc thu hồi.',
 ];
 
 /** Tab Đánh giá (mục 4.3.3): lịch sử phản hồi bên trái, thống kê + mẹo bên phải. */
@@ -109,6 +110,7 @@ export default function FeedbacksPage() {
                   feedback={item}
                   productName={data.productNames.get(item.productId) ?? `Sản phẩm #${item.productId}`}
                   onOpenProduct={() => navigate(`/product/${item.productId}`)}
+                  onEdit={() => navigate(`/feedback/${item.feedbackId}/edit`)}
                   onWithdraw={() => handleWithdraw(item)}
                   withdrawing={withdrawingId === item.feedbackId}
                 />
@@ -141,8 +143,12 @@ export default function FeedbacksPage() {
   );
 }
 
-function FeedbackCard({ feedback, productName, onOpenProduct, onWithdraw, withdrawing }: { feedback: Feedback; productName: string; onOpenProduct: () => void; onWithdraw: () => void; withdrawing: boolean; }) {
+function FeedbackCard({ feedback, productName, onOpenProduct, onEdit, onWithdraw, withdrawing }: {
+  feedback: Feedback; productName: string; onOpenProduct: () => void; onEdit: () => void; onWithdraw: () => void; withdrawing: boolean;
+}) {
   const meta = STATUS_META[feedback.status] ?? STATUS_META.Pending;
+  const replies = feedback.replies ?? [];
+  const isPending = feedback.status === FEEDBACK_STATUS.PENDING;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 18, borderRadius: Radius.lg, border: `1px solid ${AppColors.border}`, background: AppColors.surface }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
@@ -157,8 +163,21 @@ function FeedbackCard({ feedback, productName, onOpenProduct, onWithdraw, withdr
       </div>
       <span style={{ color: AppColors.textPrimary, fontSize: 16, fontWeight: 800 }}>{feedback.title}</span>
       <span style={{ color: AppColors.textSecondary, fontSize: 14, lineHeight: '20px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' as any }}>{feedback.content}</span>
-      {feedback.status === FEEDBACK_STATUS.PENDING ? (
-        <div style={{ marginTop: 4 }}>
+
+      {/* Phản hồi của cửa hàng */}
+      {replies.map((r) => (
+        <div key={r.replyId} style={{ marginTop: 4, padding: '10px 12px', borderRadius: Radius.md, background: AppColors.background, borderLeft: `3px solid ${AppColors.accent}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: AppColors.textPrimary }}>
+            <Store size={13} /> Phản hồi từ cửa hàng
+            <span style={{ fontWeight: 500, color: AppColors.textSecondary }}>· {formatDate(r.createdAt)}</span>
+          </div>
+          <div style={{ marginTop: 4, fontSize: 13.5, lineHeight: '19px', color: AppColors.textPrimary, whiteSpace: 'pre-wrap' }}>{r.content}</div>
+        </div>
+      ))}
+
+      {isPending ? (
+        <div style={{ marginTop: 4, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <AppButton label="Chỉnh sửa" icon={Edit3} variant="secondary" compact onClick={onEdit} />
           <AppButton label="Thu hồi đánh giá" icon={Undo2} variant="danger" compact loading={withdrawing} onClick={onWithdraw} />
         </div>
       ) : null}

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import toast from 'react-hot-toast';
 import {
   Plus, Search, X, ImageOff, Pencil, Trash2, Power, PowerOff, Upload,
-  Package, Truck, Image as ImageIcon,
+  Package, Truck, Image as ImageIcon, Tags,
 } from 'lucide-react';
 import api, {
   getProducts, createProduct, updateProduct, toggleProductActive,
@@ -15,9 +15,11 @@ import { showConfirm } from '../../lib/dialog';
 import './ProductsPage.css';
 import './BannerManager.css';
 
-type Tab = 'products' | 'suppliers' | 'banners';
+type Tab = 'products' | 'categories' | 'suppliers' | 'banners';
 type SupplierRow = Supplier & { _count?: { products: number } };
+type ProductRow = Product & { categoryId?: number | null };
 interface Banner { bannerId: number; imageUrl: string; title?: string | null; sortOrder: number; isActive: boolean }
+interface CategoryRow { categoryId: number; categoryName: string; description?: string | null; productCount: number }
 
 const PER_PAGE = 10;
 const MAX_FILE_MB = 15;
@@ -41,7 +43,7 @@ const fileToDataUrl = (file: File, maxSide = 1600) =>
         c.width = Math.round(img.width * s);
         c.height = Math.round(img.height * s);
         const ctx = c.getContext('2d')!;
-        ctx.fillStyle = '#fff'; // ảnh PNG trong suốt không bị nền đen khi chuyển sang JPEG
+        ctx.fillStyle = '#fff';
         ctx.fillRect(0, 0, c.width, c.height);
         ctx.drawImage(img, 0, 0, c.width, c.height);
         resolve(c.toDataURL('image/jpeg', 0.82));
@@ -51,7 +53,7 @@ const fileToDataUrl = (file: File, maxSide = 1600) =>
     reader.readAsDataURL(file);
   });
 
-/** Ô chọn ảnh từ máy tính (bấm để chọn hoặc kéo-thả). Không nhập đường dẫn. */
+/** Ô chọn ảnh từ máy tính (bấm để chọn hoặc kéo-thả). */
 const ImagePicker: React.FC<{
   value: string;
   onChange: (dataUrl: string) => void;
@@ -125,16 +127,18 @@ const Modal: React.FC<{ title: string; onClose: () => void; wide?: boolean; foot
   </div>
 );
 
-const EMPTY_P = { productName: '', supplierId: '', category: '', brand: '', material: '', size: '', color: '', price: '', stockQuantity: '0', imageUrl: '' };
+const EMPTY_P = { productName: '', supplierId: '', categoryId: '', brand: '', material: '', size: '', color: '', price: '', stockQuantity: '0', imageUrl: '' };
 const EMPTY_S = { supplierName: '', phone: '', email: '', address: '' };
 const EMPTY_B = { imageUrl: '', title: '', sortOrder: '0', isActive: true };
+const EMPTY_C = { categoryName: '', description: '' };
 
 const ProductsPage: React.FC = () => {
   const [tab, setTab] = useState<Tab>('products');
   const [loading, setLoading] = useState(true);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<ProductRow[]>([]);
   const [suppliers, setSuppliers] = useState<SupplierRow[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
+  const [categoryRows, setCategoryRows] = useState<CategoryRow[]>([]);
 
   // lọc sản phẩm (áp dụng khi bấm Tìm kiếm)
   const [searchDraft, setSearchDraft] = useState('');
@@ -144,7 +148,7 @@ const ProductsPage: React.FC = () => {
   const [page, setPage] = useState(1);
 
   // modal sản phẩm
-  const [pModal, setPModal] = useState<{ editing: Product | null } | null>(null);
+  const [pModal, setPModal] = useState<{ editing: ProductRow | null } | null>(null);
   const [pf, setPf] = useState(EMPTY_P);
   // modal NCC
   const [sModal, setSModal] = useState<{ editing: SupplierRow | null } | null>(null);
@@ -152,20 +156,25 @@ const ProductsPage: React.FC = () => {
   // modal banner
   const [bModal, setBModal] = useState<{ editing: Banner | null } | null>(null);
   const [bf, setBf] = useState(EMPTY_B);
+  // modal danh mục
+  const [cModal, setCModal] = useState<{ editing: CategoryRow | null } | null>(null);
+  const [cf, setCf] = useState(EMPTY_C);
 
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [p, s, b] = await Promise.all([
-        getProducts(),
+      const [p, s, b, c] = await Promise.all([
+        getProducts({ includeInactive: true }),
         getSuppliers(),
         api.get('/banners/all').then((r) => r.data?.data ?? r.data ?? []).catch(() => []),
+        api.get('/categories').then((r) => r.data?.data ?? r.data ?? []).catch(() => []),
       ]);
-      setProducts(p);
+      setProducts(p as ProductRow[]);
       setSuppliers(s as SupplierRow[]);
       setBanners(b);
+      setCategoryRows(c);
     } catch (e) {
       toast.error(errMsg(e, 'Không tải được dữ liệu'));
     } finally {
@@ -174,7 +183,11 @@ const ProductsPage: React.FC = () => {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const categories = useMemo(() => uniq(products.map((p) => p.category)), [products]);
+  // Danh mục lấy từ bảng Category; thương hiệu/chất liệu vẫn gợi ý từ dữ liệu sản phẩm
+  const categoryNames = useMemo(
+    () => categoryRows.map((c) => c.categoryName).sort((a, b) => a.localeCompare(b, 'vi')),
+    [categoryRows],
+  );
   const brands = useMemo(() => uniq(products.map((p) => p.brand)), [products]);
   const materials = useMemo(() => uniq(products.map((p) => p.material)), [products]);
 
@@ -199,11 +212,12 @@ const ProductsPage: React.FC = () => {
   };
 
   /* ================= Sản phẩm ================= */
-  const openProduct = (p: Product | null) => {
+  const openProduct = (p: ProductRow | null) => {
     setPf(p ? {
-      productName: p.productName, supplierId: String(p.supplierId), category: p.category ?? '', brand: p.brand ?? '',
-      material: p.material ?? '', size: p.size ?? '', color: p.color ?? '', price: String(Number(p.price)),
-      stockQuantity: String(p.stockQuantity), imageUrl: p.imageUrl ?? '',
+      productName: p.productName, supplierId: String(p.supplierId),
+      categoryId: p.categoryId ? String(p.categoryId) : '',
+      brand: p.brand ?? '', material: p.material ?? '', size: p.size ?? '', color: p.color ?? '',
+      price: String(Number(p.price)), stockQuantity: String(p.stockQuantity), imageUrl: p.imageUrl ?? '',
     } : EMPTY_P);
     setPModal({ editing: p });
   };
@@ -218,15 +232,14 @@ const ProductsPage: React.FC = () => {
 
     const payload = {
       supplierId: Number(pf.supplierId),
+      categoryId: pf.categoryId ? Number(pf.categoryId) : null,
       productName: pf.productName.trim(),
-      category: pf.category.trim() || undefined,
       brand: pf.brand.trim() || undefined,
       material: pf.material.trim() || undefined,
       size: pf.size.trim() || undefined,
       color: pf.color.trim() || undefined,
       price,
       stockQuantity: stock,
-      // null = xóa ảnh (undefined sẽ bị bỏ qua khi gửi JSON nên không xóa được)
       imageUrl: pf.imageUrl || null,
     } as unknown as CreateProductForm;
 
@@ -242,7 +255,7 @@ const ProductsPage: React.FC = () => {
     } finally { setSaving(false); }
   };
 
-  const toggleProduct = async (p: Product) => {
+  const toggleProduct = async (p: ProductRow) => {
     setBusyId(p.productId);
     try {
       await toggleProductActive(p.productId, !p.isActive);
@@ -250,6 +263,42 @@ const ProductsPage: React.FC = () => {
       await load();
     } catch (e) { toast.error(errMsg(e, 'Thao tác thất bại')); }
     finally { setBusyId(null); }
+  };
+
+  /* ================= Danh mục ================= */
+  const openCategory = (c: CategoryRow | null) => {
+    setCf(c ? { categoryName: c.categoryName, description: c.description ?? '' } : EMPTY_C);
+    setCModal({ editing: c });
+  };
+
+  const saveCategory = async () => {
+    if (!cf.categoryName.trim()) return void toast.error('Vui lòng nhập tên danh mục.');
+    const body = { categoryName: cf.categoryName.trim(), description: cf.description.trim() || undefined };
+    setSaving(true);
+    try {
+      if (cModal?.editing) await api.put(`/categories/${cModal.editing.categoryId}`, body);
+      else await api.post('/categories', body);
+      toast.success(cModal?.editing ? 'Đã cập nhật danh mục' : 'Đã thêm danh mục');
+      setCModal(null);
+      await load();
+    } catch (e) { toast.error(errMsg(e, 'Lưu danh mục thất bại')); }
+    finally { setSaving(false); }
+  };
+
+  const removeCategory = async (c: CategoryRow) => {
+    const ok = await showConfirm({
+      title: 'Xóa danh mục?',
+      message: c.productCount > 0
+        ? `Danh mục "${c.categoryName}" còn ${c.productCount} sản phẩm nên sẽ không xóa được.`
+        : `"${c.categoryName}" sẽ bị xóa.`,
+      confirmLabel: 'Xóa', tone: 'warning', danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api.delete(`/categories/${c.categoryId}`);
+      toast.success('Đã xóa danh mục');
+      await load();
+    } catch (e) { toast.error(errMsg(e, 'Không thể xóa danh mục')); }
   };
 
   /* ================= Nhà cung cấp ================= */
@@ -331,16 +380,16 @@ const ProductsPage: React.FC = () => {
     } catch (e) { toast.error(errMsg(e, 'Không thể xóa banner')); }
   };
 
-  const addLabel = tab === 'products' ? 'Thêm sản phẩm' : tab === 'suppliers' ? 'Thêm nhà cung cấp' : 'Thêm banner';
-  const onAdd = () => (tab === 'products' ? openProduct(null) : tab === 'suppliers' ? openSupplier(null) : openBanner(null));
+  const addLabel = tab === 'products' ? 'Thêm sản phẩm' : tab === 'categories' ? 'Thêm danh mục' : tab === 'suppliers' ? 'Thêm nhà cung cấp' : 'Thêm banner';
+  const onAdd = () => (tab === 'products' ? openProduct(null) : tab === 'categories' ? openCategory(null) : tab === 'suppliers' ? openSupplier(null) : openBanner(null));
   const setP = (k: keyof typeof EMPTY_P) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setPf({ ...pf, [k]: e.target.value });
 
   return (
     <div className="products-page">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Quản lý sản phẩm, nhà cung cấp & banner</h1>
-          <p className="page-subtitle">Quản lý kho hàng, đối tác cung cấp và banner hiển thị ở trang khách hàng.</p>
+          <h1 className="page-title">Quản lý sản phẩm, danh mục, nhà cung cấp & banner</h1>
+          <p className="page-subtitle">Quản lý kho hàng, danh mục sản phẩm, đối tác cung cấp và banner hiển thị ở trang khách hàng.</p>
         </div>
         <div className="header-actions">
           <button className="btn btn-primary" onClick={onAdd}><Plus size={16} /> {addLabel}</button>
@@ -350,12 +399,14 @@ const ProductsPage: React.FC = () => {
       <div className="products-stats">
         <span className="stat-chip active">Đang bán: <b>{products.filter((p) => p.isActive).length}</b></span>
         <span className="stat-chip">Tổng sản phẩm: <b>{products.length}</b></span>
+        <span className="stat-chip">Danh mục: <b>{categoryRows.length}</b></span>
         <span className="stat-chip supplier">Nhà cung cấp: <b>{suppliers.length}</b></span>
         <span className="stat-chip">Banner: <b>{banners.length}</b></span>
       </div>
 
       <div className="main-tabs">
         <button className={`main-tab${tab === 'products' ? ' active' : ''}`} onClick={() => setTab('products')}><Package size={16} /> Sản phẩm</button>
+        <button className={`main-tab${tab === 'categories' ? ' active' : ''}`} onClick={() => setTab('categories')}><Tags size={16} /> Danh mục</button>
         <button className={`main-tab${tab === 'suppliers' ? ' active' : ''}`} onClick={() => setTab('suppliers')}><Truck size={16} /> Nhà cung cấp</button>
         <button className={`main-tab${tab === 'banners' ? ' active' : ''}`} onClick={() => setTab('banners')}><ImageIcon size={16} /> Banner</button>
       </div>
@@ -374,7 +425,7 @@ const ProductsPage: React.FC = () => {
             </label>
             <select className="form-select" value={catDraft} onChange={(e) => setCatDraft(e.target.value)}>
               <option value="ALL">Tất cả danh mục</option>
-              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+              {categoryNames.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
             <select className="form-select" value={statusDraft} onChange={(e) => setStatusDraft(e.target.value)}>
               <option value="ALL">Tất cả trạng thái</option>
@@ -428,6 +479,34 @@ const ProductsPage: React.FC = () => {
             </div>
           )}
         </>
+      ) : tab === 'categories' ? (
+        categoryRows.length === 0 ? (
+          <div className="empty-state"><Tags size={44} strokeWidth={1} /><p>Chưa có danh mục nào — hãy thêm danh mục đầu tiên.</p></div>
+        ) : (
+          <div className="table-wrapper">
+            <table className="custom-table">
+              <thead>
+                <tr><th>#</th><th>Tên danh mục</th><th>Mô tả</th><th>Số sản phẩm</th><th className="col-actions">Thao tác</th></tr>
+              </thead>
+              <tbody>
+                {categoryRows.map((c, i) => (
+                  <tr key={c.categoryId}>
+                    <td className="col-idx">{i + 1}</td>
+                    <td><span className="tag-category">{c.categoryName}</span></td>
+                    <td>{c.description || '—'}</td>
+                    <td><b>{c.productCount}</b></td>
+                    <td className="col-actions">
+                      <div className="action-group">
+                        <button className="action-btn edit-btn" onClick={() => openCategory(c)}><Pencil size={13} /> Sửa</button>
+                        <button className="action-btn delete-btn" onClick={() => removeCategory(c)}><Trash2 size={13} /> Xóa</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
       ) : tab === 'suppliers' ? (
         suppliers.length === 0 ? (
           <div className="empty-state"><p>Chưa có nhà cung cấp nào</p></div>
@@ -513,7 +592,15 @@ const ProductsPage: React.FC = () => {
               <label className="form-label">Giá (VNĐ)<span className="required">*</span></label>
               <input className="form-input" type="number" min={0} value={pf.price} onChange={setP('price')} />
             </div>
-            <CreatableSelect label="Danh mục" value={pf.category} options={categories} onChange={(v) => setPf({ ...pf, category: v })} createLabel="Tạo danh mục mới" />
+            {/* Danh mục: chỉ chọn từ danh sách có sẵn — thêm mới ở tab "Danh mục" */}
+            <div className="form-group">
+              <label className="form-label">Danh mục</label>
+              <select className="form-input" value={pf.categoryId} onChange={setP('categoryId')}>
+                <option value="">-- Chọn danh mục --</option>
+                {categoryRows.map((c) => <option key={c.categoryId} value={c.categoryId}>{c.categoryName}</option>)}
+              </select>
+              {categoryRows.length === 0 && <span className="deactivate-note">Chưa có danh mục — hãy thêm ở tab "Danh mục".</span>}
+            </div>
             <CreatableSelect label="Thương hiệu" value={pf.brand} options={brands} onChange={(v) => setPf({ ...pf, brand: v })} createLabel="Tạo thương hiệu mới" />
             <CreatableSelect label="Chất liệu" value={pf.material} options={materials} onChange={(v) => setPf({ ...pf, material: v })} createLabel="Tạo chất liệu mới" />
             <div className="form-group">
@@ -537,6 +624,29 @@ const ProductsPage: React.FC = () => {
                 ratio="4 / 3"
                 hint="Nên dùng ảnh vuông hoặc tỉ lệ 4:3"
               />
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ===== Modal danh mục ===== */}
+      {cModal && (
+        <Modal
+          title={cModal.editing ? 'Sửa danh mục' : 'Thêm danh mục'}
+          onClose={() => !saving && setCModal(null)}
+          footer={<>
+            <button className="btn btn-secondary" onClick={() => setCModal(null)} disabled={saving}>Hủy</button>
+            <button className="btn btn-primary" onClick={saveCategory} disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu'}</button>
+          </>}
+        >
+          <div className="modal-grid-2">
+            <div className="form-group full-width">
+              <label className="form-label">Tên danh mục<span className="required">*</span></label>
+              <input className="form-input" maxLength={100} value={cf.categoryName} onChange={(e) => setCf({ ...cf, categoryName: e.target.value })} autoFocus />
+            </div>
+            <div className="form-group full-width">
+              <label className="form-label">Mô tả</label>
+              <input className="form-input" maxLength={255} value={cf.description} onChange={(e) => setCf({ ...cf, description: e.target.value })} />
             </div>
           </div>
         </Modal>

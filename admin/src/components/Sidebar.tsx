@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Users, Package, Star, FileText, LayoutDashboard, UserRound } from 'lucide-react';
+import { Users, Package, Star, FileText, LayoutDashboard, UserRound, History } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { ROLE_NAMES } from '../config/constants';
 import './Sidebar.css';
@@ -12,7 +12,8 @@ interface SidebarProps {
 const adminMenu = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/accounts', label: 'Quản lý tài khoản', icon: Users },
-  { to: '/products', label: 'Quản lý sản phẩm & nhà cung cấp', icon: Package },
+  { to: '/products', label: 'Quản lý sản phẩm, danh mục & nhà cung cấp', icon: Package },
+  { to: '/audit-logs', label: 'Nhật ký hoạt động', icon: History },
 ];
 const managerMenu = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },

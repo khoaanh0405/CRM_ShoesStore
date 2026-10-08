@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Star, CheckCircle, XCircle, X } from 'lucide-react';
+import { Star, CheckCircle, XCircle, X, Send, Pencil, Trash2, MessageSquare } from 'lucide-react';
 import { getFeedbacks, updateFeedbackStatus } from '../../services/api';
+import api from '../../utils/api';
+import { useAuthStore } from '../../store/useAuthStore';
+import { showConfirm } from '../../lib/dialog';
 import type { Feedback, FeedbackStatus } from '../../types/feedback';
 import Pagination from '../../components/Pagination';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
@@ -43,71 +46,186 @@ const StatusBadge: React.FC<{ status: FeedbackStatus }> = ({ status }) => {
   return <span className={`status-badge ${cls}`}>{label}</span>;
 };
 
-// Modal xem chi tiết
+interface ReplyItem {
+  replyId: number;
+  accountId: number;
+  content: string;
+  createdAt: string;
+  account?: { username: string };
+}
+
+// Modal chi tiết + trả lời đánh giá (ReviewReply)
 const FeedbackModal: React.FC<{
   feedback: Feedback;
   onClose: () => void;
   onApprove: () => void;
   onReject: () => void;
   loading: boolean;
-}> = ({ feedback, onClose, onApprove, onReject, loading }) => (
-  <div className="modal-overlay" onClick={onClose}>
-    <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-      <div className="modal-header">
-        <h3>Chi tiết đánh giá</h3>
-        <button className="modal-close-btn" onClick={onClose}><X size={20} /></button>
-      </div>
-      <div className="modal-body">
-        <div className="modal-meta">
-          <div className="meta-row">
-            <span className="meta-label">Khách hàng:</span>
-            <span>{feedback.customer?.fullName ?? `KH #${feedback.customerId}`}</span>
+  onRepliesChanged: () => void;
+}> = ({ feedback, onClose, onApprove, onReject, loading, onRepliesChanged }) => {
+  const me = useAuthStore((s) => s.user);
+  const [replies, setReplies] = useState<ReplyItem[]>([]);
+  const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editText, setEditText] = useState('');
+
+  const loadReplies = useCallback(async () => {
+    try {
+      const res = await api.get(`/feedbacks/${feedback.feedbackId}/replies`);
+      setReplies(res.data?.data ?? res.data ?? []);
+    } catch { /* bỏ qua */ }
+  }, [feedback.feedbackId]);
+
+  useEffect(() => { loadReplies(); }, [loadReplies]);
+
+  const sendReply = async () => {
+    if (!text.trim()) return void toast.error('Vui lòng nhập nội dung phản hồi.');
+    setSending(true);
+    try {
+      await api.post(`/feedbacks/${feedback.feedbackId}/replies`, { content: text.trim() });
+      toast.success('Đã gửi phản hồi cho khách hàng');
+      setText('');
+      await loadReplies();
+      onRepliesChanged();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Gửi phản hồi thất bại');
+    } finally { setSending(false); }
+  };
+
+  const saveEdit = async (replyId: number) => {
+    if (!editText.trim()) return void toast.error('Nội dung không được để trống.');
+    try {
+      await api.put(`/replies/${replyId}`, { content: editText.trim() });
+      toast.success('Đã cập nhật phản hồi');
+      setEditingId(null);
+      await loadReplies();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Cập nhật thất bại');
+    }
+  };
+
+  const removeReply = async (replyId: number) => {
+    const ok = await showConfirm({ title: 'Xóa phản hồi?', message: 'Phản hồi này sẽ bị xóa.', confirmLabel: 'Xóa', tone: 'warning', danger: true });
+    if (!ok) return;
+    try {
+      await api.delete(`/replies/${replyId}`);
+      toast.success('Đã xóa phản hồi');
+      await loadReplies();
+      onRepliesChanged();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Xóa thất bại');
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>Chi tiết đánh giá</h3>
+          <button className="modal-close-btn" onClick={onClose}><X size={20} /></button>
+        </div>
+        <div className="modal-body">
+          <div className="modal-meta">
+            <div className="meta-row">
+              <span className="meta-label">Khách hàng:</span>
+              <span>{feedback.customer?.fullName ?? `KH #${feedback.customerId}`}</span>
+            </div>
+            <div className="meta-row">
+              <span className="meta-label">Sản phẩm:</span>
+              <span>{feedback.product?.productName ?? `SP #${feedback.productId}`}</span>
+            </div>
+            <div className="meta-row">
+              <span className="meta-label">Đánh giá:</span>
+              <RatingStars rating={feedback.rating} />
+            </div>
+            <div className="meta-row">
+              <span className="meta-label">Trạng thái:</span>
+              <StatusBadge status={feedback.status} />
+            </div>
+            <div className="meta-row">
+              <span className="meta-label">Ngày gửi:</span>
+              <span>{new Date(feedback.createdAt).toLocaleDateString('vi-VN')}</span>
+            </div>
           </div>
-          <div className="meta-row">
-            <span className="meta-label">Sản phẩm:</span>
-            <span>{feedback.product?.productName ?? `SP #${feedback.productId}`}</span>
+
+          <div className="modal-content-section">
+            <h4>{feedback.title}</h4>
+            <p>{feedback.content}</p>
           </div>
-          <div className="meta-row">
-            <span className="meta-label">Đánh giá:</span>
-            <RatingStars rating={feedback.rating} />
-          </div>
-          <div className="meta-row">
-            <span className="meta-label">Trạng thái:</span>
-            <StatusBadge status={feedback.status} />
-          </div>
-          <div className="meta-row">
-            <span className="meta-label">Ngày gửi:</span>
-            <span>{new Date(feedback.createdAt).toLocaleDateString('vi-VN')}</span>
+
+          {feedback.imageUrl && (
+            <div className="modal-image">
+              <img src={feedback.imageUrl} alt="Ảnh đánh giá" />
+            </div>
+          )}
+
+          {/* ===== Phản hồi của cửa hàng ===== */}
+          <div className="reply-section">
+            <h4 className="reply-title"><MessageSquare size={16} /> Phản hồi của cửa hàng ({replies.length})</h4>
+
+            {replies.length === 0 && <p className="reply-empty">Chưa có phản hồi nào cho đánh giá này.</p>}
+
+            {replies.map((r) => {
+              const mine = r.accountId === me?.accountId;
+              return (
+                <div key={r.replyId} className="reply-item">
+                  <div className="reply-head">
+                    <b>{r.account?.username ?? 'Manager'}</b>
+                    <span>{new Date(r.createdAt).toLocaleString('vi-VN')}</span>
+                    {mine && editingId !== r.replyId && (
+                      <span className="reply-actions">
+                        <button title="Sửa" onClick={() => { setEditingId(r.replyId); setEditText(r.content); }}><Pencil size={13} /></button>
+                        <button title="Xóa" className="danger" onClick={() => removeReply(r.replyId)}><Trash2 size={13} /></button>
+                      </span>
+                    )}
+                  </div>
+                  {editingId === r.replyId ? (
+                    <div className="reply-edit">
+                      <textarea rows={3} value={editText} maxLength={2000} onChange={(e) => setEditText(e.target.value)} />
+                      <div className="reply-edit-btns">
+                        <button className="btn btn-reject" onClick={() => setEditingId(null)}>Hủy</button>
+                        <button className="btn btn-approve" onClick={() => saveEdit(r.replyId)}>Lưu</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="reply-content">{r.content}</p>
+                  )}
+                </div>
+              );
+            })}
+
+            <div className="reply-form">
+              <textarea
+                rows={3}
+                maxLength={2000}
+                placeholder="Nhập phản hồi gửi tới khách hàng..."
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+              />
+              <button className="btn btn-approve reply-send" onClick={sendReply} disabled={sending}>
+                <Send size={15} /> {sending ? 'Đang gửi...' : 'Gửi phản hồi'}
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="modal-content-section">
-          <h4>{feedback.title}</h4>
-          <p>{feedback.content}</p>
-        </div>
-
-        {feedback.imageUrl && (
-          <div className="modal-image">
-            <img src={feedback.imageUrl} alt="Ảnh đánh giá" />
+        {feedback.status === 'Pending' && (
+          <div className="modal-footer">
+            <button className="btn btn-approve" onClick={onApprove} disabled={loading}>
+              <CheckCircle size={16} />
+              {loading ? 'Đang xử lý...' : 'Duyệt'}
+            </button>
+            <button className="btn btn-reject" onClick={onReject} disabled={loading}>
+              <XCircle size={16} />
+              {loading ? 'Đang xử lý...' : 'Từ chối'}
+            </button>
           </div>
         )}
       </div>
-
-      {feedback.status === 'Pending' && (
-        <div className="modal-footer">
-          <button className="btn btn-approve" onClick={onApprove} disabled={loading}>
-            <CheckCircle size={16} />
-            {loading ? 'Đang xử lý...' : 'Duyệt'}
-          </button>
-          <button className="btn btn-reject" onClick={onReject} disabled={loading}>
-            <XCircle size={16} />
-            {loading ? 'Đang xử lý...' : 'Từ chối'}
-          </button>
-        </div>
-      )}
     </div>
-  </div>
-);
+  );
+};
 
 const FeedbacksPage: React.FC = () => {
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
@@ -287,6 +405,9 @@ const FeedbacksPage: React.FC = () => {
                       )}
                       {isSuspicious(fb) && <span style={{ color: '#DC2626', fontWeight: 700 }}>⚠ </span>}
                       {fb.title}
+                      {((fb as any).replies?.length ?? 0) > 0 && (
+                        <span style={{ marginLeft: 6, padding: '1px 8px', borderRadius: 999, background: '#DBEAFE', color: '#2563EB', fontSize: 11, fontWeight: 700 }}>Đã phản hồi</span>
+                      )}
                     </span>
                   </td>
                   <td className="col-rating"><RatingStars rating={fb.rating} /></td>
@@ -342,6 +463,7 @@ const FeedbacksPage: React.FC = () => {
           onApprove={() => handleStatusChange(selectedFeedback, 'Approved')}
           onReject={() => handleStatusChange(selectedFeedback, 'Rejected')}
           loading={actionLoading}
+          onRepliesChanged={() => loadFeedbacks(true)}
         />
       )}
     </div>

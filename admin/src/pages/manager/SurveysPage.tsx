@@ -233,6 +233,9 @@ const SurveysPage: React.FC = () => {
                         <span className="meta-chip date">
                           Tạo ngày {new Date(survey.createdAt).toLocaleDateString('vi-VN')}
                         </span>
+                        <span className="meta-chip">
+                        Người tạo: {survey.creator?.username ?? 'Không xác định'}
+                        </span>
                       </div>
                     </div>
                   </div>

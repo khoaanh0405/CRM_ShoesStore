@@ -1,6 +1,3 @@
-/**
- * Gom toàn bộ route con, app.js mount tại '/api'.
- */
 import { Router } from 'express';
 import roleRoutes from './role.routes.js';
 import accountRoutes from './account.routes.js';
@@ -16,7 +13,10 @@ import surveyQuestionOptionRoutes from './surveyQuestionOption.routes.js';
 import surveyResponseRoutes from './surveyResponse.routes.js';
 import notificationRoutes from './notification.routes.js';
 import presenceRoutes from './presence.routes.js';
-import bannerRoutes from './banner.routes.js'; 
+import bannerRoutes from './banner.routes.js';
+import categoryRoutes from './category.routes.js';
+import reviewReplyRoutes from './reviewReply.routes.js';
+import auditLogRoutes from './auditLog.routes.js';
 
 const router = Router();
 router.use('/roles', roleRoutes);
@@ -24,9 +24,11 @@ router.use('/accounts', accountRoutes);
 router.use('/admin', adminRoutes);
 router.use('/suppliers', supplierRoutes);
 router.use('/products', productRoutes);
+router.use('/categories', categoryRoutes);
 router.use('/customers', customerRoutes);
 router.use('/preferences', preferenceRoutes);
 router.use('/feedbacks', feedbackRoutes);
+router.use('/replies', reviewReplyRoutes);
 router.use('/surveys', surveyRoutes);
 router.use('/questions', surveyQuestionRoutes);
 router.use('/options', surveyQuestionOptionRoutes);
@@ -34,4 +36,5 @@ router.use('/responses', surveyResponseRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/presence', presenceRoutes);
 router.use('/banners', bannerRoutes);
+router.use('/audit-logs', auditLogRoutes);
 export default router;

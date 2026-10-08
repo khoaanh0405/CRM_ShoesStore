@@ -1,14 +1,13 @@
 /**
- * Repository cho model Feedback (bảng feedbacks).
- * customer_id -> customers (RESTRICT), product_id -> products (RESTRICT).
- * CHECK (rating BETWEEN 1 AND 5) được enforce ở DB (raw SQL, Prisma không
- * generate) — Repository không tự validate lại rating, để DB là nguồn kiểm
- * tra cuối cùng; nếu invalid, Postgres sẽ throw lỗi constraint (mã 23514),
- * Service layer nên validate rating ở input trước khi gọi xuống để tránh
- * lỗi khó hiểu cho người dùng.
- * Không có bảng con nào tham chiếu feedback_id -> remove() luôn an toàn.
+ * Repository cho Feedback. Mọi truy vấn đọc đều kèm `replies` (ReviewReply)
+ * để Manager xem và khách hàng thấy phản hồi của cửa hàng.
  */
 import prisma from '../config/database.js';
+
+const REPLIES = {
+  orderBy: { createdAt: 'asc' },
+  include: { account: { select: { accountId: true, username: true } } },
+};
 
 export const feedbackRepository = {
   findAll({ status, productId, customerId } = {}) {
@@ -19,14 +18,14 @@ export const feedbackRepository = {
         ...(customerId && { customerId }),
       },
       orderBy: { createdAt: 'desc' },
-      include: { customer: true, product: true },
+      include: { customer: true, product: true, replies: REPLIES },
     });
   },
 
   findById(feedbackId) {
     return prisma.feedback.findUnique({
       where: { feedbackId },
-      include: { customer: true, product: true },
+      include: { customer: true, product: true, replies: REPLIES },
     });
   },
 
@@ -34,6 +33,7 @@ export const feedbackRepository = {
     return prisma.feedback.findMany({
       where: { customerId },
       orderBy: { createdAt: 'desc' },
+      include: { replies: REPLIES },
     });
   },
 
@@ -41,28 +41,17 @@ export const feedbackRepository = {
     return prisma.feedback.findMany({
       where: { productId },
       orderBy: { createdAt: 'desc' },
+      include: { replies: REPLIES },
     });
   },
 
   findByStatus(status) {
-    return prisma.feedback.findMany({
-      where: { status },
-      orderBy: { createdAt: 'desc' },
-    });
+    return prisma.feedback.findMany({ where: { status }, orderBy: { createdAt: 'desc' } });
   },
 
-  /** Khách hàng gửi phản hồi về sản phẩm (mục 4.3.3). rating: số nguyên 1-5. */
   create({ customerId, productId, title, content, rating, imageUrl }) {
     return prisma.feedback.create({
-      data: {
-        customerId,
-        productId,
-        title,
-        content,
-        rating,
-        imageUrl,
-        status: 'Pending',
-      },
+      data: { customerId, productId, title, content, rating, imageUrl, status: 'Pending' },
     });
   },
 
@@ -73,12 +62,8 @@ export const feedbackRepository = {
     });
   },
 
-  /** Admin tiếp nhận/xử lý phản hồi (mục 4.1.4): 'Pending' | 'Approved' | 'Rejected'. */
   updateStatus(feedbackId, status) {
-    return prisma.feedback.update({
-      where: { feedbackId },
-      data: { status },
-    });
+    return prisma.feedback.update({ where: { feedbackId }, data: { status } });
   },
 
   remove(feedbackId) {

@@ -1,17 +1,10 @@
 /**
- * Repository cho model Survey (bảng surveys).
- * Không hard delete — dùng setActive() để đóng khảo sát (survey_responses RESTRICT).
- * Survey có thể gắn (tùy chọn) với 1 Product qua productId.
+ * Repository cho Survey. Có createdBy (Manager tạo khảo sát) -> include `creator`.
  */
 import prisma from '../config/database.js';
 
-const PRODUCT_SELECT = {
-  productId: true,
-  productName: true,
-  brand: true,
-  imageUrl: true,
-  price: true,
-};
+const PRODUCT_SELECT = { productId: true, productName: true, brand: true, imageUrl: true, price: true };
+const CREATOR_SELECT = { accountId: true, username: true, email: true };
 
 export const surveyRepository = {
   findAll({ isActive } = {}) {
@@ -20,6 +13,7 @@ export const surveyRepository = {
       orderBy: { createdAt: 'desc' },
       include: {
         product: { select: PRODUCT_SELECT },
+        creator: { select: CREATOR_SELECT },
         _count: { select: { questions: true, surveyTargets: true, surveyResponses: true } },
       },
     });
@@ -28,16 +22,16 @@ export const surveyRepository = {
   findById(surveyId) {
     return prisma.survey.findUnique({
       where: { surveyId },
-      include: { product: { select: PRODUCT_SELECT } },
+      include: { product: { select: PRODUCT_SELECT }, creator: { select: CREATOR_SELECT } },
     });
   },
 
-  /** Kèm _count.surveyResponses để FE biết khảo sát đã có người trả lời (khóa cấu trúc). */
   findByIdWithQuestions(surveyId) {
     return prisma.survey.findUnique({
       where: { surveyId },
       include: {
         product: { select: PRODUCT_SELECT },
+        creator: { select: CREATOR_SELECT },
         questions: {
           orderBy: { questionId: 'asc' },
           include: { options: { orderBy: { sortOrder: 'asc' } } },
@@ -47,10 +41,10 @@ export const surveyRepository = {
     });
   },
 
-  create({ title, description, isActive = true, productId = null }) {
+  create({ title, description, isActive = true, productId = null, createdBy = null }) {
     return prisma.survey.create({
-      data: { title, description, isActive, productId },
-      include: { product: { select: PRODUCT_SELECT } },
+      data: { title, description, isActive, productId, createdBy },
+      include: { product: { select: PRODUCT_SELECT }, creator: { select: CREATOR_SELECT } },
     });
   },
 

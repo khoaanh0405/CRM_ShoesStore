@@ -2,8 +2,9 @@ import { AppButton } from '@/components/AppButton';
 import { AppTextField } from '@/components/AppTextField';
 import { RatingStars } from '@/components/RatingStars';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { EmptyView, LoadingView } from '@/components/StateViews';
+import { EmptyView, ErrorView, LoadingView } from '@/components/StateViews';
 import { AppColors, Radius, SCREEN_PADDING } from '@/constants/appTheme';
+import { FEEDBACK_STATUS } from '@/constants/domain';
 import { useApi } from '@/hooks/useApi';
 import { useCustomerId } from '@/hooks/useCustomerId';
 import { getApiErrorMessage } from '@/services/api-client';
@@ -11,19 +12,25 @@ import { feedbackService } from '@/services/feedback.service';
 import { productService } from '@/services/product.service';
 import type { Product } from '@/types/product';
 import { formatPrice } from '@/utils/format';
-import { ChevronDown, ImageOff, Search, Send, X } from 'lucide-react';
-import { useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ChevronDown, ImageOff, Lock, Save, Search, Send, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 const TITLE_MAX = 150;
 const CONTENT_MAX = 2000;
 const normalize = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
 
-/** Gửi phản hồi về sản phẩm (mục 4.3.3). Chống spam: chặn double-click + chặn gửi lại cùng nội dung cho cùng sản phẩm. */
+/**
+ * Gửi phản hồi về sản phẩm (mục 4.3.3) và CHỈNH SỬA đánh giá (route /feedback/:id/edit)
+ * khi đánh giá còn "Chờ duyệt". Chống spam: chặn double-click + chặn gửi lại cùng nội dung cho cùng sản phẩm.
+ */
 export default function FeedbackCreatePage() {
   const navigate = useNavigate();
   const customerId = useCustomerId();
   const [searchParams] = useSearchParams();
+  const { id } = useParams<{ id?: string }>();
+  const editId = id ? Number(id) : null;
+  const isEdit = editId != null;
   const initialProductId = searchParams.get('productId');
 
   const [selectedId, setSelectedId] = useState<number | null>(initialProductId ? Number(initialProductId) : null);
@@ -34,9 +41,26 @@ export default function FeedbackCreatePage() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const lockRef = useRef(false);
+  const hydrated = useRef(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const { data: products, loading } = useApi(() => productService.list(), []);
+  const { data: existing, loading: loadingExisting, error: existingError, reload } = useApi(
+    async () => (isEdit ? feedbackService.getById(editId!) : null),
+    [editId],
+  );
+
+  // Nạp dữ liệu đánh giá cũ vào form (chỉ 1 lần)
+  useEffect(() => {
+    if (isEdit && existing && !hydrated.current) {
+      hydrated.current = true;
+      setSelectedId(existing.productId);
+      setRating(existing.rating);
+      setTitle(existing.title);
+      setContent(existing.content);
+    }
+  }, [isEdit, existing]);
+
   const goBack = () => navigate(-1);
   const selected = products?.find((p) => p.productId === selectedId) ?? null;
 
@@ -55,16 +79,21 @@ export default function FeedbackCreatePage() {
     setSubmitting(true);
     setFormError(null);
     try {
-      // Chặn gửi lặp lại cùng một nội dung cho cùng một sản phẩm
-      const existing = await feedbackService.listByCustomer(customerId).catch(() => []);
-      const duplicated = existing.some((f) => f.productId === selectedId && normalize(f.content) === normalize(content));
+      // Chặn gửi lặp lại cùng một nội dung cho cùng một sản phẩm (bỏ qua chính đánh giá đang sửa)
+      const all = await feedbackService.listByCustomer(customerId).catch(() => []);
+      const duplicated = all.some((f) => f.feedbackId !== editId && f.productId === selectedId && normalize(f.content) === normalize(content));
       if (duplicated) {
         setErrors((prev) => ({ ...prev, content: 'Bạn đã gửi đúng nội dung này cho sản phẩm này rồi.' }));
         return;
       }
 
-      await feedbackService.create({ customerId, productId: selectedId, title: title.trim(), content: content.trim(), rating });
-      alert('Đã gửi đánh giá. Phản hồi của bạn đang chờ cửa hàng duyệt. Cảm ơn bạn!');
+      if (isEdit) {
+        await feedbackService.update(editId!, { title: title.trim(), content: content.trim(), rating });
+        alert('Đã cập nhật đánh giá. Đánh giá vẫn đang chờ cửa hàng duyệt.');
+      } else {
+        await feedbackService.create({ customerId, productId: selectedId, title: title.trim(), content: content.trim(), rating });
+        alert('Đã gửi đánh giá. Phản hồi của bạn đang chờ cửa hàng duyệt. Cảm ơn bạn!');
+      }
       goBack();
     } catch (e) {
       setFormError(getApiErrorMessage(e, 'Vui lòng thử lại sau.'));
@@ -74,16 +103,39 @@ export default function FeedbackCreatePage() {
     }
   };
 
+  // ----- Chế độ sửa: kiểm tra có được phép sửa không -----
+  if (isEdit) {
+    if (loadingExisting && !existing) return <div><ScreenHeader title="Chỉnh sửa đánh giá" onBack={goBack} /><LoadingView /></div>;
+    if (!existing) return <div><ScreenHeader title="Chỉnh sửa đánh giá" onBack={goBack} /><ErrorView message={existingError ?? 'Không tìm thấy đánh giá.'} onRetry={reload} /></div>;
+    if (existing.status !== FEEDBACK_STATUS.PENDING) {
+      return (
+        <div>
+          <ScreenHeader title="Chỉnh sửa đánh giá" onBack={goBack} />
+          <EmptyView icon={Lock} title="Không thể chỉnh sửa đánh giá này"
+            message="Đánh giá đã được cửa hàng xử lý (duyệt hoặc từ chối) nên không thể chỉnh sửa nữa."
+            actionLabel="Quay lại" onAction={goBack} />
+        </div>
+      );
+    }
+  }
+
   return (
     <div>
-      <ScreenHeader title="Viết đánh giá" onBack={goBack} />
+      <ScreenHeader title={isEdit ? 'Chỉnh sửa đánh giá' : 'Viết đánh giá'} onBack={goBack} />
       {loading && !products ? <LoadingView /> : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20, padding: `4px ${SCREEN_PADDING}px 32px` }}>
+          {isEdit ? (
+            <div style={{ padding: '10px 14px', borderRadius: Radius.md, background: AppColors.accentSoft, color: AppColors.textSecondary, fontSize: 13 }}>
+              Bạn chỉ có thể chỉnh sửa khi đánh giá còn <b>chờ duyệt</b>. Sau khi được duyệt hoặc từ chối, nội dung sẽ bị khóa.
+            </div>
+          ) : null}
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <span style={{ color: AppColors.textPrimary, fontSize: 13, fontWeight: 600 }}>Sản phẩm</span>
-            <button onClick={() => setPickerOpen(true)} style={{
+            <button onClick={() => { if (!isEdit) setPickerOpen(true); }} disabled={isEdit} style={{
               display: 'flex', alignItems: 'center', gap: 12, minHeight: 64, padding: '0 14px', borderRadius: Radius.md,
               border: `1px solid ${errors.product ? AppColors.danger : AppColors.border}`, background: AppColors.surface, textAlign: 'left',
+              cursor: isEdit ? 'default' : 'pointer',
             }}>
               {selected ? (
                 <>
@@ -94,7 +146,7 @@ export default function FeedbackCreatePage() {
                   </div>
                 </>
               ) : <span style={{ flex: 1, color: AppColors.textSecondary, fontSize: 15 }}>Chọn sản phẩm bạn muốn đánh giá</span>}
-              <ChevronDown size={18} color={AppColors.textSecondary} />
+              {isEdit ? <Lock size={16} color={AppColors.textSecondary} /> : <ChevronDown size={18} color={AppColors.textSecondary} />}
             </button>
             {errors.product ? <span style={{ color: AppColors.danger, fontSize: 12 }}>{errors.product}</span> : null}
           </div>
@@ -110,7 +162,7 @@ export default function FeedbackCreatePage() {
 
           {formError ? <span style={{ color: AppColors.danger, fontSize: 13 }}>{formError}</span> : null}
 
-          <AppButton label="Gửi đánh giá" icon={Send} onClick={handleSubmit} loading={submitting} />
+          <AppButton label={isEdit ? 'Lưu thay đổi' : 'Gửi đánh giá'} icon={isEdit ? Save : Send} onClick={handleSubmit} loading={submitting} />
         </div>
       )}
 

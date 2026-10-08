@@ -61,8 +61,8 @@ export const surveyService = {
     return survey;
   },
 
-  /** Tạo khảo sát đơn giản (chung hoặc gắn sản phẩm), câu hỏi thêm sau. */
-  async createSimple({ title, description, isActive = true, productId }) {
+    /** Tạo khảo sát đơn giản (chung hoặc gắn sản phẩm), câu hỏi thêm sau. createdBy = Manager tạo. */
+  async createSimple({ title, description, isActive = true, productId, createdBy }) {
     if (!title?.trim()) throw new ValidationError('Tiêu đề khảo sát không được để trống.');
     const resolvedProductId = await resolveProductId(productId);
     return surveyRepository.create({
@@ -70,10 +70,11 @@ export const surveyService = {
       description,
       isActive,
       productId: resolvedProductId,
+      createdBy: createdBy ?? null,
     });
   },
 
-  async createWithQuestions({ title, description, questions = [], productId }) {
+  async createWithQuestions({ title, description, questions = [], productId, createdBy }) {
     if (!title?.trim()) throw new ValidationError('Tiêu đề khảo sát không được để trống.');
     if (!Array.isArray(questions) || questions.length < MIN_SURVEY_QUESTIONS) {
       throw new ValidationError(`Khảo sát phải có ít nhất ${MIN_SURVEY_QUESTIONS} câu hỏi.`);
@@ -95,6 +96,7 @@ export const surveyService = {
         description,
         isActive: true,
         productId: resolvedProductId,
+        createdBy: createdBy ?? null,
         questions: {
           create: questions.map((q) => ({
             questionContent: q.questionContent.trim(),
@@ -110,7 +112,7 @@ export const surveyService = {
           })),
         },
       },
-      include: { product: true, questions: { include: { options: true } } },
+      include: { product: true, creator: { select: { accountId: true, username: true, email: true } }, questions: { include: { options: true } } },
     });
   },
 

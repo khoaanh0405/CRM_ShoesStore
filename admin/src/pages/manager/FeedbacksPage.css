@@ -459,3 +459,51 @@
 .btn-reject:hover:not(:disabled) {
   background: #FECACA;
 }
+
+.reply-section { 
+margin-top: 22px; 
+padding-top: 18px; 
+border-top: 1px dashed var(--color-border); 
+}
+
+.reply-title { 
+display: flex; 
+align-items: center; 
+gap: 6px; 
+font-size: 14.5px; 
+font-weight: 700;
+margin-bottom: 12px; 
+color: var(--color-text-main);
+}
+
+.reply-empty {
+font-size: 13px;
+color: var(--color-text-muted);
+margin-bottom: 12px; 
+}
+
+.reply-item { background: #F5F1FE; border-left: 3px solid #8B5CF6; border-radius: 10px; padding: 10px 14px; margin-bottom: 10px; }
+
+.reply-head { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--color-text-muted); margin-bottom: 4px; }
+
+.reply-head b { color: var(--color-text-main); }
+
+.reply-actions { margin-left: auto; display: inline-flex; gap: 4px; }
+
+.reply-actions button { width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 6px; background: #fff; color: #7C3AED; cursor: pointer; }
+
+.reply-actions button.danger { color: #DC2626; }
+
+.reply-content { font-size: 14px; line-height: 1.55; color: var(--color-text-main); white-space: pre-wrap; }
+
+.reply-form, .reply-edit { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+
+.reply-form textarea, .reply-edit textarea { width: 100%; padding: 10px 12px; border: 1.5px solid var(--color-border); border-radius: 10px; font: inherit; font-size: 14px; resize: vertical; }
+
+.reply-form textarea:focus, .reply-edit textarea:focus { outline: none; border-color: #8B5CF6; }
+
+.reply-send { align-self: flex-end; flex: none !important; }
+
+.reply-edit-btns { display: flex; gap: 8px; justify-content: flex-end; }
+
+.reply-edit-btns .btn { flex: none; padding: 6px 14px; }

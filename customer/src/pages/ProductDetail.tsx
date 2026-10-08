@@ -87,6 +87,14 @@ export default function ProductDetailPage() {
               </div>
               <span style={{ color: AppColors.textPrimary, fontSize: 15, fontWeight: 700 }}>{f.title}</span>
               <span style={{ color: AppColors.textSecondary, fontSize: 14, lineHeight: '20px' }}>{f.content}</span>
+              {f.replies?.map((r) => (
+                <div key={r.replyId} style={{ marginTop: 6, padding: '10px 12px', borderRadius: Radius.md, background: AppColors.background, borderLeft: `3px solid ${AppColors.accent}` }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: AppColors.textPrimary }}>
+                    Phản hồi từ cửa hàng <span style={{ fontWeight: 500, color: AppColors.textSecondary }}>· {formatDate(r.createdAt)}</span>
+                  </div>
+                  <div style={{ marginTop: 4, fontSize: 13.5, lineHeight: '19px', color: AppColors.textPrimary, whiteSpace: 'pre-wrap' }}>{r.content}</div>
+                </div>
+              ))}
             </Card>
           ))}
         </div>

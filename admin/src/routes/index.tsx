@@ -9,6 +9,7 @@ import { ROLE_NAMES } from '../config/constants';
 import AccountManagement from '../pages/admin/AccountManagement';
 import ProductsPage from '../pages/admin/ProductsPage';
 import ProfilePage from '../pages/login/ProfilePage';
+import AuditLogsPage from '../pages/admin/AuditLogsPage';
 
 import CustomersPage from '../pages/manager/CustomersPage';
 import FeedbacksPage from '../pages/manager/FeedbacksPage';
@@ -37,6 +38,10 @@ const router = createBrowserRouter([
       },
     ],
   },
+    {
+      path: 'audit-logs',
+      element: <RoleGuard allow={['Admin']}><AuditLogsPage /></RoleGuard>,
+    },
 ]);
 
 export default router;

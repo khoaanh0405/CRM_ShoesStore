@@ -1,4 +1,4 @@
-export type NotificationType = 'SURVEY_ASSIGNED' | 'FEEDBACK_APPROVED' | 'FEEDBACK_REJECTED';
+export type NotificationType = 'SURVEY_ASSIGNED' | 'FEEDBACK_APPROVED' | 'FEEDBACK_REJECTED' | 'FEEDBACK_REPLIED';
 export type NotificationRefType = 'SURVEY' | 'FEEDBACK';
 export type AppNotification = {
   notificationId: number;

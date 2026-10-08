@@ -1,58 +1,53 @@
 /**
- * Repository cho model Product (bảng products).
- * products.supplier_id -> suppliers (RESTRICT).
- * feedbacks.product_id -> products (RESTRICT): nếu product còn feedback thì
- * remove() sẽ throw lỗi FK (P2003) — Service layer xử lý.
- * products.is_active đã có sẵn trong schema để "ẩn/hiện" sản phẩm mà không
- * cần xóa cứng -> setActive() là lựa chọn an toàn hơn cho nghiệp vụ ẩn sản
- * phẩm ngừng kinh doanh; remove() vẫn được cung cấp cho trường hợp Admin
- * thật sự muốn xóa (Service tự quyết định dùng hàm nào).
+ * Repository cho Product. Category là bảng riêng (categoryId FK).
+ * Kết quả trả ra được "làm phẳng": giữ `categoryId` và `category` = TÊN danh mục (string)
+ * để frontend cũ (lọc, hiển thị, gợi ý) vẫn chạy.
  */
 import prisma from '../config/database.js';
 
+const INCLUDE = { supplier: true, category: true };
+
+function flatten(p) {
+  if (!p) return p;
+  const { category, ...rest } = p;
+  return { ...rest, category: category?.categoryName ?? null };
+}
+
 export const productRepository = {
-  findAll({ includeInactive = false } = {}) {
-    return prisma.product.findMany({
+  async findAll({ includeInactive = false } = {}) {
+    const rows = await prisma.product.findMany({
       where: includeInactive ? undefined : { isActive: true },
       orderBy: { productId: 'asc' },
-      include: { supplier: true },
+      include: INCLUDE,
     });
+    return rows.map(flatten);
   },
 
-  findById(productId) {
-    return prisma.product.findUnique({
-      where: { productId },
-      include: { supplier: true },
-    });
+  async findById(productId) {
+    return flatten(await prisma.product.findUnique({ where: { productId }, include: INCLUDE }));
   },
 
-  findBySupplier(supplierId) {
-    return prisma.product.findMany({
-      where: { supplierId },
-      orderBy: { productId: 'asc' },
+  async findBySupplier(supplierId) {
+    const rows = await prisma.product.findMany({
+      where: { supplierId }, orderBy: { productId: 'asc' }, include: { category: true },
     });
+    return rows.map(flatten);
   },
 
-  /**
-   * Tìm kiếm nâng cao / lọc / sắp xếp sản phẩm cho Admin (yêu cầu mục II.2).
-   * Tất cả tham số đều optional.
-   */
-  search({
-    keyword,
-    category,
-    brand,
-    minPrice,
-    maxPrice,
-    isActive,
-    sortBy = 'productId',
-    sortOrder = 'asc',
+  /** category = TÊN danh mục (giữ tương thích với customer web). */
+  async search({
+    keyword, category, categoryId, brand, minPrice, maxPrice, isActive,
+    sortBy = 'productId', sortOrder = 'asc',
   } = {}) {
-    return prisma.product.findMany({
+    const orderBy = sortBy === 'category'
+      ? { category: { categoryName: sortOrder } }
+      : { [sortBy]: sortOrder };
+
+    const rows = await prisma.product.findMany({
       where: {
-        ...(keyword && {
-          productName: { contains: keyword, mode: 'insensitive' },
-        }),
-        ...(category && { category }),
+        ...(keyword && { productName: { contains: keyword, mode: 'insensitive' } }),
+        ...(category && { category: { categoryName: category } }),
+        ...(categoryId && { categoryId }),
         ...(brand && { brand }),
         ...(typeof isActive === 'boolean' && { isActive }),
         ...((minPrice !== undefined || maxPrice !== undefined) && {
@@ -62,51 +57,33 @@ export const productRepository = {
           },
         }),
       },
-      orderBy: { [sortBy]: sortOrder },
-      include: { supplier: true },
+      orderBy,
+      include: INCLUDE,
     });
+    return rows.map(flatten);
   },
 
-  create({
-    supplierId,
-    productName,
-    category,
-    brand,
-    size,
-    color,
-    material,
-    price,
-    stockQuantity = 0,
-    isActive = true,
-    imageUrl,
+  async create({
+    supplierId, categoryId = null, productName, brand, size, color, material,
+    price, stockQuantity = 0, isActive = true, imageUrl,
   }) {
-    return prisma.product.create({
+    return flatten(await prisma.product.create({
       data: {
-        supplierId,
-        productName,
-        category,
-        brand,
-        size,
-        color,
-        material,
-        price,
-        stockQuantity,
-        isActive,
-        imageUrl,
+        supplierId, categoryId, productName, brand, size, color, material,
+        price, stockQuantity, isActive, imageUrl,
       },
-    });
+      include: INCLUDE,
+    }));
   },
 
-  update(productId, data) {
-    return prisma.product.update({ where: { productId }, data });
+  async update(productId, data) {
+    return flatten(await prisma.product.update({ where: { productId }, data, include: INCLUDE }));
   },
 
-  /** Ẩn/hiện sản phẩm (soft toggle) — thay thế an toàn cho xóa cứng. */
-  setActive(productId, isActive) {
-    return prisma.product.update({
-      where: { productId },
-      data: { isActive },
-    });
+  async setActive(productId, isActive) {
+    return flatten(await prisma.product.update({
+      where: { productId }, data: { isActive }, include: INCLUDE,
+    }));
   },
 
   remove(productId) {

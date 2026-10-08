@@ -26,6 +26,9 @@ model Account {
   role              Role               @relation(fields: [roleId], references: [roleId])
   customer          Customer?
   passwordResetOtps PasswordResetOtp[]
+  surveysCreated    Survey[]           @relation("SurveyCreator")
+  reviewReplies     ReviewReply[]
+  auditLogs         AuditLog[]
 
   @@map("accounts")
 }
@@ -55,11 +58,21 @@ model Supplier {
   @@map("suppliers")
 }
 
+model Category {
+  categoryId   Int       @id @default(autoincrement()) @map("category_id")
+  categoryName String    @unique @map("category_name") @db.VarChar(100)
+  description  String?   @db.VarChar(255)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  products     Product[]
+
+  @@map("categories")
+}
+
 model Product {
   productId     Int        @id @default(autoincrement()) @map("product_id")
   supplierId    Int        @map("supplier_id")
+  categoryId    Int?       @map("category_id")
   productName   String     @map("product_name") @db.VarChar(150)
-  category      String?    @db.VarChar(50)
   brand         String?    @db.VarChar(50)
   size          String?    @db.VarChar(10)
   color         String?    @db.VarChar(30)
@@ -70,10 +83,11 @@ model Product {
   imageUrl      String?    @map("image_url")
   feedbacks     Feedback[]
   supplier      Supplier   @relation(fields: [supplierId], references: [supplierId])
+  category      Category?  @relation(fields: [categoryId], references: [categoryId], onDelete: Restrict)
   surveys       Survey[]
 
   @@index([supplierId])
-  @@index([category])
+  @@index([categoryId])
   @@index([isActive])
   @@map("products")
 }
@@ -109,22 +123,56 @@ model CustomerPreference {
 }
 
 model Feedback {
-  feedbackId Int      @id @default(autoincrement()) @map("feedback_id")
-  customerId Int      @map("customer_id")
-  productId  Int      @map("product_id")
-  title      String   @db.VarChar(150)
+  feedbackId Int           @id @default(autoincrement()) @map("feedback_id")
+  customerId Int           @map("customer_id")
+  productId  Int           @map("product_id")
+  title      String        @db.VarChar(150)
   content    String
   rating     Int
-  imageUrl   String?  @map("image_url") @db.VarChar(500)
-  status     String   @default("Pending") @db.VarChar(20)
-  createdAt  DateTime @default(now()) @map("created_at")
-  customer   Customer @relation(fields: [customerId], references: [customerId])
-  product    Product  @relation(fields: [productId], references: [productId])
+  imageUrl   String?       @map("image_url") @db.VarChar(500)
+  status     String        @default("Pending") @db.VarChar(20)
+  createdAt  DateTime      @default(now()) @map("created_at")
+  customer   Customer      @relation(fields: [customerId], references: [customerId])
+  product    Product       @relation(fields: [productId], references: [productId])
+  replies    ReviewReply[]
 
   @@index([customerId])
   @@index([productId])
   @@index([status])
   @@map("feedbacks")
+}
+
+model ReviewReply {
+  replyId    Int      @id @default(autoincrement()) @map("reply_id")
+  feedbackId Int      @map("feedback_id")
+  accountId  Int      @map("account_id")
+  content    String
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  feedback   Feedback @relation(fields: [feedbackId], references: [feedbackId], onDelete: Cascade)
+  account    Account  @relation(fields: [accountId], references: [accountId])
+
+  @@index([feedbackId])
+  @@index([accountId])
+  @@map("review_replies")
+}
+
+model AuditLog {
+  logId       Int      @id @default(autoincrement()) @map("log_id")
+  actorId     Int?     @map("actor_id")
+  actorName   String   @map("actor_name") @db.VarChar(50)
+  actorRole   String   @map("actor_role") @db.VarChar(50)
+  action      String   @db.VarChar(50)
+  entityType  String   @map("entity_type") @db.VarChar(30)
+  entityId    Int?     @map("entity_id")
+  description String
+  createdAt   DateTime @default(now()) @map("created_at")
+  actor       Account? @relation(fields: [actorId], references: [accountId], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([createdAt])
+  @@index([action])
+  @@map("audit_logs")
 }
 
 model Survey {
@@ -134,12 +182,15 @@ model Survey {
   createdAt       DateTime         @default(now()) @map("created_at")
   isActive        Boolean          @default(true) @map("is_active")
   productId       Int?             @map("product_id")
+  createdBy       Int?             @map("created_by")
   questions       SurveyQuestion[]
   surveyResponses SurveyResponse[]
   surveyTargets   SurveyTarget[]
   product         Product?         @relation(fields: [productId], references: [productId])
+  creator         Account?         @relation("SurveyCreator", fields: [createdBy], references: [accountId], onDelete: SetNull)
 
   @@index([productId])
+  @@index([createdBy])
   @@map("surveys")
 }
 

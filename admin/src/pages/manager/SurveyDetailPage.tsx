@@ -628,6 +628,8 @@ const SurveyDetailPage: React.FC = () => {
           <div className="sdh-meta">
             <span>Tạo ngày {new Date(survey.createdAt).toLocaleDateString('vi-VN')}</span>
             <span>•</span>
+            <span>Tạo bởi <b>{(survey as any).creator?.username ?? 'Không rõ'}</b></span>
+            <span>•</span>
             <span>{survey.questions?.length ?? 0} câu hỏi</span>
             {locked && <><span>•</span><span>Đã có phản hồi (khóa chỉnh sửa)</span></>}
           </div>
