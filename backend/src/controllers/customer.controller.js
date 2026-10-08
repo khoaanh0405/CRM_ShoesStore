@@ -41,11 +41,11 @@ export const customerController = {
    */
   async updateProfile(req, res) {
     const customerId = parseId(req.params.id, 'customerId');
-    const { fullName, dateOfBirth, gender, phone, address } = req.body;
+    const { fullName, dateOfBirth, gender, phone, email, address } = req.body;
     const requesterId = req.user?.customerId;
     res.json(await customerService.updateProfile(
       customerId,
-      { fullName, dateOfBirth, gender, phone, address },
+      { fullName, dateOfBirth, gender, phone, email, address },
       requesterId
     ));
   },

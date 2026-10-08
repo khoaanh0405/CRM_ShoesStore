@@ -9,10 +9,12 @@ interface Props {
 }
 
 const ProtectedRoute: React.FC<Props> = ({ allow }) => {
+  // Đăng ký theo dõi store để route tự cập nhật khi vai trò/phiên thay đổi.
+  const roleName = useAuthStore((s) => s.roleName);
+
   if (!isAuthenticated()) {
     return <Navigate to="/login" replace />;
   }
-  const roleName = useAuthStore.getState().roleName;
   if (allow && roleName && !allow.includes(roleName)) {
     return <Navigate to="/" replace />;
   }

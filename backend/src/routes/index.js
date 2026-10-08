@@ -16,6 +16,7 @@ import surveyQuestionOptionRoutes from './surveyQuestionOption.routes.js';
 import surveyResponseRoutes from './surveyResponse.routes.js';
 import notificationRoutes from './notification.routes.js';
 import presenceRoutes from './presence.routes.js';
+import bannerRoutes from './banner.routes.js'; 
 
 const router = Router();
 router.use('/roles', roleRoutes);
@@ -32,4 +33,5 @@ router.use('/options', surveyQuestionOptionRoutes);
 router.use('/responses', surveyResponseRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/presence', presenceRoutes);
+router.use('/banners', bannerRoutes);
 export default router;

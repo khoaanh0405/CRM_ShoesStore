@@ -7,22 +7,23 @@ import { AuthColors } from '@/constants/authTheme';
 import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage } from '@/services/api-client';
 import {
-  normalizePhone, normalizeSpaces, validateAddress, validateConfirmPassword, validateDateOfBirth,
-  validateFullName, validateNewPassword, validateNewUsername, validatePhone,
+  normalizeEmail, normalizePhone, normalizeSpaces, validateAddress, validateConfirmPassword, validateDateOfBirth,
+  validateEmail, validateFullName, validateNewPassword, validateNewUsername, validatePhone,
 } from '@/utils/validation';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const GENDER_OPTIONS = ['Nam', 'Nữ', 'Khác'];
 
-type RegisterForm = { username: string; password: string; confirm: string; fullName: string; dateOfBirth: string; gender: string; phone: string; address: string; };
+type RegisterForm = { username: string; email: string; password: string; confirm: string; fullName: string; dateOfBirth: string; gender: string; phone: string; address: string; };
 type Errors = Partial<Record<keyof RegisterForm, string | null>>;
-const INITIAL_FORM: RegisterForm = { username: '', password: '', confirm: '', fullName: '', dateOfBirth: '', gender: '', phone: '', address: '' };
+const INITIAL_FORM: RegisterForm = { username: '', email: '', password: '', confirm: '', fullName: '', dateOfBirth: '', gender: '', phone: '', address: '' };
 
 const VALIDATORS: Record<keyof RegisterForm, (f: RegisterForm) => string | null> = {
   fullName: (f) => validateFullName(f.fullName),
   dateOfBirth: (f) => validateDateOfBirth(f.dateOfBirth),
   username: (f) => validateNewUsername(f.username),
+  email: (f) => validateEmail(f.email),
   password: (f) => validateNewPassword(f.password, f.username),
   confirm: (f) => validateConfirmPassword(f.password, f.confirm),
   phone: (f) => validatePhone(f.phone),
@@ -30,7 +31,7 @@ const VALIDATORS: Record<keyof RegisterForm, (f: RegisterForm) => string | null>
   gender: () => null,
 };
 
-/** Khách hàng tự đăng ký tài khoản (mục 4.3.1 Yeu_cau_do_an.docx). */
+/** Khách hàng tự đăng ký tài khoản (mục 4.3.1 Yeu_cau_do_an.docx). Email dùng để lấy lại mật khẩu bằng OTP. */
 export default function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -67,6 +68,7 @@ export default function RegisterPage() {
     try {
       await register({
         username: form.username.trim(),
+        email: normalizeEmail(form.email),
         password: form.password,
         fullName: normalizeSpaces(form.fullName),
         dateOfBirth: form.dateOfBirth.trim(),
@@ -93,18 +95,19 @@ export default function RegisterPage() {
         </div>
 
         <div className="auth-grid">
-          <AuthTextField label="Họ và tên" placeholder="Nguyễn Văn A" maxLength={100} value={form.fullName} onChangeText={setField('fullName')} onBlur={blur('fullName')} error={errors.fullName} />
+          <AuthTextField label="Họ và tên" maxLength={100} value={form.fullName} onChangeText={setField('fullName')} onBlur={blur('fullName')} error={errors.fullName} />
           <AuthTextField label="Ngày sinh" type="date" min="1900-01-01" max={new Date().toISOString().slice(0, 10)} value={form.dateOfBirth} onChangeText={setField('dateOfBirth')} onBlur={blur('dateOfBirth')} error={errors.dateOfBirth} />
 
-          <AuthTextField label="Tên đăng nhập" placeholder="ten_dang_nhap" autoCapitalize="none" autoCorrect="off" maxLength={50} value={form.username} onChangeText={setField('username')} onBlur={blur('username')} error={errors.username} />
+          <AuthTextField label="Tên đăng nhập" autoCapitalize="none" autoCorrect="off" maxLength={50} value={form.username} onChangeText={setField('username')} onBlur={blur('username')} error={errors.username} />
+          <AuthTextField label="Email" type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" maxLength={100} value={form.email} onChangeText={setField('email')} onBlur={blur('email')} error={errors.email} />
+
+          <AuthTextField label="Mật khẩu" type="password" secureToggle maxLength={50} value={form.password} onChangeText={setField('password')} onBlur={blur('password')} error={errors.password} />
+          <AuthTextField label="Nhập lại mật khẩu" type="password" secureToggle maxLength={50} value={form.confirm} onChangeText={setField('confirm')} onBlur={blur('confirm')} error={errors.confirm} />
+
           <AuthTextField label="Số điện thoại" placeholder="Không bắt buộc" inputMode="tel" maxLength={15} value={form.phone} onChangeText={setField('phone')} onBlur={blur('phone')} error={errors.phone} />
-
-          <AuthTextField label="Mật khẩu" placeholder="Tối thiểu 6 ký tự, có chữ hoa, số, ký tự đặc biệt" type="password" secureToggle maxLength={50} value={form.password} onChangeText={setField('password')} onBlur={blur('password')} error={errors.password} />
-          <AuthTextField label="Nhập lại mật khẩu" placeholder="Nhập lại mật khẩu" type="password" secureToggle maxLength={50} value={form.confirm} onChangeText={setField('confirm')} onBlur={blur('confirm')} error={errors.confirm} />
-
-          <div className="full" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span style={{ color: AuthColors.textSecondary, fontSize: 13, fontWeight: 600 }}>Giới tính</span>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', minHeight: 46 }}>
               {GENDER_OPTIONS.map((option) => (
                 <Chip key={option} label={option} selected={form.gender === option} onClick={() => setField('gender')(form.gender === option ? '' : option)} />
               ))}

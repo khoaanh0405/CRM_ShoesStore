@@ -21,14 +21,14 @@ import type { Product } from '@/types/product';
 import type { SurveyTarget } from '@/types/survey';
 import { formatDate, formatDateOnly, formatPrice, toDateInput } from '@/utils/format';
 import { recommendProducts } from '@/utils/recommend';
-import { normalizePhone, normalizeSpaces, validateAddress, validateDateOfBirth, validateFullName, PASSWORD_RULES, validateNewPassword, validatePhone } from '@/utils/validation';
+import { normalizeEmail, normalizePhone, normalizeSpaces, validateAddress, validateDateOfBirth, validateFullName, PASSWORD_RULES, validateEmail, validateNewPassword, validatePhone } from '@/utils/validation';
 import { Check, ClipboardList, Edit3, Grid, Heart, History, ImageOff, Key, LogOut, MessageCircle, Phone, ShieldCheck, User, type LucideIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { showConfirm } from '@/lib/dialog';
 
 type Section = 'info' | 'prefs' | 'history' | 'password';
-type ProfileForm = { fullName: string; dateOfBirth: string; gender: string; phone: string; address: string };
+type ProfileForm = { fullName: string; dateOfBirth: string; gender: string; phone: string; email: string; address: string };
 type FormErrors = Partial<Record<keyof ProfileForm, string | null>>;
 const EMPTY_PASSWORD = { oldPassword: '', newPassword: '', confirm: '' };
 
@@ -84,7 +84,7 @@ export default function ProfilePage() {
   const [section, setSection] = useState<Section>(MENU.some((m) => m.key === initialTab) ? (initialTab as Section) : 'info');
 
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState<ProfileForm>({ fullName: '', dateOfBirth: '', gender: '', phone: '', address: '' });
+  const [form, setForm] = useState<ProfileForm>({ fullName: '', dateOfBirth: '', gender: '', phone: '', email: '', address: '' });
   const [errors, setErrors] = useState<FormErrors>({});
   const [saving, setSaving] = useState(false);
   const [savingTag, setSavingTag] = useState<string | null>(null);
@@ -119,7 +119,7 @@ export default function ProfilePage() {
   const pwLabel = pw.newPassword ? ['Yếu', 'Yếu', 'Trung bình', 'Khá', 'Mạnh'][pwScore] : '—';
 
   const startEditing = (p: CustomerProfile) => {
-    setForm({ fullName: p.fullName, dateOfBirth: toDateInput(p.dateOfBirth), gender: p.gender ?? '', phone: p.phone ?? '', address: p.address ?? '' });
+    setForm({ fullName: p.fullName, dateOfBirth: toDateInput(p.dateOfBirth), gender: p.gender ?? '', phone: p.phone ?? '', email: p.email ?? '', address: p.address ?? '' });
     setErrors({});
     setEditing(true);
   };
@@ -130,12 +130,12 @@ export default function ProfilePage() {
 
   const saveProfile = async () => {
     if (customerId == null || saving) return;
-    const next: FormErrors = { fullName: validateFullName(form.fullName), dateOfBirth: validateDateOfBirth(form.dateOfBirth), phone: validatePhone(form.phone), address: validateAddress(form.address) };
+    const next: FormErrors = { fullName: validateFullName(form.fullName), dateOfBirth: validateDateOfBirth(form.dateOfBirth), phone: validatePhone(form.phone), email: validateEmail(form.email), address: validateAddress(form.address) };
     setErrors(next);
     if (Object.values(next).some(Boolean)) return;
     setSaving(true);
     try {
-      await customerService.updateProfile(customerId, { fullName: normalizeSpaces(form.fullName), dateOfBirth: form.dateOfBirth.trim(), gender: form.gender || undefined, phone: normalizePhone(form.phone), address: normalizeSpaces(form.address) });
+      await customerService.updateProfile(customerId, { fullName: normalizeSpaces(form.fullName), dateOfBirth: form.dateOfBirth.trim(), gender: form.gender || undefined, phone: normalizePhone(form.phone), email: normalizeEmail(form.email), address: normalizeSpaces(form.address) });
       setEditing(false);
       await reload();
       alert('Đã lưu. Thông tin cá nhân của bạn đã được cập nhật.');
@@ -191,7 +191,6 @@ export default function ProfilePage() {
           <div className="account-avatar"><User size={40} /></div>
           <div>
             <div style={{ fontSize: 17, fontWeight: 800, color: AppColors.textPrimary }}>{profile.fullName}</div>
-            <div style={{ fontSize: 13, color: AppColors.textSecondary }}>@{profile.username}</div>
           </div>
         </div>
         <nav className="account-menu">
@@ -225,7 +224,10 @@ export default function ProfilePage() {
                     </div>
                   </div>
                   <AppTextField label="Số điện thoại" inputMode="tel" maxLength={15} placeholder="vd: 0912345678" value={form.phone} onChangeText={setField('phone')} error={errors.phone} />
-                  <AppTextField label="Địa chỉ" maxLength={255} value={form.address} onChangeText={setField('address')} error={errors.address} />
+                  <AppTextField label="Email" type="email" inputMode="email" maxLength={100} placeholder="ten@gmail.com" value={form.email} onChangeText={setField('email')} error={errors.email} />
+                  <div className="full">
+                    <AppTextField label="Địa chỉ" maxLength={255} value={form.address} onChangeText={setField('address')} error={errors.address} />
+                  </div>
                 </div>
                 <div style={{ display: 'flex', gap: 12, marginTop: 20, maxWidth: 360 }}>
                   <AppButton label="Hủy" variant="secondary" style={{ flex: 1 }} onClick={() => setEditing(false)} />
@@ -239,8 +241,8 @@ export default function ProfilePage() {
                   <InfoRow label="Ngày sinh" value={formatDateOnly(profile.dateOfBirth)} />
                   <InfoRow label="Giới tính" value={profile.gender} />
                   <InfoRow label="Số điện thoại" value={profile.phone} />
+                  <InfoRow label="Email" value={profile.email} />
                   <InfoRow label="Địa chỉ" value={profile.address} />
-                  <InfoRow label="Tên đăng nhập" value={`@${profile.username}`} />
                   <InfoRow label="Ngày tạo tài khoản" value={account?.createdAt ? formatDate(account.createdAt) : null} />
                   <InfoRow label="Trạng thái" value={profile.isLocked ? 'Đã khóa' : 'Đang hoạt động'} />
                 </div>

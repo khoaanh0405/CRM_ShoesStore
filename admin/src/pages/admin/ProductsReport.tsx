@@ -223,7 +223,7 @@ const ProductsReport: React.FC = () => {
                     <td>{p.supplier?.supplierName || `NCC #${p.supplierId}`}</td>
                     <td>
                       <span className={`stock-badge ${p.stockQuantity < LOW_STOCK_THRESHOLD ? 'low' : ''}`}>
-                        {p.stockQuantity} sp
+                        {p.stockQuantity}
                       </span>
                     </td>
                   </tr>

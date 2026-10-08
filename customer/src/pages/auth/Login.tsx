@@ -49,9 +49,9 @@ export default function LoginPage() {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <AuthTextField label="Tên đăng nhập" placeholder="ten_dang_nhap" autoCapitalize="none" autoCorrect="off" value={username} onChangeText={setUsername} error={errors.username} />
+          <AuthTextField label="Tên đăng nhập" autoCapitalize="none" autoCorrect="off" value={username} onChangeText={setUsername} error={errors.username} />
           <AuthTextField
-            label="Mật khẩu" placeholder="••••••••" type="password" secureToggle value={password} onChangeText={setPassword} error={errors.password}
+            label="Mật khẩu" type="password" secureToggle value={password} onChangeText={setPassword} error={errors.password}
             rightAction={{ label: 'Quên mật khẩu?', onClick: () => navigate('/auth/forgot-password') }}
           />
         </div>

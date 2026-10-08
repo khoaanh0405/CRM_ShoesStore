@@ -4,6 +4,7 @@ export type CustomerProfile = {
   dateOfBirth: string;
   gender: string | null;
   phone: string | null;
+  email: string | null;
   address: string | null;
   username: string;
   isLocked: boolean;
@@ -16,6 +17,7 @@ export type UpdateProfilePayload = {
   dateOfBirth?: string;
   gender?: string;
   phone?: string;
+  email?: string;
   address?: string;
 };
 

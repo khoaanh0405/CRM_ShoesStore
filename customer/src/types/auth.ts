@@ -6,6 +6,7 @@ export interface Customer {
   dateOfBirth: string;
   gender: string | null;
   phone: string | null;
+  email: string | null;
   address: string | null;
   isDeleted: boolean;
   deletedAt: string | null;
@@ -28,6 +29,7 @@ export interface RegisterPayload {
   username: string;
   password: string;
   fullName: string;
+  email: string;
   dateOfBirth: string;
   gender?: string;
   phone?: string;

@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { usePresence } from '@/hooks/usePresence';
 import LoginPage from '@/pages/auth/Login';
 import ForgotPasswordPage from '@/pages/auth/ForgotPassword';
+import ResetPasswordPage from '@/pages/auth/ResetPassword';
 import RegisterPage from '@/pages/auth/Register';
 import FeedbackCreatePage from '@/pages/FeedbackCreate';
 import FeedbacksPage from '@/pages/Feedbacks';
@@ -88,6 +89,7 @@ export default function App() {
           <Route path="/auth/login" element={authPage(<LoginPage />)} />
           <Route path="/auth/register" element={authPage(<RegisterPage />)} />
           <Route path="/auth/forgot-password" element={authPage(<ForgotPasswordPage />)} />
+          <Route path="/auth/reset-password" element={authPage(<ResetPasswordPage />)} />
 
           <Route path="/tabs" element={open(<HomePage />)} />
           <Route path="/tabs/products" element={open(<ProductsPage />)} />

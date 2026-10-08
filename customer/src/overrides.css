@@ -134,3 +134,82 @@
 .pager-btn:disabled { opacity: .4; cursor: not-allowed; }
 .pager-gap { padding: 0 4px; color: #71717A; }
 @media (max-width: 640px) { .pager { justify-content: center; } }
+
+/* =====================================================================
+   RESPONSIVE — máy tính bảng & điện thoại
+   ===================================================================== */
+html { -webkit-text-size-adjust: 100%; }
+img, svg, video { max-width: 100%; }
+body { overflow-x: hidden; }
+
+/* ----- Đăng nhập / Đăng ký / Quên mật khẩu ----- */
+.auth-form h1 { white-space: normal !important; }
+@media (max-width: 1100px) and (min-width: 901px) {
+  .auth-form > *:first-child { flex: 0 0 36%; }
+  .auth-form > *:nth-child(2) { padding: 12px 8px; }
+  .auth-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  .auth-page { padding: 16px 16px 40px; }
+  .auth-card { max-width: 560px; min-height: unset; padding: 20px; border-radius: 28px; }
+  .auth-form { flex-direction: column; }
+  .auth-form > *:first-child { display: none; }   /* banner trang trí: ẩn trên màn hình hẹp */
+  .auth-form > *:nth-child(2) { padding: 8px 4px; }
+}
+@media (max-width: 640px) {
+  .auth-page { padding: 12px 12px 32px; }
+  .auth-card { padding: 16px 14px; border-radius: 22px; }
+  .auth-grid { grid-template-columns: 1fr; }
+}
+
+/* ----- Máy tính bảng (≤ 1024px) ----- */
+@media (max-width: 1024px) {
+  .site-footer-inner { grid-template-columns: 1fr 1fr; }
+  .shop-layout, .pf-bar, .filter-bar { margin-left: 16px; margin-right: 16px; }
+}
+
+/* ----- Điện thoại (≤ 768px) ----- */
+@media (max-width: 768px) {
+  .screen-heading { font-size: 22px; }
+  .section-heading { font-size: 18px; }
+  .nav-bottom { padding-bottom: env(safe-area-inset-bottom, 0); }
+  .nav-bottom a { padding: 8px 0 10px; }
+  .banner-btn { width: 32px; height: 32px; }
+  .banner-btn.prev { left: 8px; }
+  .banner-btn.next { right: 8px; }
+  .panel { padding: 16px; border-radius: 20px; }
+  .account-layout { padding: 12px 12px 0; gap: 16px; }
+  .account-side { padding: 16px 12px 12px; border-radius: 20px; }
+  .account-menu button { padding: 10px 12px; font-size: 13px; }
+  .mini-stats { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+  .page-split { padding: 0 12px 24px; }
+  .pd-grid { padding: 16px 12px 0; }
+  .survey-grid, .cat-grid { gap: 10px; }
+  .pf-bar { margin: 12px 12px 0; }
+  .pf-active { margin: 12px 12px 0; }
+  .dlg { padding: 24px 18px 18px; border-radius: 22px; }
+  .lr-card { padding: 32px 20px; }
+  .lr-actions button { min-width: 0; flex: 1 1 140px; }
+  .pager-info { width: 100%; text-align: center; }
+  /* iOS tự phóng to khi chạm vào ô nhập có chữ < 16px */
+  input, textarea, select { font-size: 16px !important; }
+}
+
+/* ----- Điện thoại nhỏ (≤ 480px) ----- */
+@media (max-width: 480px) {
+  .screen-heading { font-size: 20px; }
+  .nav-top-inner { padding: 8px 12px; }
+  .header-search { height: 42px; padding: 0 4px 0 14px; }
+  .header-search button { padding: 0 14px; }
+  .header-actions { gap: 8px; }
+  .header-actions a:not(.icon-btn) { padding: 7px 12px !important; font-size: 13px !important; }
+  .header-actions a:not(.icon-btn) svg { display: none; }
+  .product-grid, .product-grid.cols-3 { gap: 10px; }
+  .cta-card { padding: 20px; min-height: 180px; }
+  .site-footer-inner { grid-template-columns: 1fr; padding: 28px 16px 20px; }
+  .pf-tab { padding: 9px 10px; font-size: 13px; gap: 6px; }
+  .pf-count { display: none; }
+  .account-content .pref-tile { padding: 14px; }
+  .pager-btn { min-width: 36px; height: 36px; padding: 0 8px; }
+  .dlg-actions { flex-direction: column-reverse; }
+}

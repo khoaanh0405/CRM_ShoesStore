@@ -14,21 +14,50 @@ interface AuthState {
   clear: () => void;
 }
 
-// Đổi từ localStorage -> sessionStorage: phiên đăng nhập chỉ tồn tại trong
-// tab/trình duyệt hiện tại, tự động "quên" khi đóng trình duyệt — không
-// còn lưu đăng nhập vĩnh viễn như trước.
-const stored = sessionStorage.getItem('user');
+/** Web quản trị chỉ dành cho Admin và Manager. */
+const ALLOWED_ROLES: RoleName[] = [ROLE_NAMES.ADMIN, ROLE_NAMES.MANAGER];
+export const isStaffRole = (roleName?: string | null): roleName is RoleName =>
+  !!roleName && (ALLOWED_ROLES as string[]).includes(roleName);
+
+function clearStorage() {
+  sessionStorage.removeItem('user');
+  sessionStorage.removeItem('token');
+}
+
+// Phiên chỉ tồn tại trong tab hiện tại (sessionStorage). Khi khôi phục phải kiểm tra
+// lại vai trò: dữ liệu bị sửa tay hoặc phiên của Customer đều bị xóa ngay.
+function readStoredUser(): AuthUser | null {
+  try {
+    const raw = sessionStorage.getItem('user');
+    if (!raw) return null;
+    const user = JSON.parse(raw) as AuthUser;
+    if (!isStaffRole(user?.role?.roleName)) {
+      clearStorage();
+      return null;
+    }
+    return user;
+  } catch {
+    clearStorage();
+    return null;
+  }
+}
+
+const initial = readStoredUser();
 
 export const useAuthStore = create<AuthState>((set) => ({
-  user: stored ? JSON.parse(stored) : null,
-  roleName: stored ? JSON.parse(stored).role?.roleName ?? null : null,
+  user: initial,
+  roleName: initial?.role?.roleName ?? null,
   setUser: (user) => {
+    if (!isStaffRole(user.role?.roleName)) {
+      clearStorage();
+      set({ user: null, roleName: null });
+      return;
+    }
     sessionStorage.setItem('user', JSON.stringify(user));
-    set({ user, roleName: user.role?.roleName ?? null });
+    set({ user, roleName: user.role!.roleName });
   },
   clear: () => {
-    sessionStorage.removeItem('user');
-    sessionStorage.removeItem('token');
+    clearStorage();
     set({ user: null, roleName: null });
   },
 }));

@@ -1,14 +1,24 @@
 import { Router } from 'express';
 import { feedbackController } from '../controllers/index.js';
 import { feedbackValidator } from '../validators/index.js';
-import { authenticate, managerOnly, rateLimit, ownCustomerOnly, feedbackSpamGuard } from '../middleware/index.js';
+import { authenticate, authorize, managerOnly, rateLimit, ownCustomerOnly, feedbackSpamGuard } from '../middleware/index.js';
+import { ROLE_NAMES } from '../constants/index.js';
 
 const router = Router();
 
 router.get('/', managerOnly, feedbackController.list);
 router.get('/:id', authenticate, feedbackValidator.idParam, feedbackController.getById);
 
-router.post('/', authenticate, feedbackValidator.create, feedbackController.create);
+router.post(
+  '/',
+  authenticate,
+  rateLimit({ windowMs: 10 * 60 * 1000, max: 5, message: 'Bạn gửi đánh giá quá nhiều lần.' }),
+  feedbackValidator.create,
+  ownCustomerOnly,
+  feedbackSpamGuard,
+  feedbackController.create
+);
+
 router.put(
   '/:id',
   authenticate,
@@ -24,16 +34,14 @@ router.patch(
   feedbackValidator.updateStatus,
   feedbackController.updateStatus
 );
-router.delete('/:id', managerOnly, feedbackValidator.idParam, feedbackController.remove);
 
-router.post(
-  '/',
+// Manager xóa bất kỳ; Customer chỉ thu hồi đánh giá Pending của chính mình (kiểm tra trong controller).
+router.delete(
+  '/:id',
   authenticate,
-  rateLimit({ windowMs: 10 * 60 * 1000, max: 5, message: 'Bạn gửi đánh giá quá nhiều lần.' }),
-  feedbackValidator.create,
-  ownCustomerOnly,
-  feedbackSpamGuard,
-  feedbackController.create
+  authorize(ROLE_NAMES.MANAGER, ROLE_NAMES.CUSTOMER),
+  feedbackValidator.idParam,
+  feedbackController.remove
 );
 
 export default router;
