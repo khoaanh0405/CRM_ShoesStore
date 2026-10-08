@@ -17,6 +17,11 @@ export const accountController = {
     res.json(await accountService.getById(accountId));
   },
 
+  /** Thông tin tài khoản đang đăng nhập. Đi qua authenticate nên tài khoản bị khóa sẽ nhận 401 ACCOUNT_LOCKED. */
+  async me(req, res) {
+    res.json(await accountService.getById(req.user.accountId));
+  },
+
   /** Khách hàng tự đăng ký — tạo Account + Customer trong 1 transaction. */
   async register(req, res) {
     const { username, password, fullName, email, dateOfBirth, gender, phone, address } = req.body;

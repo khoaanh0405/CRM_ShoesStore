@@ -4,6 +4,9 @@ import { API_BASE_URL, AUTH_ACCOUNT_KEY, AUTH_TOKEN_KEY } from '@/constants/conf
 /** Phát ra khi server báo token sai/hết hạn — AuthProvider lắng nghe để đăng xuất và cho khách đăng nhập lại. */
 export const AUTH_EXPIRED_EVENT = 'crm_shoesstore:auth-expired';
 
+/** Phát ra khi server báo tài khoản đang đăng nhập vừa bị khóa/xóa — AuthProvider đăng xuất, báo lý do và đưa về trang chủ. */
+export const ACCOUNT_LOCKED_EVENT = 'crm_shoesstore:account-locked';
+
 /**
  * Lỗi do chính ứng dụng tự ném ra (không phải lỗi từ server) mà message đã
  * viết sẵn cho người dùng đọc. getApiErrorMessage() sẽ hiển thị nguyên văn
@@ -45,9 +48,16 @@ apiClient.interceptors.response.use(
   (res) => res,
   (error) => {
     if (axios.isAxiosError(error) && error.response?.status === 401) {
-      const message = (error.response.data as { message?: string } | undefined)?.message ?? '';
+      const body = error.response.data as { code?: string; message?: string } | undefined;
+      const message = body?.message ?? '';
       const hadSession = !!localStorage.getItem(AUTH_TOKEN_KEY);
-      if (hadSession && /token/i.test(message)) {
+
+      if (hadSession && body?.code === 'ACCOUNT_LOCKED') {
+        // Đang đăng nhập thì bị Manager khóa (hoặc xóa) -> xóa phiên và báo cho app đá ra ngoài.
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+        localStorage.removeItem(AUTH_ACCOUNT_KEY);
+        window.dispatchEvent(new CustomEvent(ACCOUNT_LOCKED_EVENT, { detail: { message } }));
+      } else if (hadSession && /token/i.test(message)) {
         localStorage.removeItem(AUTH_TOKEN_KEY);
         localStorage.removeItem(AUTH_ACCOUNT_KEY);
         window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT)); // chỉ phát 1 lần: các request sau thấy hết phiên nên bỏ qua

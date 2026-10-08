@@ -5,7 +5,7 @@
  * (không gắn auth) — vì người dùng chưa có token. Các route còn lại đều yêu
  * cầu đăng nhập.
  *
- * Lưu ý thứ tự: các path chữ (/register, /login...) khai TRƯỚC /:id để Express
+ * Lưu ý thứ tự: các path chữ (/register, /login, /me...) khai TRƯỚC /:id để Express
  * không hiểu nhầm là giá trị của tham số :id.
  */
 import { Router } from 'express';
@@ -40,6 +40,9 @@ router.post(
 );
 
 // --- Cần đăng nhập ---
+// Frontend gọi định kỳ để phát hiện tài khoản vừa bị khóa (authenticate trả 401 ACCOUNT_LOCKED).
+router.get('/me', authenticate, accountController.me);
+
 router.patch(
   '/:id/password',
   authenticate,

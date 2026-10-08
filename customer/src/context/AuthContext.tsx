@@ -1,9 +1,10 @@
 import { AUTH_ACCOUNT_KEY, AUTH_TOKEN_KEY } from '@/constants/config';
 import { showAlert } from '@/lib/dialog';
-import { AUTH_EXPIRED_EVENT, ClientError } from '@/services/api-client';
+import { ACCOUNT_LOCKED_EVENT, AUTH_EXPIRED_EVENT, ClientError, apiClient } from '@/services/api-client';
 import { authService } from '@/services/auth.service';
 import type { Account, LoginPayload, RegisterPayload } from '@/types/auth';
 import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 type AuthStatus = 'loading' | 'signedIn' | 'signedOut';
 
@@ -49,6 +50,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [account, setAccount] = useState<Account | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     try {
@@ -86,6 +88,32 @@ export function AuthProvider({ children }: PropsWithChildren) {
     window.addEventListener(AUTH_EXPIRED_EVENT, onExpired);
     return () => window.removeEventListener(AUTH_EXPIRED_EVENT, onExpired);
   }, []);
+
+  // Đang đăng nhập mà bị khóa/xóa tài khoản -> báo lý do rồi đưa về trang chủ như người chưa đăng nhập.
+  useEffect(() => {
+    const onLocked = (e: Event) => {
+      const message = (e as CustomEvent<{ message?: string }>).detail?.message
+        || 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.';
+      clearSession();
+      setToken(null);
+      setAccount(null);
+      setStatus('signedOut');
+      navigate('/tabs', { replace: true });
+      void showAlert({ title: 'Tài khoản đã bị khóa', message, tone: 'error' });
+    };
+    window.addEventListener(ACCOUNT_LOCKED_EVENT, onLocked);
+    return () => window.removeEventListener(ACCOUNT_LOCKED_EVENT, onLocked);
+  }, [navigate]);
+
+  // Kiểm tra định kỳ (10 giây) và khi quay lại tab: nếu tài khoản vừa bị khóa, server trả 401 ACCOUNT_LOCKED
+  // và interceptor ở api-client sẽ phát sự kiện phía trên. Không cần chờ khách hàng bấm thao tác nào.
+  useEffect(() => {
+    if (status !== 'signedIn') return;
+    const check = () => { if (!document.hidden) apiClient.get('/accounts/me').catch(() => {}); };
+    const timer = setInterval(check, 10000);
+    window.addEventListener('focus', check);
+    return () => { clearInterval(timer); window.removeEventListener('focus', check); };
+  }, [status]);
 
   const login = async (payload: LoginPayload) => {
     const { token: newToken, account: newAccount } = await authService.login(payload);
