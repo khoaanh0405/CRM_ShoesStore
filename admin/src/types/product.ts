@@ -19,6 +19,8 @@ export interface Product {
   size?: string | null;
   color?: string | null;
   material?: string | null;
+  categoryId?: number | null;
+  description?: string | null;
   price: number | string;
   stockQuantity: number;
   isActive: boolean;

@@ -10,7 +10,7 @@ export const surveyRepository = {
   findAll({ isActive } = {}) {
     return prisma.survey.findMany({
       where: typeof isActive === 'boolean' ? { isActive } : undefined,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { surveyId: 'desc' },
       include: {
         product: { select: PRODUCT_SELECT },
         creator: { select: CREATOR_SELECT },

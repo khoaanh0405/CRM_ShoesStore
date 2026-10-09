@@ -7,6 +7,7 @@ export type Product = {
   size: string | null;
   color: string | null;
   material: string | null;
+  description?: string | null;
   price: string | number;
   stockQuantity: number;
   isActive: boolean;

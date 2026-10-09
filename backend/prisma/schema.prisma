@@ -74,9 +74,10 @@ model Product {
   categoryId    Int?       @map("category_id")
   productName   String     @map("product_name") @db.VarChar(150)
   brand         String?    @db.VarChar(50)
-  size          String?    @db.VarChar(10)
+  size          String?    @db.VarChar(50)
   color         String?    @db.VarChar(30)
   material      String?    @db.VarChar(50)
+  description   String?    @db.Text
   price         Decimal    @db.Decimal(18, 2)
   stockQuantity Int        @default(0) @map("stock_quantity")
   isActive      Boolean    @default(true) @map("is_active")
@@ -85,6 +86,7 @@ model Product {
   supplier      Supplier   @relation(fields: [supplierId], references: [supplierId])
   category      Category?  @relation(fields: [categoryId], references: [categoryId], onDelete: Restrict)
   surveys       Survey[]
+
 
   @@index([supplierId])
   @@index([categoryId])

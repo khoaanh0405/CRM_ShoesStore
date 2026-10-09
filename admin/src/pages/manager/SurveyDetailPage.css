@@ -731,3 +731,16 @@
   border-left: 3px solid var(--color-primary);
   font-style: italic;
 }
+
+/* ===== Gọn bảng để hiện đủ cột Thao tác, không phải kéo ngang ===== */
+.feedbacks-page { padding: 28px 24px; }
+.feedbacks-table th,
+.feedbacks-table td { padding: 12px 10px; }
+.col-product .product-name { max-width: 130px; }
+.feedbacks-table .col-title .feedback-title { max-width: 150px; }
+.feedbacks-table th.col-actions,
+.feedbacks-table td.col-actions { width: 1%; min-width: 0; }
+.feedbacks-table .action-group { gap: 6px !important; }
+.feedbacks-table .action-btn { min-width: 0 !important; padding: 0 10px !important; }
+.feedbacks-table .rating-value { display: none; }
+.customer-avatar img { width: 28px; height: 28px; }

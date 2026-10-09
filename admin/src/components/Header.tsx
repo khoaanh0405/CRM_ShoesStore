@@ -15,7 +15,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   const roleName = useAuthStore((s) => s.roleName);
 
   const displayName = user?.username ?? 'User';
-  const roleLabel = roleName === 'Manager' ? 'Quản lý CRM' : roleName === 'Admin' ? 'Admin' : roleName ?? '';
+  const roleLabel = roleName ?? '';
 
   const handleLogout = () => {
     logout();
@@ -30,7 +30,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
         </button>
         <div className="header-brand">
           <LayoutDashboard size={20} className="brand-icon" />
-          <span className="brand-name">CRM Shoes Store</span>
+          <span className="brand-name">OURAN</span>
         </div>
       </div>
       <div className="header-right">

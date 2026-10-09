@@ -195,18 +195,26 @@ const FeedbackModal: React.FC<{
               );
             })}
 
-            <div className="reply-form">
-              <textarea
-                rows={3}
-                maxLength={2000}
-                placeholder="Nhập phản hồi gửi tới khách hàng..."
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-              />
-              <button className="btn btn-approve reply-send" onClick={sendReply} disabled={sending}>
-                <Send size={15} /> {sending ? 'Đang gửi...' : 'Gửi phản hồi'}
-              </button>
-            </div>
+                        {feedback.status === 'Approved' ? (
+              <div className="reply-form">
+                <textarea
+                  rows={3}
+                  maxLength={2000}
+                  placeholder="Nhập phản hồi gửi tới khách hàng..."
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                />
+                <button className="btn btn-approve reply-send" onClick={sendReply} disabled={sending}>
+                  <Send size={15} /> {sending ? 'Đang gửi...' : 'Gửi phản hồi'}
+                </button>
+              </div>
+            ) : (
+              <p className="reply-empty">
+                {feedback.status === 'Pending'
+                  ? 'Hãy duyệt đánh giá này trước, sau đó bạn mới có thể trả lời khách hàng.'
+                  : 'Đánh giá đã bị từ chối nên không thể trả lời.'}
+              </p>
+            )}
           </div>
         </div>
 
@@ -244,7 +252,8 @@ const FeedbacksPage: React.FC = () => {
     if (!silent) setLoading(true);
     try {
       const data = await getFeedbacks();
-      setFeedbacks(data);
+      const sorted = [...data].sort((a: Feedback, b: Feedback) => b.feedbackId - a.feedbackId);
+      setFeedbacks(sorted);
 
       // Đồng bộ modal đang mở với dữ liệu mới nhất (vd. trạng thái vừa đổi ở nơi khác)
       setSelectedFeedback((prev) =>

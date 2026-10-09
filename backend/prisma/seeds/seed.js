@@ -30,7 +30,8 @@ const daysAgo = (n, hour = 10) => {
   const d = new Date();
   d.setDate(d.getDate() - n);
   d.setHours(hour, Math.floor(rand() * 60), 0, 0);
-  return d;
+  const now = new Date();
+  return d > now ? now : d;
 };
 
 // Ngày tạo tài khoản ngẫu nhiên (RNG riêng để không làm đổi dữ liệu demo khác).

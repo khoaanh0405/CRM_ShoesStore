@@ -43,11 +43,19 @@ const ACTIONS: Record<string, { label: string; tone: Tone }> = {
   CREATE_CATEGORY: { label: 'Thêm danh mục', tone: 'green' },
   UPDATE_CATEGORY: { label: 'Sửa danh mục', tone: 'blue' },
   DELETE_CATEGORY: { label: 'Xóa danh mục', tone: 'red' },
+  CREATE_SUPPLIER: { label: 'Thêm nhà cung cấp', tone: 'green' },
+  UPDATE_SUPPLIER: { label: 'Sửa nhà cung cấp', tone: 'blue' },
+  DELETE_SUPPLIER: { label: 'Xóa nhà cung cấp', tone: 'red' },
+  CREATE_BANNER: { label: 'Thêm banner', tone: 'green' },
+  UPDATE_BANNER: { label: 'Sửa banner', tone: 'blue' },
+  TOGGLE_BANNER: { label: 'Bật/ẩn banner', tone: 'amber' },
+  DELETE_BANNER: { label: 'Xóa banner', tone: 'red' },
 };
 
 const ENTITIES: Record<string, string> = {
   Account: 'Tài khoản', Customer: 'Khách hàng', Feedback: 'Đánh giá', ReviewReply: 'Phản hồi',
   Survey: 'Khảo sát', Product: 'Sản phẩm', Category: 'Danh mục',
+  Supplier: 'Nhà cung cấp', Banner: 'Banner',
 };
 
 const fmtTime = (iso: string) => {
@@ -122,7 +130,7 @@ const AuditLogsPage: React.FC = () => {
         </select>
         <input className="al-select" type="date" value={draft.from} onChange={set('from')} title="Từ ngày" />
         <input className="al-select" type="date" value={draft.to} onChange={set('to')} title="Đến ngày" />
-        <button type="submit" className="al-btn"><Search size={15} /> Lọc</button>
+        <button type="submit" className="al-btn"><Search size={15} /> Tìm kiếm</button>
         <button type="button" className="al-btn ghost" onClick={reset}><X size={15} /> Xóa lọc</button>
       </form>
 

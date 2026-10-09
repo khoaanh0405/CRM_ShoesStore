@@ -12,7 +12,7 @@ interface SidebarProps {
 const adminMenu = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/accounts', label: 'Quản lý tài khoản', icon: Users },
-  { to: '/products', label: 'Quản lý sản phẩm, danh mục & nhà cung cấp', icon: Package },
+  { to: '/products', label: 'Quản lý hàng hóa', icon: Package },
   { to: '/audit-logs', label: 'Nhật ký hoạt động', icon: History },
 ];
 const managerMenu = [
@@ -25,7 +25,7 @@ const managerMenu = [
 const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
   const roleName = useAuthStore((s) => s.roleName);
   const menu = roleName === ROLE_NAMES.MANAGER ? managerMenu : adminMenu;
-  const title = roleName === ROLE_NAMES.MANAGER ? 'Quản lý CRM' : 'Admin';
+  const title = roleName === ROLE_NAMES.MANAGER ? 'Manager' : 'Admin';
 
   return (
     <aside className={`sidebar ${isOpen ? 'open' : 'closed'}`}>

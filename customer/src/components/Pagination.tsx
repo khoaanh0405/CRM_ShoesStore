@@ -17,15 +17,12 @@ function getPages(page: number, total: number): (number | 'gap')[] {
   return out;
 }
 
-export function Pagination({ page, totalPages, totalItems, pageSize, onChange }: Props) {
-  if (totalItems <= 0) return null; // luôn hiện thanh phân trang, kể cả khi chỉ có 1 trang
-  const from = (page - 1) * pageSize + 1;
-  const to = Math.min(page * pageSize, totalItems);
+export function Pagination({ page, totalPages, totalItems, onChange }: Props) {
+  if (totalItems <= 0) return null;
 
   return (
-    <nav className="pager" aria-label="Phân trang">
-      <span className="pager-info">Hiển thị {from}–{to} / {totalItems} sản phẩm</span>
-      <div className="pager-list">
+    <nav className="pager" aria-label="Phân trang" style={{ justifyContent: 'center' }}>
+      <div className="pager-list" style={{ justifyContent: 'center' }}>
         <button className="pager-btn" onClick={() => onChange(page - 1)} disabled={page === 1} aria-label="Trang trước"><ChevronLeft size={18} /></button>
         {getPages(page, totalPages).map((p, i) => p === 'gap'
           ? <span key={`g${i}`} className="pager-gap">…</span>

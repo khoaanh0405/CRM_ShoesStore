@@ -17,7 +17,7 @@ export const feedbackRepository = {
         ...(productId && { productId }),
         ...(customerId && { customerId }),
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { feedbackId: 'desc' },
       include: { customer: true, product: true, replies: REPLIES },
     });
   },
@@ -32,7 +32,7 @@ export const feedbackRepository = {
   findByCustomer(customerId) {
     return prisma.feedback.findMany({
       where: { customerId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { feedbackId: 'desc' },
       include: { replies: REPLIES },
     });
   },
@@ -40,7 +40,7 @@ export const feedbackRepository = {
   findByProduct(productId) {
     return prisma.feedback.findMany({
       where: { productId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { feedbackId: 'desc' },
       include: { replies: REPLIES },
     });
   },

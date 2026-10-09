@@ -23,25 +23,28 @@ const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       {
-        element: <App />,
+        element: <App />, // layout có Header + Sidebar + <Outlet />
         children: [
           { index: true, element: <RoleDashboard /> },
           { path: 'profile', element: <ProfilePage /> },
+
+          // --- Admin ---
           { path: 'accounts', element: <RoleGuard allow={[ROLE_NAMES.ADMIN]}><AccountManagement /></RoleGuard> },
           { path: 'products', element: <RoleGuard allow={[ROLE_NAMES.ADMIN]}><ProductsPage /></RoleGuard> },
+          { path: 'audit-logs', element: <RoleGuard allow={[ROLE_NAMES.ADMIN]}><AuditLogsPage /></RoleGuard> },
+
+          // --- Manager ---
           { path: 'customers', element: <RoleGuard allow={[ROLE_NAMES.MANAGER]}><CustomersPage /></RoleGuard> },
           { path: 'feedbacks', element: <RoleGuard allow={[ROLE_NAMES.MANAGER]}><FeedbacksPage /></RoleGuard> },
           { path: 'surveys', element: <RoleGuard allow={[ROLE_NAMES.MANAGER]}><SurveysPage /></RoleGuard> },
           { path: 'surveys/:surveyId', element: <RoleGuard allow={[ROLE_NAMES.MANAGER]}><SurveyDetailPage /></RoleGuard> },
+
+          // Đường dẫn không tồn tại -> về trang chủ (luôn để cuối)
           { path: '*', element: <Navigate to="/" replace /> },
         ],
       },
     ],
   },
-    {
-      path: 'audit-logs',
-      element: <RoleGuard allow={['Admin']}><AuditLogsPage /></RoleGuard>,
-    },
 ]);
 
 export default router;

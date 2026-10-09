@@ -47,7 +47,8 @@ export const productService = {
 
     return productRepository.create({
       supplierId, categoryId: resolvedCategoryId, productName: productName.trim(),
-      brand, size, color, material, price: priceNum, stockQuantity, isActive, imageUrl,
+      brand, size, color, material, description: description?.trim() || null,
+      price: priceNum, stockQuantity, isActive, imageUrl,
     });
   },
 

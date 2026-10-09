@@ -1,8 +1,8 @@
 import { reviewReplyRepository } from '../repositories/reviewReply.repository.js';
 import { feedbackRepository } from '../repositories/feedback.repository.js';
 import { notificationService } from './notification.service.js';
-import { NotFoundError, ValidationError, ForbiddenError } from '../errors/AppError.js';
-import { MESSAGES } from '../constants/index.js';
+import { NotFoundError, ValidationError, ForbiddenError, ConflictError } from '../errors/AppError.js';
+import { MESSAGES, FEEDBACK_STATUS } from '../constants/index.js';
 import { NOTIFICATION_TYPE, NOTIFICATION_REF_TYPE } from '../constants/notification.constant.js';
 
 const MAX_LEN = 2000;
@@ -31,6 +31,9 @@ export const reviewReplyService = {
     const text = cleanContent(content);
     const fb = await feedbackRepository.findById(feedbackId);
     if (!fb) throw new NotFoundError(MESSAGES.NOT_FOUND.FEEDBACK);
+    if (fb.status !== FEEDBACK_STATUS.APPROVED) {
+      throw new ConflictError('Chỉ được trả lời những đánh giá đã được duyệt.');
+    }
     const reply = await reviewReplyRepository.create({ feedbackId, accountId, content: text });
 
     // Báo cho khách hàng (không để lỗi thông báo làm hỏng việc trả lời)

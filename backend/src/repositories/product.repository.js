@@ -64,12 +64,12 @@ export const productRepository = {
   },
 
   async create({
-    supplierId, categoryId = null, productName, brand, size, color, material,
+    supplierId, categoryId = null, productName, brand, size, color, material, description,
     price, stockQuantity = 0, isActive = true, imageUrl,
   }) {
     return flatten(await prisma.product.create({
       data: {
-        supplierId, categoryId, productName, brand, size, color, material,
+        supplierId, categoryId, productName, brand, size, color, material, description,
         price, stockQuantity, isActive, imageUrl,
       },
       include: INCLUDE,
