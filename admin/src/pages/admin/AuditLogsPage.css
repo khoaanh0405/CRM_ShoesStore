@@ -2,45 +2,41 @@
 .al-title { display: flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 700; color: var(--color-text-main); margin: 0 0 4px; }
 .al-sub { color: var(--color-text-muted); font-size: 13.5px; margin: 0 0 20px; }
 
-/* ===== Thanh lọc: 1 hàng, các ô cao 40px đồng đều ===== */
-.al-toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; align-items: center; }
+/* ===== Thanh lọc: gọn, 1 hàng ở màn hình rộng ===== */
+/* ===== Thanh lọc: 1 hàng, chữ rõ ===== */
+.al-toolbar { display: flex; flex-wrap: nowrap; gap: 8px; margin-bottom: 20px; align-items: center; }
 
 .al-search {
   display: flex; align-items: center; gap: 8px;
-  flex: 1 1 220px; min-width: 200px; height: 40px; padding: 0 14px;
+  flex: 1 1 200px; min-width: 180px; height: 40px; padding: 0 14px;
   background: #fff; border: 1.5px solid var(--color-border); border-radius: 999px;
   color: var(--color-text-muted); box-sizing: border-box;
 }
-.al-search:focus-within { border-color: var(--color-primary); box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.14); }
-.al-search input { flex: 1; min-width: 0; border: none; outline: none; background: transparent; font: inherit; font-size: 13.5px; color: var(--color-text-main); }
+.al-search:focus-within { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.14); }
+.al-search input { flex: 1; min-width: 0; border: none; outline: none; background: transparent; font: inherit; font-size: 14px; color: var(--color-text-main); }
 
 .al-select {
   height: 40px; padding: 0 12px; box-sizing: border-box;
   border-radius: 999px; border: 1.5px solid var(--color-border);
-  background: #fff; font: inherit; font-size: 13px; color: var(--color-text-main);
-  width: 140px; flex: 0 0 auto;
+  background: #fff; font: inherit; font-size: 14px; color: var(--color-text-main);
+  width: 150px; flex: 0 0 auto;
 }
-.al-select[type="date"] { width: 142px; }
+.al-select[type="date"] { width: 150px; }
 .al-select:focus { outline: none; border-color: var(--color-primary); }
 
-/* Nút: cùng chiều cao, không bị co hay xuống dòng chữ */
 .al-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  height: 40px; padding: 0 18px; box-sizing: border-box;
+  height: 40px; padding: 0 22px; box-sizing: border-box;
   border: none; border-radius: 999px; cursor: pointer;
   background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
-  color: #fff; font-family: inherit; font-weight: 700; font-size: 13.5px;
+  color: #fff; font-family: inherit; font-weight: 700; font-size: 14px;
   white-space: nowrap; flex: 0 0 auto;
   box-shadow: 0 2px 8px rgba(124, 58, 237, 0.25);
   transition: filter .15s, box-shadow .15s, transform .15s;
 }
 .al-btn:hover { filter: brightness(1.05); box-shadow: 0 6px 16px rgba(124, 58, 237, 0.32); }
 .al-btn:active { transform: translateY(1px); }
-
-.al-btn.ghost {
-  background: #fff; color: var(--color-text-muted);
-  border: 1.5px solid var(--color-border); box-shadow: none;
-}
+.al-btn.ghost { background: #fff; color: var(--color-text-muted); border: 1.5px solid var(--color-border); box-shadow: none; }
 .al-btn.ghost:hover { color: var(--color-primary); border-color: var(--color-primary); filter: none; box-shadow: none; }
 
 /* ===== Bảng ===== */
@@ -67,7 +63,9 @@
 .al-tag.blue { background: #DBEAFE; color: #2563EB; }
 .al-tag.purple { background: #EDE4FD; color: #7C3AED; }
 
-@media (max-width: 900px) {
-  .al-select, .al-select[type="date"] { flex: 1 1 calc(50% - 8px); width: auto; }
+@media (max-width: 1180px) {
+  .al-toolbar { flex-wrap: wrap; }
+  .al-search { flex: 1 1 100%; }
+  .al-select, .al-select[type="date"] { flex: 1 1 calc(33% - 6px); width: auto; }
 }
 @media (max-width: 768px) { .al-page { padding: 20px; } }

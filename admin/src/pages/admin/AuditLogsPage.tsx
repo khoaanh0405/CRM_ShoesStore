@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Search, X, History } from 'lucide-react';
+import { Search, History } from 'lucide-react';
 import api from '../../utils/api';
 import Pagination from '../../components/Pagination';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
@@ -96,7 +96,6 @@ const AuditLogsPage: React.FC = () => {
     setFilters(draft);
     setPage(1);
   };
-  const reset = () => { setDraft(EMPTY); setFilters(EMPTY); setPage(1); };
 
   const set = (k: keyof typeof EMPTY) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setDraft((d) => ({ ...d, [k]: e.target.value }));
@@ -131,7 +130,6 @@ const AuditLogsPage: React.FC = () => {
         <input className="al-select" type="date" value={draft.from} onChange={set('from')} title="Từ ngày" />
         <input className="al-select" type="date" value={draft.to} onChange={set('to')} title="Đến ngày" />
         <button type="submit" className="al-btn"><Search size={15} /> Tìm kiếm</button>
-        <button type="button" className="al-btn ghost" onClick={reset}><X size={15} /> Xóa lọc</button>
       </form>
 
       <div className="al-card">

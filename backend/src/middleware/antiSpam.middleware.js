@@ -47,7 +47,7 @@ export async function feedbackSpamGuard(req, res, next) {
     const since = new Date(Date.now() - 24 * 3600 * 1000);
 
     const [last, dailyCount, pendingSame] = await Promise.all([
-      prisma.feedback.findFirst({ where: { customerId }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } }),
+      prisma.feedback.findFirst({ where: { customerId, productId, status: FEEDBACK_STATUS.PENDING, isDeleted: false }, select: { feedbackId: true } }),
       prisma.feedback.count({ where: { customerId, createdAt: { gte: since } } }),
       prisma.feedback.findFirst({ where: { customerId, productId, status: FEEDBACK_STATUS.PENDING }, select: { feedbackId: true } }),
     ]);

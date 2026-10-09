@@ -11,7 +11,6 @@ const PRODUCT_FIELDS = {
   size: { type: 'string', maxLength: 50 },
   color: { type: 'string', maxLength: 30 },
   material: { type: 'string', maxLength: 50 },
-  description: { type: 'string', maxLength: 5000 },
   price: { type: 'number', min: 0 },
   stockQuantity: { type: 'int', min: 0 },
   isActive: { type: 'boolean' },

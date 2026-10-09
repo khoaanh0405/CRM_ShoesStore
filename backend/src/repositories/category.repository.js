@@ -1,15 +1,19 @@
 import prisma from '../config/database.js';
 
+const ALIVE = { isDeleted: false };
+
 export const categoryRepository = {
   findAll() {
     return prisma.category.findMany({
+      where: ALIVE,
       orderBy: { categoryName: 'asc' },
       include: { _count: { select: { products: true } } },
     });
   },
   findById(categoryId) {
-    return prisma.category.findUnique({ where: { categoryId } });
+    return prisma.category.findFirst({ where: { categoryId, ...ALIVE } });
   },
+  /** Tìm cả bản đã xóa mềm (để khôi phục khi tạo lại cùng tên). */
   findByNameExact(categoryName) {
     return prisma.category.findFirst({
       where: { categoryName: { equals: categoryName, mode: 'insensitive' } },
@@ -24,8 +28,18 @@ export const categoryRepository = {
   update(categoryId, { categoryName, description }) {
     return prisma.category.update({ where: { categoryId }, data: { categoryName, description } });
   },
+  restore(categoryId, { categoryName, description }) {
+    return prisma.category.update({
+      where: { categoryId },
+      data: { categoryName, description, isDeleted: false, deletedAt: null },
+    });
+  },
+  /** XÓA MỀM */
   remove(categoryId) {
-    return prisma.category.delete({ where: { categoryId } });
+    return prisma.category.update({
+      where: { categoryId },
+      data: { isDeleted: true, deletedAt: new Date() },
+    });
   },
 };
 

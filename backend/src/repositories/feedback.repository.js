@@ -1,18 +1,17 @@
-/**
- * Repository cho Feedback. Mọi truy vấn đọc đều kèm `replies` (ReviewReply)
- * để Manager xem và khách hàng thấy phản hồi của cửa hàng.
- */
 import prisma from '../config/database.js';
 
 const REPLIES = {
+  where: { isDeleted: false },
   orderBy: { createdAt: 'asc' },
   include: { account: { select: { accountId: true, username: true } } },
 };
+const ALIVE = { isDeleted: false };
 
 export const feedbackRepository = {
   findAll({ status, productId, customerId } = {}) {
     return prisma.feedback.findMany({
       where: {
+        ...ALIVE,
         ...(status && { status }),
         ...(productId && { productId }),
         ...(customerId && { customerId }),
@@ -23,15 +22,15 @@ export const feedbackRepository = {
   },
 
   findById(feedbackId) {
-    return prisma.feedback.findUnique({
-      where: { feedbackId },
+    return prisma.feedback.findFirst({
+      where: { feedbackId, ...ALIVE },
       include: { customer: true, product: true, replies: REPLIES },
     });
   },
 
   findByCustomer(customerId) {
     return prisma.feedback.findMany({
-      where: { customerId },
+      where: { customerId, ...ALIVE },
       orderBy: { feedbackId: 'desc' },
       include: { replies: REPLIES },
     });
@@ -39,14 +38,14 @@ export const feedbackRepository = {
 
   findByProduct(productId) {
     return prisma.feedback.findMany({
-      where: { productId },
+      where: { productId, ...ALIVE },
       orderBy: { feedbackId: 'desc' },
       include: { replies: REPLIES },
     });
   },
 
   findByStatus(status) {
-    return prisma.feedback.findMany({ where: { status }, orderBy: { createdAt: 'desc' } });
+    return prisma.feedback.findMany({ where: { status, ...ALIVE }, orderBy: { feedbackId: 'desc' } });
   },
 
   create({ customerId, productId, title, content, rating, imageUrl }) {
@@ -56,18 +55,19 @@ export const feedbackRepository = {
   },
 
   update(feedbackId, { title, content, rating, imageUrl }) {
-    return prisma.feedback.update({
-      where: { feedbackId },
-      data: { title, content, rating, imageUrl },
-    });
+    return prisma.feedback.update({ where: { feedbackId }, data: { title, content, rating, imageUrl } });
   },
 
   updateStatus(feedbackId, status) {
     return prisma.feedback.update({ where: { feedbackId }, data: { status } });
   },
 
+  /** XÓA MỀM: giữ lại dữ liệu, chỉ ẩn khỏi mọi danh sách. */
   remove(feedbackId) {
-    return prisma.feedback.delete({ where: { feedbackId } });
+    return prisma.feedback.update({
+      where: { feedbackId },
+      data: { isDeleted: true, deletedAt: new Date() },
+    });
   },
 };
 

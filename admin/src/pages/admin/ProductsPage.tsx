@@ -17,7 +17,7 @@ import './BannerManager.css';
 
 type Tab = 'products' | 'categories' | 'suppliers' | 'banners';
 type SupplierRow = Supplier & { _count?: { products: number } };
-type ProductRow = Product & { categoryId?: number | null; description?: string | null };
+type ProductRow = Product & { categoryId?: number | null };
 interface Banner { bannerId: number; imageUrl: string; title?: string | null; sortOrder: number; isActive: boolean }
 interface CategoryRow { categoryId: number; categoryName: string; description?: string | null; productCount: number }
 
@@ -127,7 +127,7 @@ const Modal: React.FC<{ title: string; onClose: () => void; wide?: boolean; foot
   </div>
 );
 
-const EMPTY_P = { productName: '', supplierId: '', categoryId: '', brand: '', material: '', description: '', size: '', color: '', price: '', stockQuantity: '0', imageUrl: '' };
+const EMPTY_P = { productName: '', supplierId: '', categoryId: '', brand: '', material: '', size: '', color: '', price: '', stockQuantity: '0', imageUrl: '' };
 const EMPTY_S = { supplierName: '', phone: '', email: '', address: '' };
 const EMPTY_B = { imageUrl: '', title: '', sortOrder: '0', isActive: true };
 const EMPTY_C = { categoryName: '', description: '' };
@@ -216,7 +216,7 @@ const ProductsPage: React.FC = () => {
     setPf(p ? {
       productName: p.productName, supplierId: String(p.supplierId),
       categoryId: p.categoryId ? String(p.categoryId) : '',
-      brand: p.brand ?? '', material: p.material ?? '', description: p.description ?? '',
+      brand: p.brand ?? '', material: p.material ?? '',
       size: p.size ?? '', color: p.color ?? '',
       price: String(Number(p.price)), stockQuantity: String(p.stockQuantity), imageUrl: p.imageUrl ?? '',
     } : EMPTY_P);
@@ -237,7 +237,6 @@ const ProductsPage: React.FC = () => {
       productName: pf.productName.trim(),
       brand: pf.brand.trim() || undefined,
       material: pf.material.trim() || undefined,
-      description: pf.description.trim() || null,
       size: pf.size.trim() || undefined,
       color: pf.color.trim() || undefined,
       price,
@@ -624,18 +623,6 @@ const ProductsPage: React.FC = () => {
             <div className="form-group">
               <label className="form-label">Tồn kho</label>
               <input className="form-input" type="number" min={0} value={pf.stockQuantity} onChange={setP('stockQuantity')} />
-            </div>
-                        <div className="form-group full-width">
-              <label className="form-label">Mô tả sản phẩm (hiển thị ở trang chi tiết của khách hàng)</label>
-              <textarea
-                className="form-input"
-                rows={5}
-                maxLength={5000}
-                placeholder="Viết mô tả sản phẩm, thông số kỹ thuật, hướng dẫn sử dụng, bảo hành, v.v..."
-                value={pf.description}
-                onChange={(e) => setPf({ ...pf, description: e.target.value })}
-                style={{ resize: 'vertical' }}
-              />
             </div>
             <div className="form-group full-width">
               <label className="form-label">Ảnh sản phẩm</label>
