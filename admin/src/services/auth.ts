@@ -1,30 +1,25 @@
 import api from '../utils/api';
+import { useAuthStore, isStaffRole } from '../store/useAuthStore';
 
 export const login = async (username: string, password: string) => {
   const response = await api.post('/accounts/login', { username, password });
-  
-  if (response.data && response.data.account) {
-    const roleName = response.data.account.role?.roleName;
-    if (roleName !== 'Admin') {
-      throw new Error('Tài khoản mật khẩu admin sai');
-    }
+  const account = response.data?.account;
+
+  // Chặn Customer (và mọi vai trò khác Admin/Manager): không lưu token, không lưu user.
+  if (!isStaffRole(account?.role?.roleName)) {
+    useAuthStore.getState().clear();
+    throw new Error('Tài khoản khách hàng không thể đăng nhập vào trang quản trị.');
   }
 
-  if (response.data && response.data.token) {
-    localStorage.setItem('token', response.data.token);
-    // Lưu thêm thông tin user nếu cần
-    if (response.data.account) {
-      localStorage.setItem('user', JSON.stringify(response.data.account));
-    }
+  if (response.data?.token) {
+    sessionStorage.setItem('token', response.data.token);
+    useAuthStore.getState().setUser(account);
   }
   return response.data;
 };
 
-export const logout = () => {
-  localStorage.removeItem('token');
-  localStorage.removeItem('user');
-};
+export const logout = () => useAuthStore.getState().clear();
 
-export const isAuthenticated = () => {
-  return !!localStorage.getItem('token');
-};
+// Đã đăng nhập hợp lệ = có token VÀ có user với vai trò quản trị.
+export const isAuthenticated = () =>
+  !!sessionStorage.getItem('token') && isStaffRole(useAuthStore.getState().roleName);

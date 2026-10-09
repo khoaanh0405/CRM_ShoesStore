@@ -9,18 +9,18 @@
 import { Router } from 'express';
 import { surveyQuestionOptionController } from '../controllers/index.js';
 import { surveyQuestionOptionValidator } from '../validators/index.js';
-import { adminOnly } from '../middleware/index.js';
+import { managerOnly } from '../middleware/index.js';
 
 const router = Router();
 
-router.post('/', adminOnly, surveyQuestionOptionValidator.create, surveyQuestionOptionController.create);
+router.post('/', managerOnly, surveyQuestionOptionValidator.create, surveyQuestionOptionController.create);
 router.put(
   '/:id',
-  adminOnly,
+  managerOnly,
   surveyQuestionOptionValidator.idParam,
   surveyQuestionOptionValidator.update,
   surveyQuestionOptionController.update
 );
-router.delete('/:id', adminOnly, surveyQuestionOptionValidator.idParam, surveyQuestionOptionController.remove);
+router.delete('/:id', managerOnly, surveyQuestionOptionValidator.idParam, surveyQuestionOptionController.remove);
 
 export default router;

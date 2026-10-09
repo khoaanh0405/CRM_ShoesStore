@@ -2,6 +2,8 @@
  * Controller cho Customer. DELETE /api/customers/:id gọi customerService.remove()
  * — vốn là SOFT DELETE, dữ liệu lịch sử vẫn giữ nguyên.
  */
+import { auditLogService } from '../services/auditLog.service.js';
+import { AUDIT_ACTION, AUDIT_ENTITY } from '../constants/audit.constant.js';
 import { customerService } from '../services/index.js';
 import { parseId, parseBoolean } from '../utils/index.js';
 
@@ -41,18 +43,23 @@ export const customerController = {
    */
   async updateProfile(req, res) {
     const customerId = parseId(req.params.id, 'customerId');
-    const { fullName, dateOfBirth, gender, phone, address } = req.body;
+    const { fullName, dateOfBirth, gender, phone, email, address } = req.body;
     const requesterId = req.user?.customerId;
     res.json(await customerService.updateProfile(
       customerId,
-      { fullName, dateOfBirth, gender, phone, address },
+      { fullName, dateOfBirth, gender, phone, email, address },
       requesterId
     ));
   },
 
-  async remove(req, res) {
+    async remove(req, res) {
     const customerId = parseId(req.params.id, 'customerId');
-    res.json(await customerService.remove(customerId));
+    const result = await customerService.remove(customerId);
+    await auditLogService.record(req, {
+      action: AUDIT_ACTION.DELETE_CUSTOMER, entityType: AUDIT_ENTITY.CUSTOMER, entityId: customerId,
+      description: `Xóa khách hàng "${result.fullName}" (xóa mềm)`,
+    });
+    res.json(result);
   },
 };
 

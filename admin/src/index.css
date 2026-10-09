@@ -43,3 +43,9 @@ a {
   text-decoration: none;
   color: inherit;
 }
+
+/* Trang sản phẩm: nhãn trạng thái đã có sẵn ký tự "●" trong chữ,
+   ẩn chấm tròn CSS để chỉ còn đúng 1 icon như các trang khác. */
+.products-page .status-badge::before {
+  display: none;
+}

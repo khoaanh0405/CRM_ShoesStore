@@ -11,3 +11,13 @@ export const AGE_BUCKETS = [
   { label: '45-54', min: 45, max: 54 },
   { label: '55+', min: 55, max: Infinity },
 ];
+
+export const PREFERENCE_TAGS = [
+  'Giày Sneaker',
+  'Giày Chạy Bộ',
+  'Giày Bóng Rổ',
+  'Giày Thể Thao',
+  'Giày Cao Gót',
+  'Giày Sandal',
+  'Giày Da',
+];

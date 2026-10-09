@@ -1,67 +1,45 @@
-/**
- * Repository cho model Supplier (bảng suppliers).
- * products.supplier_id -> suppliers (RESTRICT): remove() sẽ throw lỗi Prisma
- * (P2003) nếu supplier còn sản phẩm liên kết — Service layer bắt và xử lý.
- */
 import prisma from '../config/database.js';
+
+const ALIVE = { isDeleted: false };
+const COUNT = { _count: { select: { products: true } } };
 
 export const supplierRepository = {
   findAll() {
-    return prisma.supplier.findMany({
-      orderBy: { supplierId: 'asc' },
-      include: {
-        _count: {
-          select: { products: true },
-        },
-      },
-    });
+    return prisma.supplier.findMany({ where: ALIVE, orderBy: { supplierId: 'asc' }, include: COUNT });
   },
-
   findById(supplierId) {
-    return prisma.supplier.findUnique({ where: { supplierId } });
+    return prisma.supplier.findFirst({ where: { supplierId, ...ALIVE } });
   },
-
-  /** Admin "tìm kiếm nâng cao" nhà cung cấp theo tên. */
   searchByName(keyword) {
     return prisma.supplier.findMany({
-      where: { supplierName: { contains: keyword, mode: 'insensitive' } },
+      where: { ...ALIVE, supplierName: { contains: keyword, mode: 'insensitive' } },
       orderBy: { supplierName: 'asc' },
-      include: {
-        _count: {
-          select: { products: true },
-        },
-      },
+      include: COUNT,
     });
   },
-
   findByNameExact(supplierName) {
     return prisma.supplier.findFirst({
-      where: { supplierName: { equals: supplierName, mode: 'insensitive' } },
+      where: { ...ALIVE, supplierName: { equals: supplierName, mode: 'insensitive' } },
     });
   },
-
   findByIdWithProducts(supplierId) {
-    return prisma.supplier.findUnique({
-      where: { supplierId },
-      include: { products: true },
-    });
+    return prisma.supplier.findFirst({ where: { supplierId, ...ALIVE }, include: { products: true } });
   },
-
+  countProducts(supplierId) {
+    return prisma.product.count({ where: { supplierId } });
+  },
   create({ supplierName, phone, email, address }) {
-    return prisma.supplier.create({
-      data: { supplierName, phone, email, address },
-    });
+    return prisma.supplier.create({ data: { supplierName, phone, email, address } });
   },
-
   update(supplierId, { supplierName, phone, email, address }) {
+    return prisma.supplier.update({ where: { supplierId }, data: { supplierName, phone, email, address } });
+  },
+  /** XÓA MỀM */
+  remove(supplierId) {
     return prisma.supplier.update({
       where: { supplierId },
-      data: { supplierName, phone, email, address },
+      data: { isDeleted: true, deletedAt: new Date() },
     });
-  },
-
-  remove(supplierId) {
-    return prisma.supplier.delete({ where: { supplierId } });
   },
 };
 

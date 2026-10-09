@@ -1,203 +1,112 @@
-import axios from 'axios';
-import type { Feedback, FeedbackStatus } from '../types/feedback';
-import type {
-  Survey,
-  SurveyStats,
-  SurveyTarget,
-  SurveyResponse,
-  CreateSurveyForm,
-  CreateQuestionForm,
-  CreateOptionForm,
-} from '../types/survey';
+import api from '../utils/api';
 import type { Product, Supplier, CreateProductForm, CreateSupplierForm } from '../types/product';
+import type { Feedback, FeedbackStatus } from '../types/feedback';
+import type { Survey, SurveyStats, QuestionType } from '../types/survey';
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
-
-const api = axios.create({
-  baseURL: `${BASE_URL}/api`,
-});
-
-// Đính kèm token từ localStorage vào mọi request (tương thích với trang Login của team)
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-// ====================================================
-// DASHBOARD & ADMIN
-// ====================================================
-
-export const getDashboardStats = async () => {
-  const res = await api.get('/admin/stats');
-  return res.data?.data ?? res.data;
-};
-
-export const changePassword = async (accountId: number, data: any) => {
-  const res = await api.put(`/accounts/${accountId}/password`, data);
-  return res.data?.data ?? res.data;
-};
-
-
-// ====================================================
-// FEEDBACKS
-// ====================================================
-
-export const getFeedbacks = async (params?: { status?: FeedbackStatus; productId?: number }): Promise<Feedback[]> => {
-  const res = await api.get('/feedbacks', { params });
-  return res.data?.data ?? res.data ?? [];
-};
-
-export const updateFeedbackStatus = async (
-  feedbackId: number,
-  status: FeedbackStatus
-): Promise<Feedback> => {
-  const res = await api.patch(`/feedbacks/${feedbackId}/status`, { status });
-  return res.data?.data ?? res.data;
-};
-
-// ====================================================
-// SURVEYS
-// ====================================================
-
-export const getSurveys = async (): Promise<Survey[]> => {
-  const res = await api.get('/surveys');
-  return res.data?.data ?? res.data ?? [];
-};
-
-export const createSurvey = async (data: CreateSurveyForm): Promise<Survey> => {
-  const res = await api.post('/surveys/simple', data);
-  return res.data?.data ?? res.data;
-};
-
-export const toggleSurveyActive = async (surveyId: number, isActive: boolean): Promise<Survey> => {
-  const res = await api.patch(`/surveys/${surveyId}/active`, { isActive });
-  return res.data?.data ?? res.data;
-};
-
-export const getSurveyFull = async (surveyId: number): Promise<Survey> => {
-  const res = await api.get(`/surveys/${surveyId}/full`);
-  return res.data?.data ?? res.data;
-};
-
-export const getSurveyStats = async (surveyId: number): Promise<SurveyStats> => {
-  const res = await api.get(`/surveys/${surveyId}/stats`);
-  return res.data?.data ?? res.data;
-};
-
-export const assignSurvey = async (surveyId: number, customerIds: number[]): Promise<void> => {
-  await api.post(`/surveys/${surveyId}/assign`, { customerIds });
-};
-
-// ====================================================
-// SURVEY TARGETS (Đối tượng được gán)
-// ====================================================
-
-export const getSurveyTargets = async (surveyId: number): Promise<SurveyTarget[]> => {
-  const res = await api.get('/customers', { params: { surveyId } });
-  // Fallback: lấy từ survey full rồi extract targets
-  return res.data?.data ?? res.data ?? [];
-};
-
-export const getSurveyResponses = async (surveyId: number): Promise<SurveyResponse[]> => {
-  const res = await api.get('/responses', { params: { surveyId } });
-  return res.data?.data ?? res.data ?? [];
-};
-
-// ====================================================
-// SURVEY QUESTIONS
-// ====================================================
-
-export const createQuestion = async (data: CreateQuestionForm) => {
-  const res = await api.post('/questions', data);
-  return res.data?.data ?? res.data;
-};
-
-export const updateQuestion = async (questionId: number, data: Partial<CreateQuestionForm>) => {
-  const res = await api.put(`/questions/${questionId}`, data);
-  return res.data?.data ?? res.data;
-};
-
-export const deleteQuestion = async (questionId: number): Promise<void> => {
-  await api.delete(`/questions/${questionId}`);
-};
-
-// ====================================================
-// SURVEY QUESTION OPTIONS
-// ====================================================
-
-export const createOption = async (data: CreateOptionForm) => {
-  const res = await api.post('/options', data);
-  return res.data?.data ?? res.data;
-};
-
-export const deleteOption = async (optionId: number): Promise<void> => {
-  await api.delete(`/options/${optionId}`);
-};
-
-// ====================================================
-// CUSTOMERS (dùng khi gán survey)
-// ====================================================
+/**
+ * Lớp gọi API cho web quản trị. Axios instance (token, xử lý 401) nằm ở ../utils/api.
+ * Backend trả dữ liệu trực tiếp; unwrap() chấp nhận cả dạng { data: ... } cho chắc.
+ */
+const unwrap = <T = any>(res: { data: any }): T => (res.data?.data ?? res.data) as T;
 
 export interface CustomerBasic {
   customerId: number;
   fullName: string;
   phone?: string | null;
-  account?: { username: string; isLocked: boolean };
+  email?: string | null;
+  gender?: string | null;
+  dateOfBirth?: string | null;
+  address?: string | null;
+  isLocked?: boolean;
+  preferences?: { tag: string }[];
 }
 
-export const getCustomers = async (): Promise<CustomerBasic[]> => {
-  const res = await api.get('/customers');
-  return res.data?.data ?? res.data ?? [];
-};
+/* ================= Tài khoản ================= */
+export const getAccounts = async (): Promise<any[]> => unwrap(await api.get('/accounts'));
 
-// ====================================================
-// PRODUCTS & SUPPLIERS
-// ====================================================
+export const changePassword = async (
+  accountId: number,
+  payload: { oldPassword: string; newPassword: string },
+) => unwrap(await api.patch(`/accounts/${accountId}/password`, payload));
 
-export const getProducts = async (params?: { includeInactive?: boolean }): Promise<Product[]> => {
-  const res = await api.get('/products', { params: { includeInactive: true, ...params } });
-  return res.data?.data ?? res.data ?? [];
-};
+/* ================= Sản phẩm ================= */
+// Mặc định lấy cả sản phẩm đã ẩn (trang quản lý cần để bật lại); truyền includeInactive:false để chỉ lấy đang bán.
+export const getProducts = async (params: { includeInactive?: boolean } = {}): Promise<Product[]> =>
+  unwrap(await api.get('/products', { params: { includeInactive: true, ...params } }));
 
-export const createProduct = async (data: CreateProductForm): Promise<Product> => {
-  const res = await api.post('/products', data);
-  return res.data?.data ?? res.data;
-};
+export const createProduct = async (payload: CreateProductForm): Promise<Product> =>
+  unwrap(await api.post('/products', payload));
 
-export const updateProduct = async (productId: number, data: Partial<CreateProductForm>): Promise<Product> => {
-  const res = await api.put(`/products/${productId}`, data);
-  return res.data?.data ?? res.data;
-};
+export const updateProduct = async (productId: number, payload: CreateProductForm): Promise<Product> =>
+  unwrap(await api.put(`/products/${productId}`, payload));
 
-export const toggleProductActive = async (productId: number, isActive: boolean): Promise<Product> => {
-  const res = await api.patch(`/products/${productId}/active`, { isActive });
-  return res.data?.data ?? res.data;
-};
+export const toggleProductActive = async (productId: number, isActive: boolean): Promise<Product> =>
+  unwrap(await api.patch(`/products/${productId}/active`, { isActive }));
 
-export const deleteProduct = async (productId: number): Promise<void> => {
-  await api.delete(`/products/${productId}`);
-};
+/* ================= Nhà cung cấp ================= */
+export const getSuppliers = async (): Promise<Supplier[]> => unwrap(await api.get('/suppliers'));
 
-export const getSuppliers = async (): Promise<Supplier[]> => {
-  const res = await api.get('/suppliers');
-  return res.data?.data ?? res.data ?? [];
-};
+export const createSupplier = async (payload: CreateSupplierForm): Promise<Supplier> =>
+  unwrap(await api.post('/suppliers', payload));
 
-export const createSupplier = async (data: CreateSupplierForm): Promise<Supplier> => {
-  const res = await api.post('/suppliers', data);
-  return res.data?.data ?? res.data;
-};
-
-export const updateSupplier = async (supplierId: number, data: Partial<CreateSupplierForm>): Promise<Supplier> => {
-  const res = await api.put(`/suppliers/${supplierId}`, data);
-  return res.data?.data ?? res.data;
-};
+export const updateSupplier = async (supplierId: number, payload: CreateSupplierForm): Promise<Supplier> =>
+  unwrap(await api.put(`/suppliers/${supplierId}`, payload));
 
 export const deleteSupplier = async (supplierId: number): Promise<void> => {
   await api.delete(`/suppliers/${supplierId}`);
+};
+
+/* ================= Khách hàng ================= */
+export const getCustomers = async (): Promise<CustomerBasic[]> => unwrap(await api.get('/customers'));
+
+export const getCustomerReport = async (): Promise<any> => unwrap(await api.get('/customers/report'));
+
+/** Số khách đang online (GET /admin/online-count -> { count }). */
+export const getOnlineCustomerCount = async (): Promise<number> => {
+  const res = await api.get('/admin/online-count');
+  return Number(res.data?.count ?? res.data?.data?.count ?? 0);
+};
+
+/* ================= Đánh giá ================= */
+export const getFeedbacks = async (): Promise<Feedback[]> => unwrap(await api.get('/feedbacks'));
+
+export const updateFeedbackStatus = async (feedbackId: number, status: FeedbackStatus): Promise<Feedback> =>
+  unwrap(await api.patch(`/feedbacks/${feedbackId}/status`, { status }));
+
+/* ================= Khảo sát ================= */
+export const getSurveys = async (): Promise<any[]> => unwrap(await api.get('/surveys'));
+
+export const getSurveyFull = async (surveyId: number): Promise<Survey> =>
+  unwrap(await api.get(`/surveys/${surveyId}/full`));
+
+export const getSurveyStats = async (surveyId: number): Promise<SurveyStats> =>
+  unwrap(await api.get(`/surveys/${surveyId}/stats`));
+
+export const toggleSurveyActive = async (surveyId: number, isActive: boolean): Promise<Survey> =>
+  unwrap(await api.patch(`/surveys/${surveyId}/active`, { isActive }));
+
+export const assignSurvey = async (surveyId: number, customerIds: number[]) =>
+  unwrap(await api.post(`/surveys/${surveyId}/assign`, { customerIds }));
+
+/* ----- Câu hỏi & lựa chọn ----- */
+export const createQuestion = async (payload: {
+  surveyId: number;
+  questionContent: string;
+  questionType: QuestionType;
+}) => unwrap(await api.post('/questions', payload));
+
+export const updateQuestion = async (questionId: number, payload: { questionContent: string }) =>
+  unwrap(await api.put(`/questions/${questionId}`, payload));
+
+export const deleteQuestion = async (questionId: number): Promise<void> => {
+  await api.delete(`/questions/${questionId}`);
+};
+
+export const createOption = async (payload: { questionId: number; optionText: string }) =>
+  unwrap(await api.post('/options', payload));
+
+export const deleteOption = async (optionId: number): Promise<void> => {
+  await api.delete(`/options/${optionId}`);
 };
 
 export default api;

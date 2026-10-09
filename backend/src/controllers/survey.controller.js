@@ -1,9 +1,6 @@
-/**
- * Controller cho Survey. Không có endpoint DELETE — theo thiết kế, Survey
- * chỉ được "đóng" bằng PATCH /api/surveys/:id/active với isActive=false
- * (xóa cứng luôn bị FK RESTRICT từ survey_responses chặn).
- */
 import { surveyService } from '../services/index.js';
+import { auditLogService } from '../services/auditLog.service.js';
+import { AUDIT_ACTION, AUDIT_ENTITY } from '../constants/audit.constant.js';
 import { parseId, parseBoolean } from '../utils/index.js';
 
 export const surveyController = {
@@ -12,34 +9,35 @@ export const surveyController = {
   },
 
   async getById(req, res) {
-    const surveyId = parseId(req.params.id, 'surveyId');
-    res.json(await surveyService.getById(surveyId));
+    res.json(await surveyService.getById(parseId(req.params.id, 'surveyId')));
   },
 
-  /** Lấy khảo sát kèm toàn bộ câu hỏi + lựa chọn để khách hàng làm bài. */
   async getWithQuestions(req, res) {
-    const surveyId = parseId(req.params.id, 'surveyId');
-    res.json(await surveyService.getWithQuestions(surveyId));
+    res.json(await surveyService.getWithQuestions(parseId(req.params.id, 'surveyId')));
   },
 
-  /**
-   * Tạo khảo sát đơn giản không cần câu hỏi ngay — dùng cho form tạo nhanh
-   * trên Admin Dashboard. Câu hỏi được thêm sau qua Tab "Đư hỏi & Tùy chọn".
-   */
+  /** createdBy lấy từ token Manager đang đăng nhập. */
   async createSimple(req, res) {
-    const { title, description, isActive } = req.body;
-    const survey = await surveyService.createSimple({ title, description, isActive });
+    const { title, description, isActive, productId } = req.body;
+    const survey = await surveyService.createSimple({
+      title, description, isActive, productId, createdBy: req.user.accountId,
+    });
+    await auditLogService.record(req, {
+      action: AUDIT_ACTION.CREATE_SURVEY, entityType: AUDIT_ENTITY.SURVEY, entityId: survey.surveyId,
+      description: `Tạo khảo sát "${survey.title}"`,
+    });
     res.status(201).json(survey);
   },
 
-  /**
-   * Tạo khảo sát kèm câu hỏi trong 1 lần (nested-write).
-   * Body: { title, description, questions: [{ questionContent, questionType, options? }] }
-   * Yêu cầu tối thiểu 15 câu hỏi (Service tự validate).
-   */
   async create(req, res) {
-    const { title, description, questions } = req.body;
-    const survey = await surveyService.createWithQuestions({ title, description, questions });
+    const { title, description, questions, productId } = req.body;
+    const survey = await surveyService.createWithQuestions({
+      title, description, questions, productId, createdBy: req.user.accountId,
+    });
+    await auditLogService.record(req, {
+      action: AUDIT_ACTION.CREATE_SURVEY, entityType: AUDIT_ENTITY.SURVEY, entityId: survey.surveyId,
+      description: `Tạo khảo sát "${survey.title}" (${questions.length} câu hỏi)`,
+    });
     res.status(201).json(survey);
   },
 
@@ -49,16 +47,24 @@ export const surveyController = {
     res.json(await surveyService.update(surveyId, { title, description }));
   },
 
-  /** Đóng/mở khảo sát — body { isActive: true|false }. */
   async setActive(req, res) {
     const surveyId = parseId(req.params.id, 'surveyId');
-    res.json(await surveyService.setActive(surveyId, parseBoolean(req.body.isActive)));
+    const isActive = parseBoolean(req.body.isActive);
+    const survey = await surveyService.setActive(surveyId, isActive);
+    await auditLogService.record(req, {
+      action: AUDIT_ACTION.TOGGLE_SURVEY, entityType: AUDIT_ENTITY.SURVEY, entityId: surveyId,
+      description: `${isActive ? 'Kích hoạt' : 'Đóng'} khảo sát #${surveyId}${survey?.title ? ` "${survey.title}"` : ''}`,
+    });
+    res.json(survey);
   },
 
-  /** Gửi khảo sát tới nhiều khách hàng — body { customerIds: [1, 2, 3] }. */
   async assignToCustomers(req, res) {
     const surveyId = parseId(req.params.id, 'surveyId');
     const result = await surveyService.assignToCustomers(surveyId, req.body.customerIds);
+    await auditLogService.record(req, {
+      action: AUDIT_ACTION.ASSIGN_SURVEY, entityType: AUDIT_ENTITY.SURVEY, entityId: surveyId,
+      description: `Gửi khảo sát #${surveyId}: ${result.sent} khách mới, ${result.updated} cập nhật, ${result.skipped} bỏ qua`,
+    });
     res.status(201).json(result);
   },
 };

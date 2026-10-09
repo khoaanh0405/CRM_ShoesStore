@@ -9,7 +9,7 @@
 import { Router } from 'express';
 import { surveyResponseController, surveyAnswerController } from '../controllers/index.js';
 import { surveyResponseValidator } from '../validators/index.js';
-import { authenticate, adminOnly } from '../middleware/index.js';
+import { authenticate, managerOnly } from '../middleware/index.js';
 
 const router = Router();
 
@@ -24,10 +24,10 @@ router.get(
 /** Danh sách câu trả lời "thô" (không kèm quan hệ) — phục vụ thống kê. */
 router.get(
   '/:responseId/answers-raw',
-  adminOnly,
+  managerOnly,
   surveyResponseValidator.responseIdParam,
   surveyAnswerController.listByResponse
 );
-router.delete('/:id', adminOnly, surveyResponseValidator.idParam, surveyResponseController.remove);
+router.delete('/:id', managerOnly, surveyResponseValidator.idParam, surveyResponseController.remove);
 
 export default router;

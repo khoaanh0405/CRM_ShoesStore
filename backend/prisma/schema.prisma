@@ -1,14 +1,14 @@
-datasource db {
-  provider = "postgresql"
-}
-
 generator client {
   provider = "prisma-client-js"
 }
 
+datasource db {
+  provider = "postgresql"
+}
+
 model Role {
   roleId      Int       @id @default(autoincrement()) @map("role_id")
-  roleName    String    @unique @db.VarChar(50) @map("role_name")
+  roleName    String    @unique @map("role_name") @db.VarChar(50)
   description String?   @db.VarChar(255)
   accounts    Account[]
 
@@ -16,16 +16,35 @@ model Role {
 }
 
 model Account {
-  accountId    Int       @id @default(autoincrement()) @map("account_id")
-  username     String    @unique @db.VarChar(50)
-  passwordHash String    @map("password_hash") @db.VarChar(255)
-  roleId       Int       @map("role_id")
-  isLocked     Boolean   @default(false) @map("is_locked")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  role         Role      @relation(fields: [roleId], references: [roleId])
-  customer     Customer?
+  accountId         Int                @id @default(autoincrement()) @map("account_id")
+  username          String             @unique @db.VarChar(50)
+  email             String?            @unique @db.VarChar(100)
+  passwordHash      String             @map("password_hash") @db.VarChar(255)
+  roleId            Int                @map("role_id")
+  isLocked          Boolean            @default(false) @map("is_locked")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  role              Role               @relation(fields: [roleId], references: [roleId])
+  customer          Customer?
+  passwordResetOtps PasswordResetOtp[]
+  surveysCreated    Survey[]           @relation("SurveyCreator")
+  reviewReplies     ReviewReply[]
+  auditLogs         AuditLog[]
 
   @@map("accounts")
+}
+
+model PasswordResetOtp {
+  otpId     Int       @id @default(autoincrement()) @map("otp_id")
+  accountId Int       @map("account_id")
+  otpHash   String    @map("otp_hash") @db.VarChar(64)
+  expiresAt DateTime  @map("expires_at")
+  attempts  Int       @default(0)
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  account   Account   @relation(fields: [accountId], references: [accountId], onDelete: Cascade)
+
+  @@index([accountId, createdAt])
+  @@map("password_reset_otps")
 }
 
 model Supplier {
@@ -34,29 +53,46 @@ model Supplier {
   phone        String?   @db.VarChar(20)
   email        String?   @db.VarChar(100)
   address      String?   @db.VarChar(255)
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
   products     Product[]
 
   @@map("suppliers")
 }
 
+model Category {
+  categoryId   Int       @id @default(autoincrement()) @map("category_id")
+  categoryName String    @unique @map("category_name") @db.VarChar(100)
+  description  String?   @db.VarChar(255)
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  products     Product[]
+
+  @@map("categories")
+}
+
 model Product {
   productId     Int        @id @default(autoincrement()) @map("product_id")
   supplierId    Int        @map("supplier_id")
+  categoryId    Int?       @map("category_id")
   productName   String     @map("product_name") @db.VarChar(150)
-  category      String?    @db.VarChar(50)
   brand         String?    @db.VarChar(50)
-  size          String?    @db.VarChar(10)
+  size          String?    @db.VarChar(50)
   color         String?    @db.VarChar(30)
   material      String?    @db.VarChar(50)
   price         Decimal    @db.Decimal(18, 2)
   stockQuantity Int        @default(0) @map("stock_quantity")
   isActive      Boolean    @default(true) @map("is_active")
-  imageUrl      String?    @map("image_url") @db.VarChar(500)
-  supplier      Supplier   @relation(fields: [supplierId], references: [supplierId])
+  imageUrl      String?    @map("image_url")
   feedbacks     Feedback[]
+  supplier      Supplier   @relation(fields: [supplierId], references: [supplierId])
+  category      Category?  @relation(fields: [categoryId], references: [categoryId], onDelete: Restrict)
+  surveys       Survey[]
+
 
   @@index([supplierId])
-  @@index([category])
+  @@index([categoryId])
   @@index([isActive])
   @@map("products")
 }
@@ -67,18 +103,16 @@ model Customer {
   dateOfBirth         DateTime             @map("date_of_birth") @db.Date
   gender              String?              @db.VarChar(10)
   phone               String?              @db.VarChar(20)
+  email               String?              @unique @db.VarChar(100)
   address             String?              @db.VarChar(255)
-  // Soft delete cho nghiệp vụ "Xóa khách hàng" (4.1.2) - TÁCH BIỆT với Account.isLocked (4.1.3 "Khóa tài khoản").
-  // isDeleted=true  -> khách hàng biến mất khỏi danh sách hoạt động, KHÔNG xóa Feedback/SurveyResponse liên quan.
-  // Account.isLocked=true -> khách hàng không đăng nhập được, dữ liệu và Customer vẫn nguyên vẹn.
   isDeleted           Boolean              @default(false) @map("is_deleted")
   deletedAt           DateTime?            @map("deleted_at")
-  account             Account              @relation(fields: [customerId], references: [accountId], onDelete: Cascade)
   customerPreferences CustomerPreference[]
+  account             Account              @relation(fields: [customerId], references: [accountId], onDelete: Cascade)
   feedbacks           Feedback[]
-  surveyTargets       SurveyTarget[]
-  surveyResponses     SurveyResponse[]
   notifications       Notification[]
+  surveyResponses     SurveyResponse[]
+  surveyTargets       SurveyTarget[]
 
   @@index([isDeleted])
   @@map("customers")
@@ -94,22 +128,20 @@ model CustomerPreference {
 }
 
 model Feedback {
-  feedbackId Int      @id @default(autoincrement()) @map("feedback_id")
-  customerId Int      @map("customer_id")
-  productId  Int      @map("product_id")
-  title      String   @db.VarChar(150)
-  content    String   @db.Text
-  // rating phải trong khoảng 1-5. Ràng buộc CHECK(rating BETWEEN 1 AND 5) được thêm bằng raw SQL trong migration
-  // (Prisma Client không tự sinh CHECK constraint), kèm validate ở tầng API/service.
+  feedbackId Int           @id @default(autoincrement()) @map("feedback_id")
+  customerId Int           @map("customer_id")
+  productId  Int           @map("product_id")
+  title      String        @db.VarChar(150)
+  content    String
   rating     Int
-  imageUrl   String?  @map("image_url") @db.VarChar(500)
-  status     String   @default("Pending") @db.VarChar(20)
-  createdAt  DateTime @default(now()) @map("created_at")
-  // Giữ nguyên quan hệ mặc định (RESTRICT) tới Customer: vì "Xóa khách hàng" giờ là soft delete
-  // (Customer.isDeleted), app KHÔNG bao giờ chạy DELETE thật trên customers nữa nên RESTRICT không
-  // còn cản trở nghiệp vụ, đồng thời vẫn bảo vệ toàn vẹn dữ liệu nếu ai đó lỡ xóa cứng bằng tay.
-  customer   Customer @relation(fields: [customerId], references: [customerId])
-  product    Product  @relation(fields: [productId], references: [productId])
+  imageUrl   String?       @map("image_url") @db.VarChar(500)
+  status     String        @default("Pending") @db.VarChar(20)
+  createdAt  DateTime      @default(now()) @map("created_at")
+  customer   Customer      @relation(fields: [customerId], references: [customerId])
+  product    Product       @relation(fields: [productId], references: [productId])
+  replies    ReviewReply[]
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
 
   @@index([customerId])
   @@index([productId])
@@ -117,52 +149,92 @@ model Feedback {
   @@map("feedbacks")
 }
 
+model ReviewReply {
+  replyId    Int      @id @default(autoincrement()) @map("reply_id")
+  feedbackId Int      @map("feedback_id")
+  accountId  Int      @map("account_id")
+  content    String
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  feedback   Feedback @relation(fields: [feedbackId], references: [feedbackId], onDelete: Cascade)
+  account    Account  @relation(fields: [accountId], references: [accountId])
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([feedbackId])
+  @@index([accountId])
+  @@map("review_replies")
+}
+
+model AuditLog {
+  logId       Int      @id @default(autoincrement()) @map("log_id")
+  actorId     Int?     @map("actor_id")
+  actorName   String   @map("actor_name") @db.VarChar(50)
+  actorRole   String   @map("actor_role") @db.VarChar(50)
+  action      String   @db.VarChar(50)
+  entityType  String   @map("entity_type") @db.VarChar(30)
+  entityId    Int?     @map("entity_id")
+  description String
+  createdAt   DateTime @default(now()) @map("created_at")
+  actor       Account? @relation(fields: [actorId], references: [accountId], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([createdAt])
+  @@index([action])
+  @@map("audit_logs")
+}
+
 model Survey {
   surveyId        Int              @id @default(autoincrement()) @map("survey_id")
   title           String           @db.VarChar(200)
-  description     String?          @db.Text
+  description     String?
   createdAt       DateTime         @default(now()) @map("created_at")
   isActive        Boolean          @default(true) @map("is_active")
+  productId       Int?             @map("product_id")
+  createdBy       Int?             @map("created_by")
   questions       SurveyQuestion[]
-  surveyTargets   SurveyTarget[]
   surveyResponses SurveyResponse[]
+  surveyTargets   SurveyTarget[]
+  product         Product?         @relation(fields: [productId], references: [productId])
+  creator         Account?         @relation("SurveyCreator", fields: [createdBy], references: [accountId], onDelete: SetNull)
 
+  @@index([productId])
+  @@index([createdBy])
   @@map("surveys")
 }
 
 model SurveyQuestion {
   questionId      Int                    @id @default(autoincrement()) @map("question_id")
   surveyId        Int                    @map("survey_id")
-  questionContent String                 @map("question_content") @db.Text
+  questionContent String                 @map("question_content")
   questionType    String                 @map("question_type") @db.VarChar(20)
-  survey          Survey                 @relation(fields: [surveyId], references: [surveyId], onDelete: Cascade)
-  options         SurveyQuestionOption[]
   surveyAnswers   SurveyAnswer[]
+  options         SurveyQuestionOption[]
+  survey          Survey                 @relation(fields: [surveyId], references: [surveyId], onDelete: Cascade)
 
   @@index([surveyId])
   @@map("survey_questions")
 }
 
-// Danh sách lựa chọn hợp lệ cho câu hỏi SINGLE_CHOICE / MULTIPLE_CHOICE.
-// Câu hỏi loại TEXT không dùng bảng này (options rỗng).
 model SurveyQuestionOption {
   optionId   Int            @id @default(autoincrement()) @map("option_id")
   questionId Int            @map("question_id")
   optionText String         @map("option_text") @db.VarChar(255)
   sortOrder  Int            @default(0) @map("sort_order")
-  question   SurveyQuestion @relation(fields: [questionId], references: [questionId], onDelete: Cascade)
   answers    SurveyAnswer[]
+  question   SurveyQuestion @relation(fields: [questionId], references: [questionId], onDelete: Cascade)
 
   @@index([questionId])
   @@map("survey_question_options")
 }
 
 model SurveyTarget {
-  surveyId    Int      @map("survey_id")
-  customerId  Int      @map("customer_id")
-  isCompleted Boolean  @default(false) @map("is_completed")
-  survey      Survey   @relation(fields: [surveyId], references: [surveyId], onDelete: Cascade)
-  customer    Customer @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
+  surveyId      Int      @map("survey_id")
+  customerId    Int      @map("customer_id")
+  isCompleted   Boolean  @default(false) @map("is_completed")
+  sentSignature String?  @map("sent_signature") @db.VarChar(64)
+  customer      Customer @relation(fields: [customerId], references: [customerId], onDelete: Cascade)
+  survey        Survey   @relation(fields: [surveyId], references: [surveyId], onDelete: Cascade)
 
   @@id([surveyId, customerId])
   @@map("survey_targets")
@@ -173,11 +245,10 @@ model SurveyResponse {
   surveyId      Int            @map("survey_id")
   customerId    Int            @map("customer_id")
   submittedAt   DateTime       @default(now()) @map("submitted_at")
-  survey        Survey         @relation(fields: [surveyId], references: [surveyId])
-  customer      Customer       @relation(fields: [customerId], references: [customerId])
   surveyAnswers SurveyAnswer[]
+  customer      Customer       @relation(fields: [customerId], references: [customerId])
+  survey        Survey         @relation(fields: [surveyId], references: [surveyId])
 
-  // Một khách hàng chỉ được nộp 1 lần cho mỗi khảo sát (yêu cầu VI).
   @@unique([surveyId, customerId], name: "uq_survey_response_customer")
   @@index([customerId])
   @@map("survey_responses")
@@ -187,32 +258,23 @@ model SurveyAnswer {
   answerId       Int                   @id @default(autoincrement()) @map("answer_id")
   responseId     Int                   @map("response_id")
   questionId     Int                   @map("question_id")
-  // Giữ nguyên answerValue (không breaking change): dùng cho câu TEXT, và với SINGLE_CHOICE
-  // vẫn lưu text của lựa chọn (denormalized) để không phải sửa code đọc dữ liệu hiện tại.
-  answerValue    String                @map("answer_value") @db.Text
-  // Thêm mới: với câu SINGLE_CHOICE/MULTIPLE_CHOICE, optionId trỏ về lựa chọn hợp lệ để thống kê
-  // chính xác bằng group-by id thay vì so khớp chuỗi text. Nullable vì câu TEXT không có option.
+  answerValue    String                @map("answer_value")
   optionId       Int?                  @map("option_id")
-  surveyResponse SurveyResponse        @relation(fields: [responseId], references: [responseId], onDelete: Cascade)
-  surveyQuestion SurveyQuestion        @relation(fields: [questionId], references: [questionId])
   option         SurveyQuestionOption? @relation(fields: [optionId], references: [optionId])
+  surveyQuestion SurveyQuestion        @relation(fields: [questionId], references: [questionId])
+  surveyResponse SurveyResponse        @relation(fields: [responseId], references: [responseId], onDelete: Cascade)
 
   @@index([questionId])
   @@index([optionId])
   @@map("survey_answers")
 }
 
-// Thông báo cho khách hàng (chuông thông báo phía mobile): Admin duyệt/từ
-// chối phản hồi, hoặc gửi khảo sát mới tới khách hàng đều tạo 1 bản ghi ở
-// đây. refType/refId trỏ tới đối tượng liên quan (SURVEY/FEEDBACK) để FE
-// điều hướng thẳng khi bấm vào thông báo, nullable vì không phải loại
-// thông báo nào cũng cần điều hướng.
 model Notification {
   notificationId Int      @id @default(autoincrement()) @map("notification_id")
   customerId     Int      @map("customer_id")
   type           String   @db.VarChar(30)
   title          String   @db.VarChar(150)
-  message        String   @db.Text
+  message        String
   refType        String?  @map("ref_type") @db.VarChar(20)
   refId          Int?     @map("ref_id")
   isRead         Boolean  @default(false) @map("is_read")
@@ -222,4 +284,17 @@ model Notification {
   @@index([customerId])
   @@index([customerId, isRead])
   @@map("notifications")
+}
+
+model Banner {
+  bannerId  Int      @id @default(autoincrement()) @map("banner_id")
+  imageUrl  String   @map("image_url")
+  title     String?  @db.VarChar(150)
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("banners")
 }

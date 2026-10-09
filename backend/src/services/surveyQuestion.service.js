@@ -2,10 +2,24 @@ import {
   surveyQuestionRepository,
   surveyRepository,
   surveyQuestionOptionRepository,
+  surveyResponseRepository,
 } from '../repositories/index.js';
 import { NotFoundError, ValidationError, ConflictError } from '../errors/AppError.js';
 import { QUESTION_TYPE_LIST, MESSAGES } from '../constants/index.js';
 import { isForeignKeyError } from '../utils/index.js';
+
+/**
+ * Chỉ chặn sửa/xóa/thêm câu hỏi khi đã có khách hàng NỘP BÀI (sửa sẽ làm sai
+ * lệch kết quả). Khảo sát mới chỉ "gửi" mà chưa ai nộp thì vẫn được chỉnh sửa.
+ */
+async function ensureNoResponses(surveyId) {
+  const responses = await surveyResponseRepository.findBySurvey(surveyId);
+  if (responses.length > 0) {
+    throw new ConflictError(
+      'Khảo sát này đã có khách hàng nộp bài nên không thể chỉnh sửa câu hỏi. Vui lòng tạo khảo sát mới nếu cần thay đổi nội dung.'
+    );
+  }
+}
 
 export const surveyQuestionService = {
   listBySurvey(surveyId) {
@@ -18,16 +32,15 @@ export const surveyQuestionService = {
     return question;
   },
 
-  /** Them 1 cau hoi (kem lua chon neu co) vao khao sat da ton tai. */
   async create({ surveyId, questionContent, questionType, options = [] }) {
     const survey = await surveyRepository.findById(surveyId);
     if (!survey) throw new NotFoundError(MESSAGES.NOT_FOUND.SURVEY);
+    await ensureNoResponses(surveyId);
 
-    if (!questionContent?.trim()) throw new ValidationError('Noi dung cau hoi khong duoc de trong.');
+    if (!questionContent?.trim()) throw new ValidationError('Nội dung câu hỏi không được để trống.');
     if (!QUESTION_TYPE_LIST.includes(questionType)) {
-      throw new ValidationError(`Loai cau hoi khong hop le: "${questionType}".`);
+      throw new ValidationError(`Loại câu hỏi không hợp lệ: "${questionType}".`);
     }
-    // Note: Khong bat buoc phai co options khi tao - options co the duoc them sau qua API /options
 
     const question = await surveyQuestionRepository.create({
       surveyId,
@@ -35,7 +48,7 @@ export const surveyQuestionService = {
       questionType,
     });
 
-    if ((questionType === 'SINGLE_CHOICE' || questionType === 'MULTIPLE_CHOICE') && Array.isArray(options) && options.length > 0) {
+    if (questionType === 'SINGLE_CHOICE' && Array.isArray(options) && options.length > 0) {
       await Promise.all(
         options.map((optionText, idx) =>
           surveyQuestionOptionRepository.create({
@@ -51,7 +64,8 @@ export const surveyQuestionService = {
   },
 
   async update(questionId, { questionContent, questionType }) {
-    await this.getById(questionId);
+    const question = await this.getById(questionId);
+    await ensureNoResponses(question.surveyId);
     if (questionContent !== undefined && !questionContent.trim()) {
       throw new ValidationError('Nội dung câu hỏi không được để trống.');
     }
@@ -64,9 +78,9 @@ export const surveyQuestionService = {
     });
   },
 
-  /** Chỉ nên xóa câu hỏi chưa có ai trả lời — DB tự chặn (RESTRICT) nếu đã có answer. */
   async remove(questionId) {
-    await this.getById(questionId);
+    const question = await this.getById(questionId);
+    await ensureNoResponses(question.surveyId);
     try {
       return await surveyQuestionRepository.remove(questionId);
     } catch (err) {

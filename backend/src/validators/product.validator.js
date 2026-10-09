@@ -1,17 +1,20 @@
 import { validateBody, validateParams } from './common.validator.js';
 
+/** Ảnh tải từ máy tính được lưu dạng data URL nên cho phép dài (tối đa ~3MB ký tự). */
+const IMAGE_MAX_LENGTH = 3_000_000;
+
 /** maxLength khớp đúng VARCHAR đã khai trong schema.prisma/migration. */
 const PRODUCT_FIELDS = {
   productName: { type: 'string', maxLength: 150 },
-  category: { type: 'string', maxLength: 50 },
+  categoryId: { type: 'int', min: 1 },
   brand: { type: 'string', maxLength: 50 },
-  size: { type: 'string', maxLength: 10 },
+  size: { type: 'string', maxLength: 50 },
   color: { type: 'string', maxLength: 30 },
   material: { type: 'string', maxLength: 50 },
   price: { type: 'number', min: 0 },
   stockQuantity: { type: 'int', min: 0 },
   isActive: { type: 'boolean' },
-  imageUrl: { type: 'string', maxLength: 500 },
+  imageUrl: { type: 'string', maxLength: IMAGE_MAX_LENGTH },
 };
 
 export const productValidator = {

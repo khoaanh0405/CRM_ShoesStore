@@ -1,4 +1,4 @@
-export type QuestionType = 'TEXT' | 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE';
+export type QuestionType = 'TEXT' | 'SINGLE_CHOICE';
 
 export interface SurveyQuestionOption {
   optionId: number;
@@ -22,6 +22,8 @@ export interface Survey {
   createdAt: string;
   isActive: boolean;
   questions?: SurveyQuestion[];
+  createdBy?: number | null;
+  creator?: { accountId: number; username: string; email?: string | null } | null;
   _count?: {
     surveyTargets?: number;
     surveyResponses?: number;

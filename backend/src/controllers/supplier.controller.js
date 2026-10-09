@@ -1,4 +1,6 @@
 import { supplierService } from '../services/index.js';
+import { auditLogService } from '../services/auditLog.service.js';
+import { AUDIT_ACTION, AUDIT_ENTITY } from '../constants/audit.constant.js';
 import { parseId } from '../utils/index.js';
 
 export const supplierController = {
@@ -6,36 +8,46 @@ export const supplierController = {
     res.json(await supplierService.list());
   },
 
-  /** Tìm kiếm nâng cao theo tên; không truyền keyword thì trả toàn bộ. */
   async search(req, res) {
     res.json(await supplierService.search(req.query.keyword));
   },
 
   async getById(req, res) {
-    const supplierId = parseId(req.params.id, 'supplierId');
-    res.json(await supplierService.getById(supplierId));
+    res.json(await supplierService.getById(parseId(req.params.id, 'supplierId')));
   },
 
   async getWithProducts(req, res) {
-    const supplierId = parseId(req.params.id, 'supplierId');
-    res.json(await supplierService.getWithProducts(supplierId));
+    res.json(await supplierService.getWithProducts(parseId(req.params.id, 'supplierId')));
   },
 
   async create(req, res) {
     const { supplierName, phone, email, address } = req.body;
     const supplier = await supplierService.create({ supplierName, phone, email, address });
+    await auditLogService.record(req, {
+      action: AUDIT_ACTION.CREATE_SUPPLIER, entityType: AUDIT_ENTITY.SUPPLIER, entityId: supplier.supplierId,
+      description: `Thêm nhà cung cấp "${supplier.supplierName}"`,
+    });
     res.status(201).json(supplier);
   },
 
   async update(req, res) {
     const supplierId = parseId(req.params.id, 'supplierId');
     const { supplierName, phone, email, address } = req.body;
-    res.json(await supplierService.update(supplierId, { supplierName, phone, email, address }));
+    const supplier = await supplierService.update(supplierId, { supplierName, phone, email, address });
+    await auditLogService.record(req, {
+      action: AUDIT_ACTION.UPDATE_SUPPLIER, entityType: AUDIT_ENTITY.SUPPLIER, entityId: supplierId,
+      description: `Cập nhật nhà cung cấp "${supplier.supplierName}"`,
+    });
+    res.json(supplier);
   },
 
   async remove(req, res) {
     const supplierId = parseId(req.params.id, 'supplierId');
-    await supplierService.remove(supplierId);
+    const supplier = await supplierService.remove(supplierId);
+    await auditLogService.record(req, {
+      action: AUDIT_ACTION.DELETE_SUPPLIER, entityType: AUDIT_ENTITY.SUPPLIER, entityId: supplierId,
+      description: `Xóa nhà cung cấp "${supplier.supplierName}"`,
+    });
     res.status(204).send();
   },
 };

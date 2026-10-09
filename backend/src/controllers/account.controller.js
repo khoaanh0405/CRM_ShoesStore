@@ -1,9 +1,12 @@
 /**
  * Controller cho Account (đăng ký/đăng nhập/khóa tài khoản/phân quyền/
- * Admin thêm khách hàng).
+ * Admin thêm khách hàng/Admin thêm tài khoản nội bộ/quên mật khẩu bằng OTP qua email).
  */
+import { auditLogService } from '../services/auditLog.service.js';
+import { AUDIT_ACTION, AUDIT_ENTITY } from '../constants/audit.constant.js';
 import { accountService } from '../services/index.js';
 import { parseId, parseNumber, signToken } from '../utils/index.js';
+import { OTP_TTL_MINUTES, OTP_RESEND_SECONDS } from '../constants/index.js';
 
 export const accountController = {
   async list(req, res) {
@@ -16,26 +19,42 @@ export const accountController = {
     res.json(await accountService.getById(accountId));
   },
 
+  /** Thông tin tài khoản đang đăng nhập. Đi qua authenticate nên tài khoản bị khóa sẽ nhận 401 ACCOUNT_LOCKED. */
+  async me(req, res) {
+    res.json(await accountService.getById(req.user.accountId));
+  },
+
   /** Khách hàng tự đăng ký — tạo Account + Customer trong 1 transaction. */
   async register(req, res) {
-    const { username, password, fullName, dateOfBirth, gender, phone, address } = req.body;
+    const { username, password, fullName, email, dateOfBirth, gender, phone, address } = req.body;
     const account = await accountService.registerCustomer({
-      username, password, fullName, dateOfBirth, gender, phone, address,
+      username, password, fullName, email, dateOfBirth, gender, phone, address,
     });
     res.status(201).json(account);
   },
 
   /**
    * Admin thêm một khách hàng mới (mục 4.1.1) — POST /api/admin/customers.
-   * Route gắn adminOnly (xem admin.routes.js) nên chỉ Admin gọi được; khác
-   * register() ở chỗ người gọi là Admin (không phải khách hàng tự đăng ký)
-   * và `password` trong body là mật khẩu KHỞI TẠO do Admin tự nhập cho
-   * khách hàng, không phải khách hàng tự đặt.
+   * `password` trong body là mật khẩu KHỞI TẠO do Admin tự nhập cho khách hàng.
    */
   async createCustomerByAdmin(req, res) {
-    const { username, password, fullName, dateOfBirth, gender, phone, address } = req.body;
+    const { username, password, fullName, email, dateOfBirth, gender, phone, address } = req.body;
     const account = await accountService.createCustomerByAdmin({
-      username, password, fullName, dateOfBirth, gender, phone, address,
+      username, password, fullName, email, dateOfBirth, gender, phone, address,
+    });
+    await auditLogService.record(req, {
+      action: AUDIT_ACTION.CREATE_CUSTOMER, entityType: AUDIT_ENTITY.CUSTOMER, entityId: account.accountId,
+      description: `Thêm khách hàng "${fullName}" (tài khoản ${username})`,
+    });
+    res.status(201).json(account);
+  },
+
+  async createStaff(req, res) {
+    const { username, email, password, roleName } = req.body;
+    const account = await accountService.createStaff({ username, email, password, roleName });
+    await auditLogService.record(req, {
+      action: AUDIT_ACTION.CREATE_STAFF, entityType: AUDIT_ENTITY.ACCOUNT, entityId: account.accountId,
+      description: `Tạo tài khoản ${roleName} "${username}"`,
     });
     res.status(201).json(account);
   },
@@ -65,20 +84,58 @@ export const accountController = {
     res.json(await accountService.changePassword(accountId, { oldPassword, newPassword }));
   },
 
-  async lock(req, res) {
+  /** POST /api/accounts/forgot-password — body { email }. Luôn trả cùng 1 thông báo (không lộ email nào đã đăng ký). */
+  async forgotPassword(req, res) {
+    await accountService.requestPasswordReset(req.body.email);
+    res.json({
+      message: `Nếu email đã đăng ký, mã OTP đã được gửi tới hộp thư của bạn. Mã có hiệu lực ${OTP_TTL_MINUTES} phút.`,
+      resendAfterSeconds: OTP_RESEND_SECONDS,
+    });
+  },
+
+  /** POST /api/accounts/verify-otp — body { email, otp }. Đúng mã thì 200, frontend mới cho nhập mật khẩu mới. */
+  async verifyOtp(req, res) {
+    const { email, otp } = req.body;
+    await accountService.verifyPasswordResetOtp({ email, otp });
+    res.json({ message: 'Mã OTP hợp lệ.' });
+  },
+
+  /** POST /api/accounts/reset-password — body { email, otp, newPassword }. */
+  async resetPassword(req, res) {
+    const { email, otp, newPassword } = req.body;
+    await accountService.resetPassword({ email, otp, newPassword });
+    res.json({ message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập bằng mật khẩu mới.' });
+  },
+
+    async lock(req, res) {
     const accountId = parseId(req.params.id, 'accountId');
-    res.json(await accountService.lock(accountId));
+    const account = await accountService.lock(accountId);
+    await auditLogService.record(req, {
+      action: AUDIT_ACTION.LOCK_ACCOUNT, entityType: AUDIT_ENTITY.ACCOUNT, entityId: accountId,
+      description: `Khóa tài khoản "${account.username}"`,
+    });
+    res.json(account);
   },
 
   async unlock(req, res) {
     const accountId = parseId(req.params.id, 'accountId');
-    res.json(await accountService.unlock(accountId));
+    const account = await accountService.unlock(accountId);
+    await auditLogService.record(req, {
+      action: AUDIT_ACTION.UNLOCK_ACCOUNT, entityType: AUDIT_ENTITY.ACCOUNT, entityId: accountId,
+      description: `Mở khóa tài khoản "${account.username}"`,
+    });
+    res.json(account);
   },
 
   async updateRole(req, res) {
     const accountId = parseId(req.params.id, 'accountId');
-    const roleId = parseId(req.body.roleId, 'roleId');
-    res.json(await accountService.updateRole(accountId, roleId));
+    const { roleName } = req.body;
+    const account = await accountService.updateRole(accountId, roleName);
+    await auditLogService.record(req, {
+      action: AUDIT_ACTION.CHANGE_ROLE, entityType: AUDIT_ENTITY.ACCOUNT, entityId: accountId,
+      description: `Đổi vai trò tài khoản "${account.username}" thành ${roleName}`,
+    });
+    res.json(account);
   },
 };
 
