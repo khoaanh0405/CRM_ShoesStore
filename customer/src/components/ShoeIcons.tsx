@@ -57,7 +57,7 @@ const ALIASES: Record<string, Kind> = {
   'chạy bộ': 'running', 'giày chạy bộ': 'running', run: 'running',
   'bóng rổ': 'basketball', 'giày bóng rổ': 'basketball',
   heel: 'heels', 'cao gót': 'heels', 'giày cao gót': 'heels', 'high heels': 'heels',
-  'giày sandal': 'sandal', sandals: 'sandal', 'dép': 'sandal',
+  'giày sandal': 'sandal', 'giày xăng đan': 'sandal', 'xăng đan': 'sandal', sandals: 'sandal', 'dép': 'sandal',
   leather: 'leather', da: 'leather', 'giày da': 'leather', oxford: 'leather', formal: 'leather', loafer: 'leather',
 };
 

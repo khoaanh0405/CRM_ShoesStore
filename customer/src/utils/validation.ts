@@ -113,11 +113,23 @@ export const OTP_LENGTH = 6;
 /** Email luôn gửi lên server ở dạng chữ thường, bỏ khoảng trắng đầu cuối. */
 export const normalizeEmail = (v: string) => v.trim().toLowerCase();
 
+/** Email ĐĂNG KÝ / HỒ SƠ: đuôi @gmail.com và có ít nhất 1 chữ số trước dấu @. */
 export function validateEmail(value: string): string | null {
+  const v = value.trim().toLowerCase();
+  if (!v) return 'Vui lòng nhập email.';
+  if (v.length > 100) return 'Email tối đa 100 ký tự.';
+  if (!EMAIL_RE.test(v)) return 'Email không hợp lệ (vd: ten123@gmail.com).';
+  if (!/^[^@\s]+@gmail\.com$/.test(v)) return 'Email phải có đuôi @gmail.com.';
+  if (!/\d/.test(v.split('@')[0])) return 'Email phải chứa ít nhất 1 chữ số (ví dụ: ten123@gmail.com).';
+  return null;
+}
+
+/** Chỉ kiểm tra định dạng chung — dùng cho Quên mật khẩu để tài khoản cũ (email khác) vẫn lấy lại được mật khẩu. */
+export function validateEmailFormat(value: string): string | null {
   const v = value.trim();
   if (!v) return 'Vui lòng nhập email.';
   if (v.length > 100) return 'Email tối đa 100 ký tự.';
-  if (!EMAIL_RE.test(v)) return 'Email không hợp lệ (vd: ten@gmail.com).';
+  if (!EMAIL_RE.test(v)) return 'Email không hợp lệ.';
   return null;
 }
 

@@ -6,7 +6,8 @@ import { ErrorView, LoadingView } from '@/components/StateViews';
 import { StatusBadge, type BadgeTone } from '@/components/StatusBadge';
 import { AppColors } from '@/constants/appTheme';
 import { SITE } from '@/constants/site';
-import { GENDER_OPTIONS, PREFERENCE_SUGGESTIONS } from '@/constants/domain';
+import { GENDER_OPTIONS } from '@/constants/domain';
+import { categoryService, type Category } from '@/services/category.service';
 import { useAuth } from '@/context/AuthContext';
 import { useApi } from '@/hooks/useApi';
 import { useCustomerId } from '@/hooks/useCustomerId';
@@ -45,16 +46,6 @@ const STATUS_META: Record<FeedbackStatus, { label: string; tone: BadgeTone }> = 
   Rejected: { label: 'Không được duyệt', tone: 'danger' },
 };
 
-const PREF_DESC: Record<string, string> = {
-  'Giày Sneaker': 'Năng động, dễ phối đồ',
-  'Giày Chạy Bộ': 'Nhẹ, êm, thoáng khí',
-  'Giày Bóng Rổ': 'Bám sân, hỗ trợ cổ chân',
-  'Giày Thể Thao': 'Luyện tập mọi bộ môn',
-  'Giày Cao Gót': 'Thanh lịch, sang trọng',
-  'Giày Sandal': 'Thoáng mát ngày hè',
-  'Giày Da': 'Lịch sự cho công sở',
-};
-
 const PASSWORD_TIPS = [
   'Dùng ít nhất 6 ký tự, gồm chữ hoa, chữ số và ký tự đặc biệt.',
   'Không dùng lại mật khẩu của các tài khoản khác.',
@@ -70,14 +61,15 @@ export default function ProfilePage() {
 
   const { data, loading, error, reload } = useApi(async () => {
     if (customerId == null) throw new Error('Không xác định được tài khoản khách hàng.');
-    const [profile, preferences, surveys, feedbacks, products] = await Promise.all([
+    const [profile, preferences, surveys, feedbacks, products, categories] = await Promise.all([
       customerService.getProfile(customerId),
       customerService.listPreferences(customerId),
       surveyService.listByCustomer(customerId).catch(() => [] as SurveyTarget[]),
       feedbackService.listByCustomer(customerId).catch(() => [] as Feedback[]),
       productService.list().catch(() => [] as Product[]),
+      categoryService.listWithProducts().catch(() => [] as Category[]),
     ]);
-    return { profile, preferences, surveys, feedbacks, products };
+    return { profile, preferences, surveys, feedbacks, products, categories };
   }, [customerId]);
 
   const initialTab = params.get('tab') as Section | null;
@@ -95,7 +87,7 @@ export default function ProfilePage() {
   if (loading && !data) return <LoadingView />;
   if (!data) return <ErrorView message={error ?? 'Vui lòng thử lại.'} onRetry={reload} />;
 
-  const { profile, preferences, surveys, feedbacks, products } = data;
+  const { profile, preferences, surveys, feedbacks, products, categories } = data;
   const productNames = new Map(products.map((p) => [p.productId, p.productName]));
   const tags = preferences.map((p) => p.preferenceTag);
 
@@ -267,18 +259,20 @@ export default function ProfilePage() {
                 </div>
               </div>
               <div className="pref-grid">
-                {PREFERENCE_SUGGESTIONS.map((tag) => {
+                {categories.map((cat) => {
+                  const tag = cat.categoryName;
                   const selected = preferences.some((p) => p.preferenceTag === tag);
                   const isSaving = savingTag === tag;
                   return (
-                    <button key={tag} className={`pref-tile${selected ? ' on' : ''}`} onClick={() => { if (!isSaving) toggleTag(tag); }}>
+                    <button key={cat.categoryId} className={`pref-tile${selected ? ' on' : ''}`} onClick={() => { if (!isSaving) toggleTag(tag); }}>
                       <Heart size={20} fill={selected ? '#fff' : 'none'} />
-                      <span style={{ flex: 1 }}>{isSaving ? '...' : tag}<small>{PREF_DESC[tag] ?? ''}</small></span>
+                      <span style={{ flex: 1 }}>{isSaving ? '...' : tag}<small>{cat.description ?? ''}</small></span>
                       {selected ? <Check size={16} /> : null}
                     </button>
                   );
                 })}
               </div>
+              {categories.length === 0 ? <div style={{ color: AppColors.textSecondary, fontSize: 13, marginTop: 14 }}>Cửa hàng chưa có danh mục sản phẩm nào.</div> : null}
               {preferences.length === 0 ? <div style={{ color: AppColors.textSecondary, fontSize: 13, marginTop: 14 }}>Bạn chưa chọn sở thích nào.</div> : null}
               <div className="mini-stats">
                 <div className="mini-stat"><small>Sản phẩm phù hợp</small><b>{allMatched.length}</b></div>
