@@ -19,7 +19,7 @@ export const customerRepository = {
     return prisma.customer.findMany({
       where: { ...ONLY_CUSTOMER_ROLE, ...(includeDeleted ? {} : { isDeleted: false }) },
       orderBy: { customerId: 'asc' },
-      include: { customerPreferences: true, account: { select: { isLocked: true } } },
+      include: { customerPreferences: { include: { category: { select: { categoryId: true, categoryName: true, isDeleted: true } } } }, account: { select: { isLocked: true } } },
     });
   },
 
@@ -51,7 +51,7 @@ export const customerRepository = {
   findByIdWithPreferences(customerId) {
     return prisma.customer.findUnique({
       where: { customerId },
-      include: { customerPreferences: true },
+      include: { customerPreferences: { include: { category: { select: { categoryId: true, categoryName: true, isDeleted: true } } } } },
     });
   },
 

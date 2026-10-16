@@ -1,7 +1,6 @@
 export { validateBody, validateQuery, validateParams } from './common.validator.js';
 export { roleValidator } from './role.validator.js';
 export { accountValidator } from './account.validator.js';
-export { supplierValidator } from './supplier.validator.js';
 export { productValidator } from './product.validator.js';
 export { customerValidator } from './customer.validator.js';
 export { customerPreferenceValidator } from './customerPreference.validator.js';

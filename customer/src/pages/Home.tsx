@@ -47,7 +47,7 @@ export default function HomePage() {
   if (!data) return <ErrorView message={error ?? 'Vui lòng thử lại.'} onRetry={reload} />;
 
   const { products, surveys, preferences } = data;
-  const tags = preferences.map((p) => p.preferenceTag);
+  const tags = preferences.map((p) => p.category.categoryName);
   const pendingSurveys = surveys.filter((t) => !t.isCompleted && t.survey.isActive);
   const categories = Array.from(new Set(products.map((p) => p.category).filter((c): c is string => !!c)))
     .map((name) => ({ name, count: products.filter((p) => p.category === name).length }));

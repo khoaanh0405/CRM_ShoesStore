@@ -1,0 +1,30 @@
+### Bổ sung cho api_test.http (file gốc gửi lên bị cắt nên không ghi đè). Xóa các mục Supplier/Banner và dùng các mẫu dưới.
+@baseUrl = http://localhost:5001
+### Sở thích = categoryId (chọn trùng -> 409)
+POST {{baseUrl}}/api/customers/{{customerId}}/preferences
+Authorization: Bearer {{customerToken}}
+Content-Type: application/json
+
+{ "categoryId": 1 }
+
+### Hồ sơ nhân sự của chính mình
+GET {{baseUrl}}/api/employees/me
+Authorization: Bearer {{managerToken}}
+
+###
+PUT {{baseUrl}}/api/employees/me
+Authorization: Bearer {{managerToken}}
+Content-Type: application/json
+
+{ "fullName": "Trần Quản Lý", "phone": "0909000002" }
+
+### Admin tạo nhân sự (Account + Employee)
+POST {{baseUrl}}/api/admin/staff
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{ "username": "manager2", "fullName": "Lê Quản Lý", "email": "manager2@gmail.com", "password": "Manager@123", "roleName": "Manager" }
+
+### Danh sách nhân sự (Admin)
+GET {{baseUrl}}/api/employees
+Authorization: Bearer {{adminToken}}

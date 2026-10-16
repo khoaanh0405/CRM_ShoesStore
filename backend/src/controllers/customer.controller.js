@@ -1,58 +1,37 @@
 /**
- * Controller cho Customer. DELETE /api/customers/:id gọi customerService.remove()
- * — vốn là SOFT DELETE, dữ liệu lịch sử vẫn giữ nguyên.
+ * Controller cho Customer. DELETE /api/customers/:id = SOFT DELETE, ghi AuditLog.
  */
+import { customerService } from '../services/index.js';
 import { auditLogService } from '../services/auditLog.service.js';
 import { AUDIT_ACTION, AUDIT_ENTITY } from '../constants/audit.constant.js';
-import { customerService } from '../services/index.js';
 import { parseId, parseBoolean } from '../utils/index.js';
 
 export const customerController = {
   async list(req, res) {
-    const includeDeleted = parseBoolean(req.query.includeDeleted) ?? false;
-    res.json(await customerService.list({ includeDeleted }));
+    res.json(await customerService.list({ includeDeleted: parseBoolean(req.query.includeDeleted) ?? false }));
   },
-
-  /** Báo cáo khách hàng: giới tính / độ tuổi / sở thích (mục 4.1.5). */
   async report(req, res) {
     res.json(await customerService.report());
   },
-
   async search(req, res) {
     const { keyword, gender } = req.query;
-    const includeDeleted = parseBoolean(req.query.includeDeleted) ?? false;
-    res.json(await customerService.search({ keyword, gender, includeDeleted }));
+    res.json(await customerService.search({ keyword, gender, includeDeleted: parseBoolean(req.query.includeDeleted) ?? false }));
   },
-
   async getById(req, res) {
     const customerId = parseId(req.params.id, 'customerId');
-    const includeDeleted = parseBoolean(req.query.includeDeleted) ?? false;
-    res.json(await customerService.getById(customerId, { includeDeleted }));
+    res.json(await customerService.getById(customerId, { includeDeleted: parseBoolean(req.query.includeDeleted) ?? false }));
   },
-
-  /** Hồ sơ đầy đủ kèm username/isLocked của Account. */
   async getProfile(req, res) {
-    const customerId = parseId(req.params.id, 'customerId');
-    res.json(await customerService.getProfile(customerId));
+    res.json(await customerService.getProfile(parseId(req.params.id, 'customerId')));
   },
-
-  /**
-   * requesterId lấy từ req.user (middleware auth gắn vào sau khi verify JWT).
-   * Hiện chưa có middleware auth nên req.user undefined => Service hiểu là
-   * Admin gọi và bỏ qua bước kiểm tra "chỉ được sửa hồ sơ của chính mình".
-   */
   async updateProfile(req, res) {
     const customerId = parseId(req.params.id, 'customerId');
     const { fullName, dateOfBirth, gender, phone, email, address } = req.body;
-    const requesterId = req.user?.customerId;
     res.json(await customerService.updateProfile(
-      customerId,
-      { fullName, dateOfBirth, gender, phone, email, address },
-      requesterId
+      customerId, { fullName, dateOfBirth, gender, phone, email, address }, req.user?.customerId
     ));
   },
-
-    async remove(req, res) {
+  async remove(req, res) {
     const customerId = parseId(req.params.id, 'customerId');
     const result = await customerService.remove(customerId);
     await auditLogService.record(req, {

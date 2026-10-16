@@ -13,8 +13,8 @@ export const customerService = {
     const { data } = await http.get<CustomerPreference[]>(`/customers/${customerId}/preferences`);
     return data;
   },
-  async addPreference(customerId: number, preferenceTag: string): Promise<CustomerPreference> {
-    const { data } = await http.post<CustomerPreference>(`/customers/${customerId}/preferences`, { preferenceTag });
+  async addPreference(customerId: number, categoryId: number): Promise<CustomerPreference> {
+    const { data } = await http.post<CustomerPreference>(`/customers/${customerId}/preferences`, { categoryId });
     return data;
   },
   async removePreference(preferenceId: number): Promise<void> {

@@ -1,55 +1,37 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { logout } from '../services/auth';
+import React, { useEffect } from 'react';
+import { Menu } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
-import { Menu, LogOut, LayoutDashboard } from 'lucide-react';
+import { useProfileStore } from '../store/useProfileStore';
+import logo from '../../assets/images/logo.png';
 import './Header.css';
 
 interface HeaderProps {
   toggleSidebar: () => void;
 }
 
+/** Trái: nút menu + "Xin chào, tên". Phải: logo OURAN. Đăng xuất nằm ở cuối sidebar. */
 const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
-  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
-  const roleName = useAuthStore((s) => s.roleName);
+  const profile = useProfileStore((s) => s.profile);
+  const loadProfile = useProfileStore((s) => s.load);
 
-  const displayName = user?.username ?? 'User';
-  const roleLabel = roleName ?? '';
+  useEffect(() => { loadProfile(); }, [loadProfile]);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
+  const displayName = profile?.fullName || user?.username || 'bạn';
 
   return (
     <header className="header">
       <div className="header-left">
         <button className="menu-btn" onClick={toggleSidebar} title="Mở/đóng menu">
-          <Menu size={20} />
+          <Menu size={24} />
         </button>
-        <div className="header-brand">
-          <LayoutDashboard size={20} className="brand-icon" />
-          <span className="brand-name">OURAN</span>
-        </div>
+        <span className="header-greeting">Xin chào, <b>{displayName}</b></span>
       </div>
-      <div className="header-right">
-        <div className="user-profile" onClick={() => navigate('/profile')} title="Hồ sơ cá nhân">
-          <img
-            src={`https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=21b964&color=fff`}
-            alt="User Avatar"
-            className="avatar"
-          />
-          <div className="user-info">
-            <span className="user-name">{displayName}</span>
-            {roleLabel && <span className="user-role">{roleLabel}</span>}
-          </div>
-        </div>
-        <div className="header-divider" />
-        <button className="logout-btn" onClick={handleLogout} title="Đăng xuất">
-          <LogOut size={18} />
-          <span>Đăng xuất</span>
-        </button>
+      <div className="header-brand">
+        <span className="brand-logo">
+          <img src={logo} alt="OURAN Logo" className="brand-logo-img" />
+        </span>
+        <span className="brand-name">OURAN</span>
       </div>
     </header>
   );

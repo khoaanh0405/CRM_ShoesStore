@@ -6,7 +6,7 @@
 import { customerRepository, customerPreferenceRepository } from '../repositories/index.js';
 import { NotFoundError, ValidationError, ForbiddenError, ConflictError } from '../errors/AppError.js';
 import { AGE_BUCKETS, MESSAGES } from '../constants/index.js';
-import { calculateAge, assertValidEmail } from '../utils/index.js';
+import { calculateAge, assertStrictEmail } from '../utils/index.js';
 
 function ageBucketOf(age) {
   const bucket = AGE_BUCKETS.find((b) => age >= b.min && age <= b.max);
@@ -16,12 +16,16 @@ function ageBucketOf(age) {
 export const customerService = {
   async list({ includeDeleted = false } = {}) {
     const customers = await customerRepository.findAll({ includeDeleted });
-    return customers.map(({ account, customerPreferences, ...c }) => ({
-      ...c,
-      isLocked: account?.isLocked ?? false,
-      customerPreferences,
-      preferences: (customerPreferences ?? []).map((p) => ({ tag: p.preferenceTag })),
-    }));
+    return customers.map(({ account, customerPreferences, ...c }) => {
+      // Sở thích = danh mục khách đã chọn (bỏ danh mục đã bị xóa mềm).
+      const alive = (customerPreferences ?? []).filter((p) => !p.category?.isDeleted);
+      return {
+        ...c,
+        isLocked: account?.isLocked ?? false,
+        customerPreferences: alive,
+        preferences: alive.map((p) => ({ categoryId: p.categoryId, categoryName: p.category.categoryName })),
+      };
+    });
   },
 
   async getById(customerId, options = {}) {
@@ -60,7 +64,7 @@ export const customerService = {
     // Đổi email: phải hợp lệ và không trùng với khách hàng khác.
     let normalizedEmail;
     if (email !== undefined) {
-      normalizedEmail = assertValidEmail(email);
+      normalizedEmail = assertStrictEmail(email);
       const owner = await customerRepository.findByEmail(normalizedEmail);
       if (owner && owner.customerId !== customerId) {
         throw new ConflictError('Email này đã được sử dụng bởi tài khoản khác.');
@@ -91,7 +95,7 @@ export const customerService = {
   async report() {
     const [genderGroups, preferenceGroups, customers] = await Promise.all([
       customerRepository.countByGender(),
-      customerPreferenceRepository.countByTag(),
+      customerPreferenceRepository.countByCategory(),
       customerRepository.findAll(),
     ]);
 
@@ -105,7 +109,8 @@ export const customerService = {
       totalActiveCustomers: customers.length,
       byGender: genderGroups.map((g) => ({ gender: g.gender ?? 'Không rõ', count: g._count._all })),
       byAgeGroup: Object.entries(ageBuckets).map(([bucket, count]) => ({ bucket, count })),
-      byPreference: preferenceGroups.map((p) => ({ tag: p.preferenceTag, count: p._count._all })),
+      // tag = tên danh mục (giữ tên trường để các màn hình báo cáo hiện có vẫn dùng được)
+      byPreference: preferenceGroups.map((p) => ({ categoryId: p.categoryId, tag: p.categoryName, count: p.count })),
     };
   },
 };

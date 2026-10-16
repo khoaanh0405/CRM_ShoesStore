@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Users, UserCheck, Lock, Package, ShieldCheck, Heart } from 'lucide-react';
-import { getAccounts, getProducts, getCustomerReport } from '../../services/api';
+import { Users, UserCheck, Lock, Briefcase, ShieldCheck, Heart } from 'lucide-react';
+import { getAccounts, getCustomerReport } from '../../services/api';
 import DonutChart from '../../components/DonutChart';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import './Dashboard.css';
@@ -22,19 +22,16 @@ const REPORT_COLORS = ['#7C3AED', '#F59E0B', '#059669', '#2563EB', '#DC2626', '#
 const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [accounts, setAccounts] = useState<any[]>([]);
-  const [totalProducts, setTotalProducts] = useState(0);
   const [report, setReport] = useState<CustomerReport | null>(null);
 
   /** silent = true: dùng cho auto-refresh, không bật spinner, không báo lỗi. */
   const load = useCallback(async (silent = false) => {
     try {
-      const [accs, products, rpt] = await Promise.all([
+      const [accs, rpt] = await Promise.all([
         getAccounts(),
-        getProducts(),
         getCustomerReport(),
       ]);
       setAccounts(accs);
-      setTotalProducts(products.length);
       setReport(rpt);
     } catch {
       if (!silent) toast.error('Không thể tải dữ liệu dashboard');
@@ -96,11 +93,11 @@ const Dashboard: React.FC = () => {
         </div>
         <div className="stat-card-v2">
           <div className="stat-card-top">
-            <span className="stat-label">Sản phẩm</span>
-            <span className="stat-icon-box purple"><Package size={18} /></span>
+            <span className="stat-label">Nhân sự</span>
+            <span className="stat-icon-box purple"><Briefcase size={18} /></span>
           </div>
-          <div className="stat-value">{totalProducts}</div>
-          <div className="stat-foot muted">Tổng số sản phẩm</div>
+          <div className="stat-value">{admins + managers}</div>
+          <div className="stat-foot muted">Admin &amp; Manager</div>
         </div>
       </div>
 

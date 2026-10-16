@@ -9,6 +9,10 @@ import { normalizeEmail, validateEmail, validateNewPassword, PASSWORD_HINT } fro
 import './AccountManagement.css';
 
 interface RoleLite { roleId: number; roleName: string }
+interface PersonProfile {
+  fullName?: string; phone?: string | null; gender?: string | null;
+  address?: string | null; dateOfBirth?: string | null; email?: string | null;
+}
 interface AccountRow {
   accountId: number;
   username: string;
@@ -16,10 +20,9 @@ interface AccountRow {
   isLocked: boolean;
   createdAt: string;
   role?: RoleLite;
-  customer?: {
-    fullName?: string; phone?: string | null; gender?: string | null;
-    address?: string | null; dateOfBirth?: string | null; email?: string | null;
-  } | null;
+  customer?: PersonProfile | null;
+  /** Hồ sơ nhân sự (bảng employees) — chỉ có ở tài khoản Admin/Manager. */
+  employee?: (PersonProfile & { position?: string | null; hireDate?: string | null }) | null;
 }
 
 const ITEMS_PER_PAGE = 10;
@@ -32,10 +35,11 @@ const ROLE_CLASS: Record<string, string> = {
 };
 
 const errMsg = (e: any, fallback: string) => e?.response?.data?.message ?? fallback;
-const emailOf = (a: AccountRow) => a.email || a.customer?.email || '';
+const profileOf = (a: AccountRow) => a.employee ?? a.customer ?? null;
+const emailOf = (a: AccountRow) => a.email || a.employee?.email || a.customer?.email || '';
 const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString('vi-VN') : '—');
 
-const EMPTY_FORM = { username: '', email: '', password: '', roleName: 'Manager' as StaffRole };
+const EMPTY_FORM = { username: '', fullName: '', email: '', phone: '', password: '', roleName: 'Manager' as StaffRole };
 
 const AccountManagement: React.FC = () => {
   const me = useAuthStore((s) => s.user);
@@ -94,7 +98,7 @@ const AccountManagement: React.FC = () => {
           !k ||
           a.username.toLowerCase().includes(k) ||
           emailOf(a).toLowerCase().includes(k) ||
-          (a.customer?.fullName ?? '').toLowerCase().includes(k);
+          (profileOf(a)?.fullName ?? '').toLowerCase().includes(k);
         const matchRole = filters.role === 'ALL' || a.role?.roleName === filters.role;
         const matchStatus = filters.status === 'ALL' || (filters.status === 'LOCKED') === a.isLocked;
         return matchSearch && matchRole && matchStatus;
@@ -164,6 +168,7 @@ const AccountManagement: React.FC = () => {
     const username = form.username.trim();
     if (username.length < 4) return void toast.error('Tên đăng nhập tối thiểu 4 ký tự.');
     if (!/^[A-Za-z0-9._]+$/.test(username)) return void toast.error('Tên đăng nhập chỉ gồm chữ cái không dấu, số, dấu chấm và gạch dưới.');
+    if (form.fullName.trim().length < 2) return void toast.error('Vui lòng nhập họ tên nhân sự (tối thiểu 2 ký tự).');
     const emailErr = validateEmail(form.email);
     if (emailErr) return void toast.error(emailErr);
     const pwErr = validateNewPassword(form.password, username);
@@ -173,7 +178,9 @@ const AccountManagement: React.FC = () => {
     try {
       await api.post('/admin/staff', {
         username,
+        fullName: form.fullName.trim().replace(/\s+/g, ' '),
         email: normalizeEmail(form.email),
+        phone: form.phone.trim() || undefined,
         password: form.password,
         roleName: form.roleName,
       });
@@ -263,7 +270,7 @@ const AccountManagement: React.FC = () => {
                     <td className="text-muted">{(page - 1) * ITEMS_PER_PAGE + idx + 1}</td>
                     <td>
                       <div className="font-medium">{a.username}</div>
-                      {a.customer?.fullName && <div className="text-muted" style={{ fontSize: 12 }}>{a.customer.fullName}</div>}
+                      {profileOf(a)?.fullName && <div className="text-muted" style={{ fontSize: 12 }}>{profileOf(a)?.fullName}</div>}
                     </td>
                     <td>{emailOf(a) || <span className="text-muted">—</span>}</td>
                     <td>
@@ -355,9 +362,19 @@ const AccountManagement: React.FC = () => {
                     onChange={(e) => setForm({ ...form, username: e.target.value })} />
                 </div>
                 <div className="form-group" style={fieldStyle}>
+                  <label style={labelStyle}>Họ tên nhân sự *</label>
+                  <input value={form.fullName} maxLength={100} autoComplete="off"
+                    onChange={(e) => setForm({ ...form, fullName: e.target.value })} />
+                </div>
+                <div className="form-group" style={fieldStyle}>
                   <label style={labelStyle}>Email *</label>
                   <input type="email" value={form.email} maxLength={100} autoComplete="off"
                     onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                </div>
+                <div className="form-group" style={fieldStyle}>
+                  <label style={labelStyle}>Số điện thoại</label>
+                  <input value={form.phone} maxLength={20} autoComplete="off" inputMode="tel"
+                    onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/[^\d+\s.-]/g, '') })} />
                 </div>
                 <div className="form-group" style={{ ...fieldStyle, marginBottom: 0 }}>
                   <label style={labelStyle}>Mật khẩu khởi tạo *</label>
@@ -426,11 +443,12 @@ const AccountManagement: React.FC = () => {
                   ['Vai trò', ROLE_LABELS[detail.role?.roleName ?? ''] ?? detail.role?.roleName],
                   ['Trạng thái', detail.isLocked ? 'Đã khóa' : 'Đang hoạt động'],
                   ['Ngày tạo', fmtDate(detail.createdAt)],
-                  ['Họ tên', detail.customer?.fullName],
-                  ['Ngày sinh', fmtDate(detail.customer?.dateOfBirth)],
-                  ['Giới tính', detail.customer?.gender],
-                  ['Số điện thoại', detail.customer?.phone],
-                  ['Địa chỉ', detail.customer?.address],
+                  ['Họ tên', profileOf(detail)?.fullName],
+                  ['Chức vụ', detail.employee?.position],
+                  ['Ngày sinh', fmtDate(profileOf(detail)?.dateOfBirth)],
+                  ['Giới tính', profileOf(detail)?.gender],
+                  ['Số điện thoại', profileOf(detail)?.phone],
+                  ['Địa chỉ', profileOf(detail)?.address],
                 ] as [string, string | null | undefined][])
                   .filter(([label, v]) => v && !(label === 'Ngày sinh' && v === '—'))
                   .map(([label, v]) => (

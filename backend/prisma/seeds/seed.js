@@ -53,30 +53,36 @@ const EMAIL_OVERRIDES = {
 const emailOf = (username) => EMAIL_OVERRIDES[username] ?? `${username}@example.com`;
 
 /* ---------- dữ liệu nguồn ---------- */
-const SUPPLIER = {
-  supplierName: 'Công ty TNHH Phân Phối Giày Sài Gòn',
-  phone: '0283999888',
-  email: 'lienhe@giaysaigon.vn',
-  address: '123 Lê Lợi, Phường Bến Thành, Quận 1, TP. Hồ Chí Minh',
-};
-
-// 12 sản phẩm KHÁC NHAU hoàn toàn, danh mục khớp với utils/category.ts phía customer.
-const PRODUCTS = [
-  { productName: 'Giày Sneaker Air Classic', category: 'Sneaker', brand: 'Nike', size: '37/38/39/40/41/42', color: 'Trắng/Đen', material: 'Da tổng hợp', price: 850000, stockQuantity: 100 },
-  { productName: 'Giày Sneaker Urban Street', category: 'Sneaker', brand: 'Adidas', size: '38/39/40/41', color: 'Xám', material: 'Vải canvas', price: 1250000, stockQuantity: 80 },
-  { productName: 'Giày Sneaker Aero Lite 2027', category: 'Sneaker', brand: 'Puma', size: '40/41/42', color: 'Xanh pastel', material: 'Vải dệt siêu nhẹ', price: 1590000, stockQuantity: 20 },
-  { productName: 'Giày Chạy Bộ Pegasus Pro', category: 'Running', brand: 'Nike', size: '41/42', color: 'Cam', material: 'Vải lưới thoáng khí', price: 1850000, stockQuantity: 60 },
-  { productName: 'Giày Chạy Bộ Ultraboost Light', category: 'Running', brand: 'Adidas', size: '41/42', color: 'Xanh dương', material: 'Primeknit', price: 2450000, stockQuantity: 45 },
-  { productName: 'Giày Chạy Bộ Fresh Foam Road', category: 'Running', brand: 'New Balance', size: '41/42/43', color: 'Đen/Vàng', material: 'Mesh', price: 1650000, stockQuantity: 70 },
-  { productName: 'Giày Bóng Rổ Air Zoom Court', category: 'Basketball', brand: 'Nike', size: '40/41/41/42/43', color: 'Đỏ/Đen', material: 'Da lộn', price: 2100000, stockQuantity: 40 },
-  { productName: 'Giày Bóng Rổ Curry Elite', category: 'Basketball', brand: 'Under Armour', size: '42/43/44', color: 'Trắng/Vàng', material: 'Vải dệt cao cấp', price: 2350000, stockQuantity: 35 },
-  { productName: 'Giày Cao Gót Elegance Nude', category: 'Heels', brand: 'Juno', size: '36/37/38/39/40', color: 'Be', material: 'Da bò', price: 990000, stockQuantity: 30 },
-  { productName: 'Giày Cao Gót Royal Đỏ', category: 'Heels', brand: 'Vascara', size: '37/38/39', color: 'Đỏ đô', material: 'Da lộn', price: 1150000, stockQuantity: 25 },
-  { productName: 'Sandal Quai Mùa Hè', category: 'Sandal', brand: "Biti's", size: '38/39', color: 'Trắng', material: 'Nhựa dẻo', price: 350000, stockQuantity: 120 },
-  { productName: 'Sandal Thể Thao Đi Biển', category: 'Sandal', brand: 'Bata', size: '40/41', color: 'Xanh rêu', material: 'Cao su EVA', price: 490000, stockQuantity: 90 },
+// Danh mục (tiếng Việt). Sở thích của khách hàng CHỈ được chọn trong các danh mục này (customer_preferences.category_id).
+const CATEGORIES = [
+  ['Giày Sneaker', 'Giày sneaker thời trang'],
+  ['Giày Chạy Bộ', 'Giày chạy bộ'],
+  ['Giày Bóng Rổ', 'Giày bóng rổ'],
+  ['Giày Thể Thao', 'Giày thể thao & tập luyện'],
+  ['Giày Cao Gót', 'Giày cao gót'],
+  ['Giày Sandal', 'Sandal & dép'],
+  ['Giày Da', 'Giày da công sở'],
 ];
 
-// [username, họ tên, ngày sinh, giới tính, sđt, địa chỉ, [sở thích], isLocked, isDeleted]
+// 14 sản phẩm KHÁC NHAU hoàn toàn; `category` là tên danh mục ở CATEGORIES.
+const PRODUCTS = [
+  { productName: 'Giày Sneaker Air Classic', category: 'Giày Sneaker', brand: 'Nike', size: '37/38/39/40/41/42', color: 'Trắng/Đen', material: 'Da tổng hợp', price: 850000, stockQuantity: 100 },
+  { productName: 'Giày Sneaker Urban Street', category: 'Giày Sneaker', brand: 'Adidas', size: '38/39/40/41', color: 'Xám', material: 'Vải canvas', price: 1250000, stockQuantity: 80 },
+  { productName: 'Giày Sneaker Aero Lite 2027', category: 'Giày Sneaker', brand: 'Puma', size: '40/41/42', color: 'Xanh pastel', material: 'Vải dệt siêu nhẹ', price: 1590000, stockQuantity: 20 },
+  { productName: 'Giày Chạy Bộ Pegasus Pro', category: 'Giày Chạy Bộ', brand: 'Nike', size: '41/42', color: 'Cam', material: 'Vải lưới thoáng khí', price: 1850000, stockQuantity: 60 },
+  { productName: 'Giày Chạy Bộ Ultraboost Light', category: 'Giày Chạy Bộ', brand: 'Adidas', size: '41/42', color: 'Xanh dương', material: 'Primeknit', price: 2450000, stockQuantity: 45 },
+  { productName: 'Giày Chạy Bộ Fresh Foam Road', category: 'Giày Chạy Bộ', brand: 'New Balance', size: '41/42/43', color: 'Đen/Vàng', material: 'Mesh', price: 1650000, stockQuantity: 70 },
+  { productName: 'Giày Bóng Rổ Air Zoom Court', category: 'Giày Bóng Rổ', brand: 'Nike', size: '40/41/42/43', color: 'Đỏ/Đen', material: 'Da lộn', price: 2100000, stockQuantity: 40 },
+  { productName: 'Giày Bóng Rổ Curry Elite', category: 'Giày Bóng Rổ', brand: 'Under Armour', size: '42/43/44', color: 'Trắng/Vàng', material: 'Vải dệt cao cấp', price: 2350000, stockQuantity: 35 },
+  { productName: 'Giày Cao Gót Elegance Nude', category: 'Giày Cao Gót', brand: 'Juno', size: '36/37/38/39/40', color: 'Be', material: 'Da bò', price: 990000, stockQuantity: 30 },
+  { productName: 'Giày Cao Gót Royal Đỏ', category: 'Giày Cao Gót', brand: 'Vascara', size: '37/38/39', color: 'Đỏ đô', material: 'Da lộn', price: 1150000, stockQuantity: 25 },
+  { productName: 'Sandal Quai Mùa Hè', category: 'Giày Sandal', brand: "Biti's", size: '38/39', color: 'Trắng', material: 'Nhựa dẻo', price: 350000, stockQuantity: 120 },
+  { productName: 'Sandal Thể Thao Đi Biển', category: 'Giày Sandal', brand: 'Bata', size: '40/41', color: 'Xanh rêu', material: 'Cao su EVA', price: 490000, stockQuantity: 90 },
+  { productName: 'Giày Thể Thao Training Pro', category: 'Giày Thể Thao', brand: 'Reebok', size: '39/40/41/42', color: 'Đen/Xám', material: 'Vải lưới thoáng khí', price: 1390000, stockQuantity: 55 },
+  { productName: 'Giày Da Oxford Công Sở', category: 'Giày Da', brand: 'Bata', size: '39/40/41/42/43', color: 'Nâu', material: 'Da bò', price: 1490000, stockQuantity: 40 },
+];
+
+// [username, họ tên, ngày sinh, giới tính, sđt, địa chỉ, [tên danh mục yêu thích], isLocked, isDeleted]
 // Email sinh tự động bằng emailOf(username).
 // 0-20: đang hoạt động | 21-22: bị khóa | 23-25: đã xóa mềm. Độ tuổi & giới tính đa dạng để báo cáo CRM có số liệu.
 const CUSTOMERS = [
@@ -224,11 +230,11 @@ async function main() {
     await prisma.$executeRawUnsafe(`
     TRUNCATE TABLE "audit_logs", "review_replies", "password_reset_otps", "notifications", "survey_answers", "survey_responses", "survey_targets",
       "survey_question_options", "survey_questions", "surveys", "feedbacks",
-      "customer_preferences", "customers", "products", "categories", "suppliers", "accounts", "roles"
+      "customer_preferences", "customers", "employees", "products", "categories", "accounts", "roles"
     RESTART IDENTITY CASCADE
   `);
 
-  // 1. Vai trò + tài khoản nội bộ (Admin & Manager lưu email ngay trong bảng accounts, không có hồ sơ Customer)
+  // 1. Vai trò + tài khoản nội bộ (Admin & Manager có hồ sơ trong bảng employees, không có hồ sơ Customer)
   const [adminRole, managerRole, customerRole] = await Promise.all([
     prisma.role.create({ data: { roleName: 'Admin', description: 'Quản trị viên hệ thống' } }),
     prisma.role.create({ data: { roleName: 'Manager', description: 'Quản lý CRM (khách hàng, phản hồi, khảo sát)' } }),
@@ -240,6 +246,12 @@ async function main() {
     data: {
       username: 'admin', email: 'admin@ouran.com', passwordHash,
       roleId: adminRole.roleId, createdAt: randomPast(300, 420),
+      employee: {
+        create: {
+          fullName: 'Nguyễn Quản Trị', dateOfBirth: new Date('1990-01-15'), gender: 'Nam', phone: '0909000001',
+          email: 'admin@ouran.com', address: 'Q.1, TP.HCM', position: 'Quản trị viên hệ thống', hireDate: new Date('2024-01-02'),
+        },
+      },
     },
   });
 
@@ -247,20 +259,20 @@ async function main() {
     data: {
       username: 'manager', email: 'manager@ouran.com', passwordHash,
       roleId: managerRole.roleId, createdAt: randomPast(200, 299),
+      employee: {
+        create: {
+          fullName: 'Trần Quản Lý', dateOfBirth: new Date('1992-06-20'), gender: 'Nữ', phone: '0909000002',
+          email: 'manager@ouran.com', address: 'Q.3, TP.HCM', position: 'Quản lý CRM', hireDate: new Date('2024-03-01'),
+        },
+      },
     },
   });
 
-  // 2. Nhà cung cấp duy nhất + sản phẩm
-   const supplier = await prisma.supplier.create({ data: SUPPLIER });
-
-  const CATEGORY_DESC = {
-    Sneaker: 'Giày sneaker thời trang', Running: 'Giày chạy bộ', Basketball: 'Giày bóng rổ',
-    Heels: 'Giày cao gót', Sandal: 'Sandal & dép',
-  };
+  // 2. Danh mục + sản phẩm
   const categoryMap = {};
-  for (const name of [...new Set(PRODUCTS.map((p) => p.category))]) {
-    const c = await prisma.category.create({ data: { categoryName: name, description: CATEGORY_DESC[name] ?? null } });
-    categoryMap[name] = c.categoryId;
+  for (const [categoryName, description] of CATEGORIES) {
+    const c = await prisma.category.create({ data: { categoryName, description } });
+    categoryMap[categoryName] = c.categoryId;
   }
 
   const products = [];
@@ -268,7 +280,7 @@ async function main() {
     const { category, ...rest } = PRODUCTS[i];
     products.push(await prisma.product.create({
       data: {
-        supplierId: supplier.supplierId, categoryId: categoryMap[category], isActive: true, ...rest,
+        categoryId: categoryMap[category], isActive: true, ...rest,
         imageUrl: `https://picsum.photos/seed/shoe-crm-${i + 1}/600/600`,
       },
     }));
@@ -286,7 +298,8 @@ async function main() {
             fullName, dateOfBirth: new Date(dob), gender, phone, address,
             email: emailOf(username),
             isDeleted, deletedAt: isDeleted ? daysAgo(5) : null,
-            customerPreferences: { create: prefs.map((preferenceTag) => ({ preferenceTag })) },
+            // Sở thích = danh mục đã chọn (categoryId); (customerId, categoryId) là UNIQUE nên khử trùng ở đây.
+            customerPreferences: { create: [...new Set(prefs)].map((name) => ({ categoryId: categoryMap[name] })) },
           },
         },
       },
@@ -408,7 +421,8 @@ async function main() {
 
   console.log('Seed xong!');
   console.log(`- ${customers.length} khách hàng (${activeCustomers.length} hoạt động, 2 bị khóa, 3 đã xóa mềm), mỗi người 1 email riêng`);
-  console.log(`- ${PRODUCTS.length} sản phẩm, 1 nhà cung cấp, ${FEEDBACKS.length} phản hồi, ${SURVEYS.length} khảo sát`);
+  console.log(`- ${CATEGORIES.length} danh mục, ${PRODUCTS.length} sản phẩm, ${FEEDBACKS.length} phản hồi, ${SURVEYS.length} khảo sát`);
+  console.log('- 2 nhân sự (bảng employees): admin (Admin) và manager (Manager)');
   console.log('- Tài khoản test (mật khẩu 123456): admin (admin@ouran.com) | manager (manager@ouran.com) | nguyenvana | tranthib ...');
   console.log(`- Test quên mật khẩu: tài khoản nguyenvana, email ${emailOf('nguyenvana')}`);
 }

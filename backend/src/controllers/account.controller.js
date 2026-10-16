@@ -50,11 +50,13 @@ export const accountController = {
   },
 
   async createStaff(req, res) {
-    const { username, email, password, roleName } = req.body;
-    const account = await accountService.createStaff({ username, email, password, roleName });
+    const { username, fullName, email, password, roleName, dateOfBirth, gender, phone, address, position } = req.body;
+    const account = await accountService.createStaff({
+      username, fullName, email, password, roleName, dateOfBirth, gender, phone, address, position,
+    });
     await auditLogService.record(req, {
       action: AUDIT_ACTION.CREATE_STAFF, entityType: AUDIT_ENTITY.ACCOUNT, entityId: account.accountId,
-      description: `Tạo tài khoản ${roleName} "${username}"`,
+      description: `Tạo tài khoản ${roleName} "${username}" (${fullName})`,
     });
     res.status(201).json(account);
   },
@@ -62,7 +64,7 @@ export const accountController = {
   /**
    * Service chỉ XÁC THỰC và trả account (đã bỏ passwordHash). Controller là
    * nơi phát hành JWT — payload chỉ chứa thứ cần cho phân quyền, đúng như
-   * middleware auth.middleware.js mong đợi (accountId, roleName, customerId).
+   * middleware auth.middleware.js mong đợi (accountId, roleName, customerId, employeeId).
    */
   async login(req, res) {
     const { username, password } = req.body;
@@ -73,6 +75,7 @@ export const accountController = {
       username: account.username,
       roleName: account.role?.roleName,
       customerId: account.customer?.customerId,
+      employeeId: account.employee?.employeeId,
     });
 
     res.json({ token, account });

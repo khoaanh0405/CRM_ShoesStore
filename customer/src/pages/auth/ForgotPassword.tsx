@@ -5,7 +5,7 @@ import { AuthColors } from '@/constants/authTheme';
 import { useCooldown } from '@/hooks/useCooldown';
 import { getApiErrorMessage } from '@/services/api-client';
 import { authService } from '@/services/auth.service';
-import { normalizeEmail, validateEmail } from '@/utils/validation';
+import { normalizeEmail, validateEmailFormat } from '@/utils/validation';
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -22,7 +22,7 @@ export default function ForgotPasswordPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
-    const err = validateEmail(email);
+    const err = validateEmailFormat(email);
     setError(err);
     if (err) return;
 

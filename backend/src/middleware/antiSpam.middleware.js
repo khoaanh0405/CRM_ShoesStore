@@ -36,35 +36,40 @@ export function ownCustomerOnly(req, res, next) {
   next();
 }
 
-const MIN_INTERVAL_MS = 60_000; // 1 phản hồi / 60s
-const DAILY_LIMIT = 10;         // tối đa 10 phản hồi / 24h
+const WINDOW_MS = 30 * 60 * 1000; // 30 phút
+const WINDOW_LIMIT = 5;           // tối đa 5 đánh giá / 30 phút / khách
 
-/** Chống spam đánh giá: giãn cách, giới hạn ngày, không gửi trùng khi còn Pending. */
+/**
+ * Chống spam đánh giá: tối đa 5 đánh giá trong 30 phút (tính cả đánh giá đã thu hồi để không lách luật),
+ * và không gửi trùng khi còn một đánh giá Pending cho cùng sản phẩm.
+ */
 export async function feedbackSpamGuard(req, res, next) {
   try {
     const customerId = Number(req.body.customerId);
     const productId = Number(req.body.productId);
-    const since = new Date(Date.now() - 24 * 3600 * 1000);
+    const since = new Date(Date.now() - WINDOW_MS);
 
-    const [last, dailyCount, pendingSame] = await Promise.all([
-      prisma.feedback.findFirst({ where: { customerId, productId, status: FEEDBACK_STATUS.PENDING, isDeleted: false }, select: { feedbackId: true } }),
-      prisma.feedback.count({ where: { customerId, createdAt: { gte: since } } }),
-      prisma.feedback.findFirst({ where: { customerId, productId, status: FEEDBACK_STATUS.PENDING }, select: { feedbackId: true } }),
+    const [recent, pendingSame] = await Promise.all([
+      prisma.feedback.findMany({
+        where: { customerId, createdAt: { gte: since } },
+        orderBy: { createdAt: 'asc' },
+        select: { createdAt: true },
+      }),
+      prisma.feedback.findFirst({
+        where: { customerId, productId, status: FEEDBACK_STATUS.PENDING, isDeleted: false },
+        select: { feedbackId: true },
+      }),
     ]);
 
-    if (last) {
-      const wait = Math.ceil((MIN_INTERVAL_MS - (Date.now() - last.createdAt.getTime())) / 1000);
-      if (wait > 0) {
-        res.set('Retry-After', String(wait));
-        throw new TooManyRequestsError(`Bạn gửi đánh giá quá nhanh. Vui lòng chờ ${wait} giây.`);
-      }
+    if (recent.length >= WINDOW_LIMIT) {
+      const unlockAt = recent[recent.length - WINDOW_LIMIT].createdAt.getTime() + WINDOW_MS;
+      const waitSec = Math.max(1, Math.ceil((unlockAt - Date.now()) / 1000));
+      res.set('Retry-After', String(waitSec));
+      throw new TooManyRequestsError(
+        `Bạn chỉ được gửi tối đa ${WINDOW_LIMIT} đánh giá trong 30 phút. Vui lòng thử lại sau ${Math.ceil(waitSec / 60)} phút.`
+      );
     }
-    if (dailyCount >= DAILY_LIMIT) {
-      throw new TooManyRequestsError(`Bạn đã đạt giới hạn ${DAILY_LIMIT} đánh giá trong 24 giờ.`);
-    }
-    if (pendingSame) {
-      throw new ConflictError('Bạn đã có một đánh giá đang chờ duyệt cho sản phẩm này.');
-    }
+    if (pendingSame) throw new ConflictError('Bạn đã có một đánh giá đang chờ duyệt cho sản phẩm này.');
     next();
   } catch (err) {
     next(err);

@@ -7,7 +7,6 @@ import RoleDashboard from '../pages/login/RoleDashboard';
 import { ROLE_NAMES } from '../config/constants';
 
 import AccountManagement from '../pages/admin/AccountManagement';
-import ProductsPage from '../pages/admin/ProductsPage';
 import ProfilePage from '../pages/login/ProfilePage';
 import AuditLogsPage from '../pages/admin/AuditLogsPage';
 
@@ -30,7 +29,6 @@ const router = createBrowserRouter([
 
           // --- Admin ---
           { path: 'accounts', element: <RoleGuard allow={[ROLE_NAMES.ADMIN]}><AccountManagement /></RoleGuard> },
-          { path: 'products', element: <RoleGuard allow={[ROLE_NAMES.ADMIN]}><ProductsPage /></RoleGuard> },
           { path: 'audit-logs', element: <RoleGuard allow={[ROLE_NAMES.ADMIN]}><AuditLogsPage /></RoleGuard> },
 
           // --- Manager ---

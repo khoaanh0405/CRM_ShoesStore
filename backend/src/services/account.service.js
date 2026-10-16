@@ -12,8 +12,8 @@
  * nhau — điểm khác nhau duy nhất là AI được phép gọi (route/middleware quyết
  * định: register công khai, createCustomerByAdmin chỉ Admin qua adminOnly).
  *
- * createStaff() tạo tài khoản nội bộ (Admin/Manager) — không có hồ sơ Customer,
- * email lưu thẳng trong bảng accounts.
+ * createStaff() tạo tài khoản nội bộ (Admin/Manager) + hồ sơ Employee (bảng employees) trong 1 nested-write —
+ * không có hồ sơ Customer. Email lưu đồng bộ ở accounts và employees.
  *
  * Quên mật khẩu bằng OTP gửi qua email: requestPasswordReset() + resetPassword().
  */
@@ -22,6 +22,7 @@ import {
   accountRepository,
   roleRepository,
   customerRepository,
+  employeeRepository,
   passwordResetOtpRepository,
 } from '../repositories/index.js';
 import {
@@ -34,9 +35,10 @@ import {
   ROLE_NAMES, MESSAGES,
   OTP_TTL_MINUTES, OTP_MAX_ATTEMPTS, OTP_RESEND_SECONDS,
 } from '../constants/index.js';
+import { employeeService } from './employee.service.js';
 import {
   hashPassword, comparePassword,
-  assertValidEmail, normalizeEmail, assertStrongPassword,
+  assertValidEmail, assertStrictEmail, normalizeEmail, assertStrongPassword,
   generateOtp, hashOtp, verifyOtpHash, sendPasswordResetOtpMail,
 } from '../utils/index.js';
 
@@ -50,13 +52,14 @@ function sanitize(account) {
 const OTP_INVALID_MESSAGE = 'Mã OTP không đúng hoặc đã hết hạn. Vui lòng kiểm tra lại hoặc gửi lại mã mới.';
 const STAFF_ROLE_NAMES = [ROLE_NAMES.ADMIN, ROLE_NAMES.MANAGER];
 
-/** Email phải chưa được dùng ở cả bảng accounts (Admin/Manager/Customer) lẫn customers. */
+/** Email phải chưa được dùng ở cả bảng accounts (Admin/Manager/Customer) lẫn customers, employees. */
 async function assertEmailAvailable(normalizedEmail) {
-  const [accountOwner, customerOwner] = await Promise.all([
+  const [accountOwner, customerOwner, employeeOwner] = await Promise.all([
     accountRepository.findByEmail(normalizedEmail),
     customerRepository.findByEmail(normalizedEmail),
+    employeeRepository.findByEmail(normalizedEmail),
   ]);
-  if (accountOwner || customerOwner) {
+  if (accountOwner || customerOwner || employeeOwner) {
     throw new ConflictError('Email này đã được sử dụng bởi tài khoản khác.');
   }
 }
@@ -82,7 +85,7 @@ async function createAccountWithNewCustomer({
   if (!username?.trim() || !password || !fullName?.trim() || !dateOfBirth) {
     throw new ValidationError('Vui lòng nhập đầy đủ tên đăng nhập, mật khẩu, họ tên và ngày sinh.');
   }
-  const normalizedEmail = assertValidEmail(email);
+  const normalizedEmail = assertStrictEmail(email);
   assertStrongPassword(password, username);
 
   const existed = await accountRepository.findByUsername(username.trim());
@@ -114,7 +117,7 @@ async function createAccountWithNewCustomer({
         },
       },
     },
-    include: { role: true, customer: true },
+    include: { role: true, customer: true, employee: true },
   });
 
   return sanitize(account);
@@ -179,10 +182,11 @@ export const accountService = {
 
   /**
    * Admin tạo tài khoản nội bộ (Admin hoặc Manager) — POST /api/admin/staff.
-   * Không có hồ sơ Customer; email lưu trực tiếp trong bảng accounts.
+   * Tạo đồng thời Account + Employee (hồ sơ nhân sự); không có hồ sơ Customer.
    */
-  async createStaff({ username, email, password, roleName }) {
+  async createStaff({ username, fullName, email, password, roleName, dateOfBirth, gender, phone, address, position }) {
     if (!username?.trim()) throw new ValidationError('Vui lòng nhập tên đăng nhập.');
+    if (!fullName?.trim()) throw new ValidationError('Vui lòng nhập họ tên nhân sự.');
     const cleanUsername = username.trim();
 
     if (cleanUsername.length < 4 || cleanUsername.length > 50) {
@@ -195,7 +199,7 @@ export const accountService = {
       throw new ValidationError('Vai trò chỉ có thể là Admin hoặc Manager.');
     }
 
-    const normalizedEmail = assertValidEmail(email);
+    const normalizedEmail = assertStrictEmail(email);
     assertStrongPassword(password, cleanUsername);
 
     if (await accountRepository.findByUsername(cleanUsername)) {
@@ -206,11 +210,20 @@ export const accountService = {
     const role = await roleRepository.findByName(roleName);
     if (!role) throw new NotFoundError(MESSAGES.NOT_FOUND.ROLE);
 
-    const account = await accountRepository.create({
+    const account = await accountRepository.createWithEmployee({
       username: cleanUsername,
       email: normalizedEmail,
       passwordHash: await hashPassword(password),
       roleId: role.roleId,
+      employee: {
+        fullName: fullName.trim(),
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
+        gender: gender || null,
+        phone: phone || null,
+        email: normalizedEmail,
+        address: address || null,
+        position: position?.trim() || (roleName === ROLE_NAMES.ADMIN ? 'Quản trị viên hệ thống' : 'Quản lý CRM'),
+      },
     });
     return sanitize(account);
   },
@@ -343,7 +356,13 @@ export const accountService = {
         throw new ValidationError('Tài khoản nội bộ chưa có hồ sơ khách hàng nên không thể đổi sang vai trò Khách hàng.');
       }
     }
-    return sanitize(await accountRepository.updateRole(accountId, role.roleId));
+    const updated = await accountRepository.updateRole(accountId, role.roleId);
+    // Lên Admin/Manager mà chưa có hồ sơ nhân sự (ví dụ trước đây là khách hàng) -> tạo hồ sơ Employee.
+    if (STAFF_ROLE_NAMES.includes(role.roleName)) {
+      await employeeService.ensureForAccount(accountId);
+      return sanitize(await accountRepository.findById(accountId));
+    }
+    return sanitize(updated);
   },
 };
 

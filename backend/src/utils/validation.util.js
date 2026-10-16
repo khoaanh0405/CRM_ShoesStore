@@ -23,6 +23,18 @@ export function assertValidEmail(email) {
   return normalizeEmail(email);
 }
 
+/**
+ * Email của tài khoản MỚI/được chỉnh sửa (đăng ký, hồ sơ, thêm nhân sự): đuôi @gmail.com và có
+ * ít nhất 1 chữ số trước dấu @ — khớp validateEmail ở frontend. Dùng assertValidEmail (lỏng hơn)
+ * cho Quên mật khẩu để tài khoản cũ có email khác vẫn lấy lại được mật khẩu.
+ */
+export function assertStrictEmail(email) {
+  const e = assertValidEmail(email);
+  if (!/^[^@\s]+@gmail\.com$/.test(e)) throw new ValidationError('Email phải có đuôi @gmail.com.');
+  if (!/\d/.test(e.split('@')[0])) throw new ValidationError('Email phải chứa ít nhất 1 chữ số (ví dụ: ten123@gmail.com).');
+  return e;
+}
+
 /** Throw ValidationError nếu mật khẩu không đạt chuẩn mật khẩu mới. */
 export function assertStrongPassword(password, username) {
   if (!password) throw new ValidationError('Vui lòng nhập mật khẩu.');

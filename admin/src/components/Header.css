@@ -1,114 +1,65 @@
+/* ===== Header to hơn & căn chỉnh đẹp hơn ===== */
 .header {
-  height: 64px;
-  background-color: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
+  height: 74px; /* Tăng chiều cao header */
+  padding: 0 32px; /* Tăng padding hai bên */
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  background: var(--color-surface, #fff);
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
-.header-left, .header-right {
+.header-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
 }
 
 .menu-btn {
-  color: var(--color-text-muted);
-  display: flex;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  border: none;
+  background: transparent;
   border-radius: 8px;
-  transition: all 0.2s;
-  flex-shrink: 0;
+  cursor: pointer;
+  color: var(--color-text-main, #1e293b);
+  transition: background 0.15s;
 }
 
 .menu-btn:hover {
-  background-color: var(--color-bg);
-  color: var(--color-text-main);
+  background: var(--color-border, #f1f5f9);
+}
+
+.header-greeting {
+  font-size: 15.5px;
+  color: var(--color-text-main, #1e293b);
 }
 
 .header-brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
-.brand-icon {
-  color: var(--color-primary);
+.brand-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brand-logo-img {
+  width: 36px;  /* Kích thước logo */
+  height: 36px;
+  object-fit: contain;
 }
 
 .brand-name {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--color-text-main);
-  letter-spacing: -0.3px;
-}
-
-.header-divider {
-  width: 1px;
-  height: 24px;
-  background-color: var(--color-border);
-}
-
-.user-profile {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  padding: 6px 10px;
-  border-radius: 8px;
-  transition: background-color 0.2s;
-}
-
-.user-profile:hover {
-  background-color: var(--color-bg);
-}
-
-.avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.user-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text-main);
-}
-
-.logout-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--color-text-muted);
-  font-size: 14px;
-  font-weight: 500;
-  padding: 6px 12px;
-  border-radius: 8px;
-  transition: all 0.2s;
-}
-
-.logout-btn:hover {
-  background-color: #FEE2E2;
-  color: #DC2626;
-}
-
-.user-info {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.2;
-}
-
-.user-role {
-  font-size: 11px;
-  color: var(--color-text-muted);
-  font-weight: 500;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #10B981; /* Hoặc màu chủ đạo của bạn */
 }

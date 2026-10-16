@@ -16,11 +16,10 @@ interface Customer {
   gender?: string | null;
   address?: string | null;
   isLocked: boolean;
-  preferences?: { tag: string }[];
+  preferences?: { categoryId: number; categoryName: string }[];
 }
 
 const ITEMS_PER_PAGE = 10;
-const PREFERENCE_OPTIONS = ['Giày Sneaker', 'Giày Chạy Bộ', 'Giày Bóng Rổ', 'Giày Thể Thao', 'Giày Cao Gót', 'Giày Sandal', 'Giày Da'];
 
 type StatusFilter = 'ALL' | 'ACTIVE' | 'LOCKED';
 type GenderFilter = 'ALL' | 'Nam' | 'Nữ' | 'Khác';
@@ -72,6 +71,17 @@ const CustomersPage = () => {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Sở thích = danh mục: lấy danh sách lọc từ API danh mục thay vì hard-code.
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
+  useEffect(() => {
+    api.get('/categories')
+      .then((r) => {
+        const rows = r.data?.data ?? r.data ?? [];
+        setCategoryOptions(rows.map((c: { categoryName: string }) => c.categoryName));
+      })
+      .catch(() => setCategoryOptions([]));
+  }, []);
   useAutoRefresh(() => load(true), 5000);
 
   const filtered = useMemo(() => {
@@ -85,7 +95,7 @@ const CustomersPage = () => {
           (c.email ?? '').toLowerCase().includes(k);
         const matchStatus = filters.status === 'ALL' || (filters.status === 'LOCKED') === c.isLocked;
         const matchGender = filters.gender === 'ALL' || c.gender === filters.gender;
-        const matchPref = filters.pref === 'ALL' || (c.preferences ?? []).some((p) => p.tag === filters.pref);
+        const matchPref = filters.pref === 'ALL' || (c.preferences ?? []).some((p) => p.categoryName === filters.pref);
         return matchSearch && matchStatus && matchGender && matchPref;
       })
       .sort((a, b) => {
@@ -211,7 +221,7 @@ const CustomersPage = () => {
 
         <select className="customer-select" value={prefDraft} onChange={(e) => setPrefDraft(e.target.value)}>
           <option value="ALL">Tất cả sở thích</option>
-          {PREFERENCE_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
+          {categoryOptions.map((p) => <option key={p} value={p}>{p}</option>)}
         </select>
 
         <select className="customer-select" value={sortBy} onChange={(e) => { setSortBy(e.target.value as SortBy); setPage(1); }}>
@@ -263,7 +273,7 @@ const CustomersPage = () => {
                       {prefs.length === 0 ? <NotUpdated /> : (
                         <div className="pref-badges">
                           {prefs.slice(0, 2).map((p, idx) => (
-                            <span key={`${c.customerId}-${p.tag}-${idx}`} className="pref-badge">{p.tag}</span>
+                            <span key={`${c.customerId}-${p.categoryId}-${idx}`} className="pref-badge">{p.categoryName}</span>
                           ))}
                           {prefs.length > 2 && <span className="pref-badge more">+{prefs.length - 2}</span>}
                         </div>

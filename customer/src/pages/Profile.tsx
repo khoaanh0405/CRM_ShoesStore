@@ -79,7 +79,7 @@ export default function ProfilePage() {
   const [form, setForm] = useState<ProfileForm>({ fullName: '', dateOfBirth: '', gender: '', phone: '', email: '', address: '' });
   const [errors, setErrors] = useState<FormErrors>({});
   const [saving, setSaving] = useState(false);
-  const [savingTag, setSavingTag] = useState<string | null>(null);
+  const [savingCategoryId, setSavingCategoryId] = useState<number | null>(null);
   const [pw, setPw] = useState(EMPTY_PASSWORD);
   const [pwErrors, setPwErrors] = useState<Partial<Record<keyof typeof EMPTY_PASSWORD, string | null>>>({});
   const [pwSaving, setPwSaving] = useState(false);
@@ -89,7 +89,7 @@ export default function ProfilePage() {
 
   const { profile, preferences, surveys, feedbacks, products, categories } = data;
   const productNames = new Map(products.map((p) => [p.productId, p.productName]));
-  const tags = preferences.map((p) => p.preferenceTag);
+  const tags = preferences.map((p) => p.category.categoryName);
 
   const completedSurveys = surveys.filter((t) => t.isCompleted).length;
   const approvedCount = feedbacks.filter((f) => f.status === 'Approved').length;
@@ -136,17 +136,17 @@ export default function ProfilePage() {
     } finally { setSaving(false); }
   };
 
-  const toggleTag = async (tag: string) => {
+  const toggleCategory = async (categoryId: number) => {
     if (customerId == null) return;
-    const existing = preferences.find((p) => p.preferenceTag === tag);
-    setSavingTag(tag);
+    const existing = preferences.find((p) => p.categoryId === categoryId);
+    setSavingCategoryId(categoryId);
     try {
       if (existing) await customerService.removePreference(existing.preferenceId);
-      else await customerService.addPreference(customerId, tag);
+      else await customerService.addPreference(customerId, categoryId);
       await reload();
     } catch (e) {
       alert('Không cập nhật được sở thích: ' + getApiErrorMessage(e, 'Vui lòng thử lại sau.'));
-    } finally { setSavingTag(null); }
+    } finally { setSavingCategoryId(null); }
   };
 
   const changePassword = async () => {
@@ -261,10 +261,10 @@ export default function ProfilePage() {
               <div className="pref-grid">
                 {categories.map((cat) => {
                   const tag = cat.categoryName;
-                  const selected = preferences.some((p) => p.preferenceTag === tag);
-                  const isSaving = savingTag === tag;
+                  const selected = preferences.some((p) => p.categoryId === cat.categoryId);
+                  const isSaving = savingCategoryId === cat.categoryId;
                   return (
-                    <button key={cat.categoryId} className={`pref-tile${selected ? ' on' : ''}`} onClick={() => { if (!isSaving) toggleTag(tag); }}>
+                    <button key={cat.categoryId} className={`pref-tile${selected ? ' on' : ''}`} onClick={() => { if (!isSaving) toggleCategory(cat.categoryId); }}>
                       <Heart size={20} fill={selected ? '#fff' : 'none'} />
                       <span style={{ flex: 1 }}>{isSaving ? '...' : tag}<small>{cat.description ?? ''}</small></span>
                       {selected ? <Check size={16} /> : null}

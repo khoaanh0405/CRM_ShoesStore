@@ -23,7 +23,7 @@ export interface Survey {
   isActive: boolean;
   questions?: SurveyQuestion[];
   createdBy?: number | null;
-  creator?: { accountId: number; username: string; email?: string | null } | null;
+  creator?: { employeeId: number; employeeCode: string; fullName: string } | null;
   _count?: {
     surveyTargets?: number;
     surveyResponses?: number;

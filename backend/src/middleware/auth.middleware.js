@@ -11,6 +11,8 @@ import { ROLE_NAMES } from '../constants/index.js';
 
 /** Mã lỗi để frontend nhận biết "tài khoản vừa bị khóa" và tự đăng xuất người dùng. */
 export const ACCOUNT_LOCKED_CODE = 'ACCOUNT_LOCKED';
+/** Mã lỗi: tài khoản đã bị xóa/không còn tồn tại -> frontend hiện hộp thoại "Tài khoản của bạn không tồn tại". */
+export const ACCOUNT_DELETED_CODE = 'ACCOUNT_DELETED';
 
 /**
  * Bắt buộc phải đăng nhập. Gắn req.user = payload trong token.
@@ -37,13 +39,13 @@ export async function authenticate(req, res, next) {
     });
 
     if (!account) {
-      return next(new UnauthorizedError('Token không hợp lệ: tài khoản không còn tồn tại.'));
+      return next(new AppError('Tài khoản của bạn không tồn tại.', 401, ACCOUNT_DELETED_CODE));
     }
     if (account.isLocked) {
       return next(new AppError('Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.', 401, ACCOUNT_LOCKED_CODE));
     }
     if (account.customer?.isDeleted) {
-      return next(new AppError('Tài khoản khách hàng không còn tồn tại.', 401, ACCOUNT_LOCKED_CODE));
+      return next(new AppError('Tài khoản của bạn không tồn tại.', 401, ACCOUNT_DELETED_CODE));
     }
 
     req.user = payload;

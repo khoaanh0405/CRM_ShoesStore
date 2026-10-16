@@ -19,19 +19,14 @@ const PRODUCT_FIELDS = {
 
 export const productValidator = {
   idParam: validateParams('id'),
-  supplierIdParam: validateParams('supplierId'),
 
   create: validateBody({
     ...PRODUCT_FIELDS,
-    supplierId: { required: true, type: 'int', min: 1 },
     productName: { required: true, type: 'string', maxLength: 150 },
     price: { required: true, type: 'number', min: 0 },
   }),
 
-  update: validateBody({
-    ...PRODUCT_FIELDS,
-    supplierId: { type: 'int', min: 1 },
-  }),
+  update: validateBody(PRODUCT_FIELDS),
 
   setActive: validateBody({
     isActive: { required: true, type: 'boolean' },

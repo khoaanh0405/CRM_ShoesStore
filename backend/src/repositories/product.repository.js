@@ -5,7 +5,7 @@
  */
 import prisma from '../config/database.js';
 
-const INCLUDE = { supplier: true, category: true };
+const INCLUDE = { category: true };
 
 function flatten(p) {
   if (!p) return p;
@@ -25,13 +25,6 @@ export const productRepository = {
 
   async findById(productId) {
     return flatten(await prisma.product.findUnique({ where: { productId }, include: INCLUDE }));
-  },
-
-  async findBySupplier(supplierId) {
-    const rows = await prisma.product.findMany({
-      where: { supplierId }, orderBy: { productId: 'asc' }, include: { category: true },
-    });
-    return rows.map(flatten);
   },
 
   /** category = TÊN danh mục (giữ tương thích với customer web). */
@@ -64,12 +57,12 @@ export const productRepository = {
   },
 
     async create({
-    supplierId, categoryId = null, productName, brand, size, color, material,
+    categoryId = null, productName, brand, size, color, material,
     price, stockQuantity = 0, isActive = true, imageUrl,
   }) {
     return flatten(await prisma.product.create({
       data: {
-        supplierId, categoryId, productName, brand, size, color, material,
+        categoryId, productName, brand, size, color, material,
         price, stockQuantity, isActive, imageUrl,
       },
       include: INCLUDE,

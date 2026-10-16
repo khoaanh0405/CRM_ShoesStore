@@ -41,15 +41,13 @@ const SurveysPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
 
-  // Tổng phản hồi ở lần tải trước — để báo "có phản hồi mới" khi tăng
   const prevResponsesRef = useRef<number | null>(null);
 
-  /** silent = true: dùng cho auto-refresh, không bật spinner, không báo lỗi. */
   const loadSurveys = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
       const data = (await getSurveys()) as SurveyItem[];
-      setSurveys(data);
+      setSurveys(data.sort((a, b) => b.surveyId - a.surveyId));
 
       const total = data.reduce((s, x) => s + (x._count?.surveyResponses ?? 0), 0);
       if (prevResponsesRef.current !== null && total > prevResponsesRef.current) {
@@ -65,7 +63,6 @@ const SurveysPage: React.FC = () => {
 
   useEffect(() => { loadSurveys(); }, [loadSurveys]);
 
-  // Real-time: tự cập nhật mỗi 5 giây (phản hồi, đối tượng, trạng thái...)
   useAutoRefresh(() => loadSurveys(true), 5000);
 
   const handleApplySearch = (e: React.FormEvent) => {
@@ -234,7 +231,7 @@ const SurveysPage: React.FC = () => {
                           Tạo ngày {new Date(survey.createdAt).toLocaleDateString('vi-VN')}
                         </span>
                         <span className="meta-chip">
-                        Người tạo: {survey.creator?.username ?? 'Không xác định'}
+                          Người tạo: {survey.creator?.fullName ?? '—'}
                         </span>
                       </div>
                     </div>
