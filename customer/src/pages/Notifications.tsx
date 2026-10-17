@@ -17,7 +17,7 @@ const ICON_BY_TYPE: Record<AppNotification['type'], typeof ClipboardList> = {
   FEEDBACK_REPLIED: MessageCircle,
 };
 
-/** Danh sách thông báo của khách hàng. Mở từ chuông thông báo ở Trang chủ. */
+/** Danh sách thông báo của khách hàng. Mở từ chuông thông báo. */
 export default function NotificationsPage() {
   const navigate = useNavigate();
   const customerId = useCustomerId();
@@ -49,7 +49,7 @@ export default function NotificationsPage() {
       {loading && !data ? <LoadingView /> : !data ? <ErrorView message={error ?? 'Vui lòng thử lại.'} onRetry={reload} /> : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: `0 ${SCREEN_PADDING}px 24px` }}>
           {data.length === 0 ? (
-            <EmptyView icon={BellOff} title="Chưa có thông báo nào" message="Thông báo về khảo sát mới hoặc kết quả duyệt phản hồi sẽ xuất hiện tại đây." />
+            <EmptyView icon={BellOff} title="Chưa có thông báo nào" message="Thông báo về khảo sát mới, kết quả duyệt hoặc phản hồi của cửa hàng sẽ xuất hiện tại đây." />
           ) : data.map((item) => {
             const Icon = ICON_BY_TYPE[item.type] ?? BellIcon;
             return (

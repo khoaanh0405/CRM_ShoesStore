@@ -1,4 +1,4 @@
-import { productRepository, supplierRepository } from '../repositories/index.js';
+import { productRepository } from '../repositories/index.js';
 import { categoryRepository } from '../repositories/category.repository.js';
 import { NotFoundError, ValidationError, ConflictError } from '../errors/AppError.js';
 import { MESSAGES } from '../constants/index.js';
@@ -24,15 +24,11 @@ export const productService = {
     return product;
   },
 
-  listBySupplier(supplierId) {
-    return productRepository.findBySupplier(supplierId);
-  },
-
   search(params) {
     return productRepository.search(params);
   },
 
-  async create({ supplierId, categoryId, productName, brand, size, color, material, price, stockQuantity, isActive, imageUrl }) {
+  async create({ categoryId, productName, brand, size, color, material, price, stockQuantity, isActive, imageUrl }) {
     if (!productName?.trim()) throw new ValidationError('Tên sản phẩm không được để trống.');
 
     const priceNum = Number(price);
@@ -41,12 +37,10 @@ export const productService = {
       throw new ValidationError('Số lượng tồn kho phải là số nguyên không âm.');
     }
 
-    const supplier = await supplierRepository.findById(supplierId);
-    if (!supplier) throw new NotFoundError(MESSAGES.NOT_FOUND.SUPPLIER);
     const resolvedCategoryId = await assertCategory(categoryId);
 
     return productRepository.create({
-      supplierId, categoryId: resolvedCategoryId, productName: productName.trim(),
+      categoryId: resolvedCategoryId, productName: productName.trim(),
       brand, size, color, material,
       price: priceNum, stockQuantity, isActive, imageUrl,
     });
@@ -63,10 +57,7 @@ export const productService = {
       if (Number.isNaN(priceNum) || priceNum < 0) throw new ValidationError('Giá sản phẩm phải là số không âm.');
       next.price = priceNum;
     }
-    if (next.supplierId !== undefined) {
-      const supplier = await supplierRepository.findById(next.supplierId);
-      if (!supplier) throw new NotFoundError(MESSAGES.NOT_FOUND.SUPPLIER);
-    }
+    delete next.supplierId; // nhà cung cấp không còn trong hệ thống — bỏ nếu client cũ vẫn gửi lên
     if (categoryId !== undefined) next.categoryId = await assertCategory(categoryId);
 
     return productRepository.update(productId, next);

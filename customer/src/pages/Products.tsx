@@ -77,7 +77,7 @@ export default function ProductsPage() {
       const pid = t.survey.productId ?? t.survey.product?.productId;
       if (!t.isCompleted && t.survey.isActive && pid != null) surveyIds.add(pid);
     });
-    return { surveyIds, tags: prefs.map((p) => p.preferenceTag) };
+    return { surveyIds, tags: prefs.map((p) => p.category.categoryName) };
   }, [signedIn, customerId]);
 
   const surveyIds = personal?.surveyIds ?? new Set<number>();

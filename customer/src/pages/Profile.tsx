@@ -6,7 +6,8 @@ import { ErrorView, LoadingView } from '@/components/StateViews';
 import { StatusBadge, type BadgeTone } from '@/components/StatusBadge';
 import { AppColors } from '@/constants/appTheme';
 import { SITE } from '@/constants/site';
-import { GENDER_OPTIONS, PREFERENCE_SUGGESTIONS } from '@/constants/domain';
+import { GENDER_OPTIONS } from '@/constants/domain';
+import { categoryService, type Category } from '@/services/category.service';
 import { useAuth } from '@/context/AuthContext';
 import { useApi } from '@/hooks/useApi';
 import { useCustomerId } from '@/hooks/useCustomerId';
@@ -20,15 +21,16 @@ import type { Feedback, FeedbackStatus } from '@/types/feedback';
 import type { Product } from '@/types/product';
 import type { SurveyTarget } from '@/types/survey';
 import { formatDate, formatDateOnly, formatPrice, toDateInput } from '@/utils/format';
+import { fullNameOf, NAME_PART_MAX, validateNamePart } from '@/utils/name';
 import { recommendProducts } from '@/utils/recommend';
-import { normalizeEmail, normalizePhone, normalizeSpaces, validateAddress, validateDateOfBirth, validateFullName, PASSWORD_RULES, validateEmail, validateNewPassword, validatePhone } from '@/utils/validation';
+import { normalizeEmail, normalizePhone, normalizeSpaces, validateAddress, validateDateOfBirth, PASSWORD_RULES, validateEmail, validateNewPassword, validatePhone } from '@/utils/validation';
 import { Check, ClipboardList, Edit3, Grid, Heart, History, ImageOff, Key, LogOut, MessageCircle, Phone, ShieldCheck, User, type LucideIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { showConfirm } from '@/lib/dialog';
 
 type Section = 'info' | 'prefs' | 'history' | 'password';
-type ProfileForm = { fullName: string; dateOfBirth: string; gender: string; phone: string; email: string; address: string };
+type ProfileForm = { lastName: string; firstName: string; dateOfBirth: string; gender: string; phone: string; email: string; address: string };
 type FormErrors = Partial<Record<keyof ProfileForm, string | null>>;
 const EMPTY_PASSWORD = { oldPassword: '', newPassword: '', confirm: '' };
 
@@ -43,16 +45,6 @@ const STATUS_META: Record<FeedbackStatus, { label: string; tone: BadgeTone }> = 
   Pending: { label: 'Chờ duyệt', tone: 'warning' },
   Approved: { label: 'Đã duyệt', tone: 'success' },
   Rejected: { label: 'Không được duyệt', tone: 'danger' },
-};
-
-const PREF_DESC: Record<string, string> = {
-  'Giày Sneaker': 'Năng động, dễ phối đồ',
-  'Giày Chạy Bộ': 'Nhẹ, êm, thoáng khí',
-  'Giày Bóng Rổ': 'Bám sân, hỗ trợ cổ chân',
-  'Giày Thể Thao': 'Luyện tập mọi bộ môn',
-  'Giày Cao Gót': 'Thanh lịch, sang trọng',
-  'Giày Sandal': 'Thoáng mát ngày hè',
-  'Giày Da': 'Lịch sự cho công sở',
 };
 
 const PASSWORD_TIPS = [
@@ -70,24 +62,25 @@ export default function ProfilePage() {
 
   const { data, loading, error, reload } = useApi(async () => {
     if (customerId == null) throw new Error('Không xác định được tài khoản khách hàng.');
-    const [profile, preferences, surveys, feedbacks, products] = await Promise.all([
+    const [profile, preferences, surveys, feedbacks, products, categories] = await Promise.all([
       customerService.getProfile(customerId),
       customerService.listPreferences(customerId),
       surveyService.listByCustomer(customerId).catch(() => [] as SurveyTarget[]),
       feedbackService.listByCustomer(customerId).catch(() => [] as Feedback[]),
       productService.list().catch(() => [] as Product[]),
+      categoryService.listWithProducts().catch(() => [] as Category[]),
     ]);
-    return { profile, preferences, surveys, feedbacks, products };
+    return { profile, preferences, surveys, feedbacks, products, categories };
   }, [customerId]);
 
   const initialTab = params.get('tab') as Section | null;
   const [section, setSection] = useState<Section>(MENU.some((m) => m.key === initialTab) ? (initialTab as Section) : 'info');
 
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState<ProfileForm>({ fullName: '', dateOfBirth: '', gender: '', phone: '', email: '', address: '' });
+  const [form, setForm] = useState<ProfileForm>({ lastName: '', firstName: '', dateOfBirth: '', gender: '', phone: '', email: '', address: '' });
   const [errors, setErrors] = useState<FormErrors>({});
   const [saving, setSaving] = useState(false);
-  const [savingTag, setSavingTag] = useState<string | null>(null);
+  const [savingCategoryId, setSavingCategoryId] = useState<number | null>(null);
   const [pw, setPw] = useState(EMPTY_PASSWORD);
   const [pwErrors, setPwErrors] = useState<Partial<Record<keyof typeof EMPTY_PASSWORD, string | null>>>({});
   const [pwSaving, setPwSaving] = useState(false);
@@ -95,9 +88,9 @@ export default function ProfilePage() {
   if (loading && !data) return <LoadingView />;
   if (!data) return <ErrorView message={error ?? 'Vui lòng thử lại.'} onRetry={reload} />;
 
-  const { profile, preferences, surveys, feedbacks, products } = data;
+  const { profile, preferences, surveys, feedbacks, products, categories } = data;
   const productNames = new Map(products.map((p) => [p.productId, p.productName]));
-  const tags = preferences.map((p) => p.preferenceTag);
+  const tags = preferences.map((p) => p.category.categoryName);
 
   const completedSurveys = surveys.filter((t) => t.isCompleted).length;
   const approvedCount = feedbacks.filter((f) => f.status === 'Approved').length;
@@ -119,7 +112,7 @@ export default function ProfilePage() {
   const pwLabel = pw.newPassword ? ['Yếu', 'Yếu', 'Trung bình', 'Khá', 'Mạnh'][pwScore] : '—';
 
   const startEditing = (p: CustomerProfile) => {
-    setForm({ fullName: p.fullName, dateOfBirth: toDateInput(p.dateOfBirth), gender: p.gender ?? '', phone: p.phone ?? '', email: p.email ?? '', address: p.address ?? '' });
+    setForm({ lastName: p.lastName ?? '', firstName: p.firstName ?? '', dateOfBirth: toDateInput(p.dateOfBirth), gender: p.gender ?? '', phone: p.phone ?? '', email: p.email ?? '', address: p.address ?? '' });
     setErrors({});
     setEditing(true);
   };
@@ -130,12 +123,12 @@ export default function ProfilePage() {
 
   const saveProfile = async () => {
     if (customerId == null || saving) return;
-    const next: FormErrors = { fullName: validateFullName(form.fullName), dateOfBirth: validateDateOfBirth(form.dateOfBirth), phone: validatePhone(form.phone), email: validateEmail(form.email), address: validateAddress(form.address) };
+    const next: FormErrors = { lastName: validateNamePart('Họ', form.lastName), firstName: validateNamePart('Tên', form.firstName), dateOfBirth: validateDateOfBirth(form.dateOfBirth), phone: validatePhone(form.phone), email: validateEmail(form.email), address: validateAddress(form.address) };
     setErrors(next);
     if (Object.values(next).some(Boolean)) return;
     setSaving(true);
     try {
-      await customerService.updateProfile(customerId, { fullName: normalizeSpaces(form.fullName), dateOfBirth: form.dateOfBirth.trim(), gender: form.gender || undefined, phone: normalizePhone(form.phone), email: normalizeEmail(form.email), address: normalizeSpaces(form.address) });
+      await customerService.updateProfile(customerId, { lastName: normalizeSpaces(form.lastName), firstName: normalizeSpaces(form.firstName), dateOfBirth: form.dateOfBirth.trim(), gender: form.gender || undefined, phone: normalizePhone(form.phone), email: normalizeEmail(form.email), address: normalizeSpaces(form.address) });
       setEditing(false);
       await reload();
       alert('Đã lưu. Thông tin cá nhân của bạn đã được cập nhật.');
@@ -144,17 +137,17 @@ export default function ProfilePage() {
     } finally { setSaving(false); }
   };
 
-  const toggleTag = async (tag: string) => {
+  const toggleCategory = async (categoryId: number) => {
     if (customerId == null) return;
-    const existing = preferences.find((p) => p.preferenceTag === tag);
-    setSavingTag(tag);
+    const existing = preferences.find((p) => p.categoryId === categoryId);
+    setSavingCategoryId(categoryId);
     try {
       if (existing) await customerService.removePreference(existing.preferenceId);
-      else await customerService.addPreference(customerId, tag);
+      else await customerService.addPreference(customerId, categoryId);
       await reload();
     } catch (e) {
       alert('Không cập nhật được sở thích: ' + getApiErrorMessage(e, 'Vui lòng thử lại sau.'));
-    } finally { setSavingTag(null); }
+    } finally { setSavingCategoryId(null); }
   };
 
   const changePassword = async () => {
@@ -190,7 +183,7 @@ export default function ProfilePage() {
         <div className="account-user">
           <div className="account-avatar"><User size={40} /></div>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 800, color: AppColors.textPrimary }}>{profile.fullName}</div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: AppColors.textPrimary }}>{fullNameOf(profile)}</div>
           </div>
         </div>
         <nav className="account-menu">
@@ -215,11 +208,12 @@ export default function ProfilePage() {
             {editing ? (
               <>
                 <div className="form-grid">
-                  <AppTextField label="Họ và tên" maxLength={100} value={form.fullName} onChangeText={setField('fullName')} error={errors.fullName} />
+                  <AppTextField label="Họ" placeholder="VD: Nguyễn Văn" maxLength={NAME_PART_MAX} value={form.lastName} onChangeText={setField('lastName')} error={errors.lastName} />
+                  <AppTextField label="Tên" placeholder="VD: An" maxLength={NAME_PART_MAX} value={form.firstName} onChangeText={setField('firstName')} error={errors.firstName} />
                   <AppTextField label="Ngày sinh" type="date" min="1900-01-01" max={new Date().toISOString().slice(0, 10)} value={form.dateOfBirth} onChangeText={setField('dateOfBirth')} error={errors.dateOfBirth} />
-                  <div className="full" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <span style={{ color: AppColors.textPrimary, fontSize: 13, fontWeight: 600 }}>Giới tính</span>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', minHeight: 46 }}>
                       {GENDER_OPTIONS.map((g) => <Chip key={g} label={g} selected={form.gender === g} onClick={() => setField('gender')(form.gender === g ? '' : g)} />)}
                     </div>
                   </div>
@@ -237,7 +231,7 @@ export default function ProfilePage() {
             ) : (
               <>
                 <div className="info-grid">
-                  <InfoRow label="Họ và tên" value={profile.fullName} />
+                  <InfoRow label="Họ và tên" value={fullNameOf(profile)} />
                   <InfoRow label="Ngày sinh" value={formatDateOnly(profile.dateOfBirth)} />
                   <InfoRow label="Giới tính" value={profile.gender} />
                   <InfoRow label="Số điện thoại" value={profile.phone} />
@@ -267,18 +261,20 @@ export default function ProfilePage() {
                 </div>
               </div>
               <div className="pref-grid">
-                {PREFERENCE_SUGGESTIONS.map((tag) => {
-                  const selected = preferences.some((p) => p.preferenceTag === tag);
-                  const isSaving = savingTag === tag;
+                {categories.map((cat) => {
+                  const tag = cat.categoryName;
+                  const selected = preferences.some((p) => p.categoryId === cat.categoryId);
+                  const isSaving = savingCategoryId === cat.categoryId;
                   return (
-                    <button key={tag} className={`pref-tile${selected ? ' on' : ''}`} onClick={() => { if (!isSaving) toggleTag(tag); }}>
+                    <button key={cat.categoryId} className={`pref-tile${selected ? ' on' : ''}`} onClick={() => { if (!isSaving) toggleCategory(cat.categoryId); }}>
                       <Heart size={20} fill={selected ? '#fff' : 'none'} />
-                      <span style={{ flex: 1 }}>{isSaving ? '...' : tag}<small>{PREF_DESC[tag] ?? ''}</small></span>
+                      <span style={{ flex: 1 }}>{isSaving ? '...' : tag}<small>{cat.description ?? ''}</small></span>
                       {selected ? <Check size={16} /> : null}
                     </button>
                   );
                 })}
               </div>
+              {categories.length === 0 ? <div style={{ color: AppColors.textSecondary, fontSize: 13, marginTop: 14 }}>Cửa hàng chưa có danh mục sản phẩm nào.</div> : null}
               {preferences.length === 0 ? <div style={{ color: AppColors.textSecondary, fontSize: 13, marginTop: 14 }}>Bạn chưa chọn sở thích nào.</div> : null}
               <div className="mini-stats">
                 <div className="mini-stat"><small>Sản phẩm phù hợp</small><b>{allMatched.length}</b></div>

@@ -823,3 +823,121 @@
     overflow-x: auto;
   }
 }
+
+.delete-btn:hover:not(:disabled) {
+  color: #DC2626;
+  border-color: #DC2626;
+  background-color: #FEE2E2;
+}
+
+/* Nút Chi tiết màu xanh nước; Khóa/Mở khóa màu vàng */
+.action-btn-text.view-btn {
+  background-color: #CFFAFE;
+  border-color: #CFFAFE;
+  color: #0891B2;
+}
+.action-btn-text.view-btn:hover:not(:disabled) {
+  background-color: #A5F3FC;
+  border-color: #67E8F9;
+  color: #0E7490;
+}
+.action-btn-text.lock-btn,
+.action-btn-text.unlock-btn {
+  background-color: #FEF3C7;
+  border-color: #FEF3C7;
+  color: #D97706;
+}
+.action-btn-text.lock-btn:hover:not(:disabled),
+.action-btn-text.unlock-btn:hover:not(:disabled) {
+  background-color: #FDE68A;
+  border-color: #FCD34D;
+  color: #B45309;
+}
+
+
+/* Đồng bộ cột Thao tác với CustomersPage */
+.account-management .actions-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.account-management .actions-cell .action-btn-text {
+  height: 28px;
+  min-width: 0;
+  padding: 5px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.account-management .actions-cell .view-btn {
+  background: #CFFAFE;
+  color: #0891B2;
+}
+.account-management .actions-cell .view-btn:hover:not(:disabled) {
+  background: #A5F3FC;
+  color: #0E7490;
+}
+
+.account-management .actions-cell .lock-btn,
+.account-management .actions-cell .unlock-btn {
+  background: #FEF3C7;
+  color: #D97706;
+}
+.account-management .actions-cell .lock-btn:hover:not(:disabled),
+.account-management .actions-cell .unlock-btn:hover:not(:disabled) {
+  background: #FDE68A;
+  color: #B45309;
+}
+
+.account-management .actions-cell .delete-btn {
+  background: #FEE2E2;
+  color: #DC2626;
+}
+.account-management .actions-cell .delete-btn:hover:not(:disabled) {
+  background: #FECACA;
+  color: #B91C1C;
+}
+
+/* Cố định kích thước nút để các hàng luôn thẳng cột, dù là Khóa hay Mở khóa */
+.account-management .actions-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 208px;
+  white-space: nowrap;
+}
+
+.account-management .actions-cell .view-btn {
+  flex: 0 0 67px;
+  width: 67px;
+  min-width: 67px;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.account-management .actions-cell .lock-btn,
+.account-management .actions-cell .unlock-btn {
+  flex: 0 0 76px;
+  width: 76px;
+  min-width: 76px;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.account-management .actions-cell .delete-btn {
+  flex: 0 0 53px;
+  width: 53px;
+  min-width: 53px;
+  padding-left: 0;
+  padding-right: 0;
+}

@@ -7,6 +7,9 @@ export const AUTH_EXPIRED_EVENT = 'crm_shoesstore:auth-expired';
 /** Phát ra khi server báo tài khoản đang đăng nhập vừa bị khóa/xóa — AuthProvider đăng xuất, báo lý do và đưa về trang chủ. */
 export const ACCOUNT_LOCKED_EVENT = 'crm_shoesstore:account-locked';
 
+/** Phát ra khi tài khoản đang đăng nhập đã bị Manager xóa (khác với bị khóa). */
+export const ACCOUNT_DELETED_EVENT = 'crm_shoesstore:account-deleted';
+
 /**
  * Lỗi do chính ứng dụng tự ném ra (không phải lỗi từ server) mà message đã
  * viết sẵn cho người dùng đọc. getApiErrorMessage() sẽ hiển thị nguyên văn
@@ -52,7 +55,11 @@ apiClient.interceptors.response.use(
       const message = body?.message ?? '';
       const hadSession = !!localStorage.getItem(AUTH_TOKEN_KEY);
 
-      if (hadSession && body?.code === 'ACCOUNT_LOCKED') {
+      if (hadSession && body?.code === 'ACCOUNT_DELETED') {
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+        localStorage.removeItem(AUTH_ACCOUNT_KEY);
+        window.dispatchEvent(new Event(ACCOUNT_DELETED_EVENT));
+      } else if (hadSession && body?.code === 'ACCOUNT_LOCKED') {
         // Đang đăng nhập thì bị Manager khóa (hoặc xóa) -> xóa phiên và báo cho app đá ra ngoài.
         localStorage.removeItem(AUTH_TOKEN_KEY);
         localStorage.removeItem(AUTH_ACCOUNT_KEY);

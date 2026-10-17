@@ -1,7 +1,6 @@
 export { validateBody, validateQuery, validateParams } from './common.validator.js';
 export { roleValidator } from './role.validator.js';
 export { accountValidator } from './account.validator.js';
-export { supplierValidator } from './supplier.validator.js';
 export { productValidator } from './product.validator.js';
 export { customerValidator } from './customer.validator.js';
 export { customerPreferenceValidator } from './customerPreference.validator.js';
@@ -12,3 +11,4 @@ export { surveyQuestionOptionValidator } from './surveyQuestionOption.validator.
 export { surveyTargetValidator } from './surveyTarget.validator.js';
 export { surveyResponseValidator } from './surveyResponse.validator.js';
 export { notificationValidator } from './notification.validator.js';
+export { employeeValidator } from './employee.validator.js';

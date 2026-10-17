@@ -1,8 +1,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { apiClient } from '@/services/api-client';
 
-// Ảnh mặc định, dùng khi chưa có banner nào hoặc không gọi được API banner.
+// Ảnh banner của trang chủ (cố định trong giao diện — hệ thống không còn bảng banner trong CSDL).
 export const BANNERS = [
   'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1600&q=70',
   'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1600&q=70',
@@ -10,27 +9,12 @@ export const BANNERS = [
   'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&w=1600&q=70',
 ];
 
-/** Banner do admin quản lý, tự trượt qua từng ảnh, dừng khi rê chuột vào. */
+/** Banner trang chủ, tự trượt qua từng ảnh, dừng khi rê chuột vào. */
 export function BannerCarousel({ images, interval = 4500 }: { images?: string[]; interval?: number }) {
-  const [remote, setRemote] = useState<string[] | null>(null);
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
 
-  useEffect(() => {
-    if (images) return;
-    let alive = true;
-    apiClient.get<{ imageUrl: string }[]>('/banners')
-      .then(({ data }) => {
-        if (!alive) return;
-        const urls = (Array.isArray(data) ? data : []).map((b) => b.imageUrl).filter(Boolean);
-        // Admin chưa thêm banner nào -> dùng ảnh mặc định thay vì ẩn cả khối banner.
-        setRemote(urls.length > 0 ? urls : BANNERS);
-      })
-      .catch(() => { if (alive) setRemote(BANNERS); });
-    return () => { alive = false; };
-  }, [images]);
-
-  const list = images ?? remote;
+  const list = images ?? BANNERS;
   const count = list?.length ?? 0;
 
   useEffect(() => {
@@ -39,7 +23,6 @@ export function BannerCarousel({ images, interval = 4500 }: { images?: string[];
     return () => clearInterval(timer);
   }, [paused, count, interval]);
 
-  if (list === null) return <div className="banner" />;
   if (count === 0) return null;
 
   const cur = index % count;

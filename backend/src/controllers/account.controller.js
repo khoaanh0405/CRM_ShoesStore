@@ -6,6 +6,7 @@ import { auditLogService } from '../services/auditLog.service.js';
 import { AUDIT_ACTION, AUDIT_ENTITY } from '../constants/audit.constant.js';
 import { accountService } from '../services/index.js';
 import { parseId, parseNumber, signToken } from '../utils/index.js';
+import { buildFullName } from '../utils/name.util.js';
 import { OTP_TTL_MINUTES, OTP_RESEND_SECONDS } from '../constants/index.js';
 
 export const accountController = {
@@ -26,9 +27,9 @@ export const accountController = {
 
   /** Khách hàng tự đăng ký — tạo Account + Customer trong 1 transaction. */
   async register(req, res) {
-    const { username, password, fullName, email, dateOfBirth, gender, phone, address } = req.body;
+    const { username, password, lastName, firstName, email, dateOfBirth, gender, phone, address } = req.body;
     const account = await accountService.registerCustomer({
-      username, password, fullName, email, dateOfBirth, gender, phone, address,
+      username, password, lastName, firstName, email, dateOfBirth, gender, phone, address,
     });
     res.status(201).json(account);
   },
@@ -38,23 +39,25 @@ export const accountController = {
    * `password` trong body là mật khẩu KHỞI TẠO do Admin tự nhập cho khách hàng.
    */
   async createCustomerByAdmin(req, res) {
-    const { username, password, fullName, email, dateOfBirth, gender, phone, address } = req.body;
+    const { username, password, lastName, firstName, email, dateOfBirth, gender, phone, address } = req.body;
     const account = await accountService.createCustomerByAdmin({
-      username, password, fullName, email, dateOfBirth, gender, phone, address,
+      username, password, lastName, firstName, email, dateOfBirth, gender, phone, address,
     });
     await auditLogService.record(req, {
       action: AUDIT_ACTION.CREATE_CUSTOMER, entityType: AUDIT_ENTITY.CUSTOMER, entityId: account.accountId,
-      description: `Thêm khách hàng "${fullName}" (tài khoản ${username})`,
+      description: `Thêm khách hàng "${buildFullName({ lastName, firstName })}" (tài khoản ${username})`,
     });
     res.status(201).json(account);
   },
 
   async createStaff(req, res) {
-    const { username, email, password, roleName } = req.body;
-    const account = await accountService.createStaff({ username, email, password, roleName });
+    const { username, lastName, firstName, email, password, roleName, dateOfBirth, gender, phone, address, position } = req.body;
+    const account = await accountService.createStaff({
+      username, lastName, firstName, email, password, roleName, dateOfBirth, gender, phone, address, position,
+    });
     await auditLogService.record(req, {
       action: AUDIT_ACTION.CREATE_STAFF, entityType: AUDIT_ENTITY.ACCOUNT, entityId: account.accountId,
-      description: `Tạo tài khoản ${roleName} "${username}"`,
+      description: `Tạo tài khoản ${roleName} "${username}" (${buildFullName({ lastName, firstName })})`,
     });
     res.status(201).json(account);
   },
@@ -62,7 +65,7 @@ export const accountController = {
   /**
    * Service chỉ XÁC THỰC và trả account (đã bỏ passwordHash). Controller là
    * nơi phát hành JWT — payload chỉ chứa thứ cần cho phân quyền, đúng như
-   * middleware auth.middleware.js mong đợi (accountId, roleName, customerId).
+   * middleware auth.middleware.js mong đợi (accountId, roleName, customerId, employeeId).
    */
   async login(req, res) {
     const { username, password } = req.body;
@@ -73,6 +76,7 @@ export const accountController = {
       username: account.username,
       roleName: account.role?.roleName,
       customerId: account.customer?.customerId,
+      employeeId: account.employee?.employeeId,
     });
 
     res.json({ token, account });

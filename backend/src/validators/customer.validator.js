@@ -6,7 +6,8 @@ export const customerValidator = {
 
   /** Khách hàng sửa hồ sơ — mọi trường đều optional (partial update). Định dạng email do Service kiểm tra. */
   updateProfile: validateBody({
-    fullName: { type: 'string', maxLength: 100 },
+    firstName: { type: 'string', maxLength: 50 },
+    lastName: { type: 'string', maxLength: 50 },
     dateOfBirth: { type: 'date' },
     gender: { type: 'string', maxLength: 10 },
     phone: { type: 'string', maxLength: 20 },

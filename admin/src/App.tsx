@@ -11,14 +11,10 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const roleName = useAuthStore((s) => s.roleName);
 
-  // Tên tab trình duyệt theo vai trò: "Ouran Manager" / "Ouran Admin"
+  // Tên tab trình duyệt theo vai trò
   useEffect(() => {
     document.title = roleName === 'Manager' ? 'Ouran Manager' : 'Ouran Admin';
   }, [roleName]);
-
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
 
   return (
     <div className="app-container">
@@ -26,7 +22,7 @@ function App() {
       <DialogHost />
       <Sidebar isOpen={isSidebarOpen} />
       <div className={`main-content ${isSidebarOpen ? 'sidebar-open' : ''}`}>
-        <Header toggleSidebar={toggleSidebar} />
+        <Header toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
         <Outlet />
       </div>
     </div>

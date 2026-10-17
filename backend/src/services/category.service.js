@@ -4,9 +4,11 @@ import { NotFoundError, ValidationError, ConflictError } from '../errors/AppErro
 const NOT_FOUND = 'Không tìm thấy danh mục.';
 
 export const categoryService = {
-  async list() {
+  /** withProducts = true: chỉ danh mục đang có sản phẩm (dùng cho mục "Sở thích mua sắm" của khách hàng). */
+  async list({ withProducts = false } = {}) {
     const rows = await categoryRepository.findAll();
-    return rows.map(({ _count, ...c }) => ({ ...c, productCount: _count.products }));
+    const mapped = rows.map(({ _count, ...c }) => ({ ...c, productCount: _count.products }));
+    return withProducts ? mapped.filter((c) => c.productCount > 0) : mapped;
   },
 
   async getById(categoryId) {
@@ -36,13 +38,13 @@ export const categoryService = {
     return categoryRepository.update(categoryId, { categoryName: name, description: description?.trim() || null });
   },
 
-  async remove(supplierId) {
-    await this.getById(supplierId);
-    const count = await supplierRepository.countProducts(supplierId);
+  async remove(categoryId) {
+    await this.getById(categoryId);
+    const count = await categoryRepository.countProducts(categoryId);
     if (count > 0) {
-      throw new ConflictError(`Không thể xóa nhà cung cấp vì còn ${count} sản phẩm liên kết.`);
+      throw new ConflictError(`Không thể xóa danh mục vì còn ${count} sản phẩm thuộc danh mục này.`);
     }
-    return supplierRepository.remove(supplierId);
+    return categoryRepository.remove(categoryId); // xóa mềm
   },
 };
 

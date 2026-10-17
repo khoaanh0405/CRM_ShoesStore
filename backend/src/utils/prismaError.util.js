@@ -2,7 +2,7 @@
  * Nhận diện lỗi Prisma do vi phạm ràng buộc khóa ngoại (FK RESTRICT) khi
  * xóa 1 bản ghi còn bị bảng khác tham chiếu. Pattern
  * "err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003'"
- * bị lặp giống hệt nhau ở 4 Service: role, supplier, product,
+ * bị lặp giống hệt nhau ở 3 Service: role, product,
  * surveyQuestion (mỗi Service tự viết message nghiệp vụ riêng, chỉ phần
  * NHẬN DIỆN lỗi là dùng chung — nên chỉ tách phần nhận diện ra utils, còn
  * message vẫn để nguyên trong từng Service).

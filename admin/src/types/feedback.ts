@@ -1,3 +1,5 @@
+import type { PersonName } from '../utils/name';
+
 export type FeedbackStatus = 'Pending' | 'Approved' | 'Rejected';
 
 export interface Feedback {
@@ -10,9 +12,8 @@ export interface Feedback {
   imageUrl?: string | null;
   status: FeedbackStatus;
   createdAt: string;
-  customer?: {
+  customer?: PersonName & {
     customerId: number;
-    fullName: string;
   };
   product?: {
     productId: number;

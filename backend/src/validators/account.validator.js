@@ -1,12 +1,22 @@
 import { validateBody, validateParams } from './common.validator.js';
 import { MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH, OTP_LENGTH, ROLE_NAMES } from '../constants/index.js';
-import { EMAIL_MAX_LENGTH, isValidEmail } from '../utils/validation.util.js';
+import { EMAIL_MAX_LENGTH, isValidEmail, assertStrictEmail } from '../utils/validation.util.js';
 import { ValidationError } from '../errors/AppError.js';
 
 /** Kiểm tra định dạng email trong body (rule tĩnh của validateBody không có regex). */
 function validateEmailFormat(req, res, next) {
   if (!isValidEmail(req.body?.email)) return next(new ValidationError('Email không hợp lệ.'));
   next();
+}
+
+/** Email đăng ký/tạo mới: @gmail.com và có ít nhất 1 chữ số (xem assertStrictEmail). */
+function validateStrictEmail(req, res, next) {
+  try {
+    assertStrictEmail(req.body?.email);
+    next();
+  } catch (e) {
+    next(e);
+  }
 }
 
 /** OTP phải đúng OTP_LENGTH chữ số. */
@@ -20,7 +30,8 @@ function validateOtpFormat(req, res, next) {
 const CUSTOMER_FIELDS = {
   username: { required: true, type: 'string', maxLength: 50 },
   password: { required: true, type: 'string', minLength: MIN_PASSWORD_LENGTH, maxLength: MAX_PASSWORD_LENGTH },
-  fullName: { required: true, type: 'string', maxLength: 100 },
+  lastName: { required: true, type: 'string', maxLength: 50 },
+  firstName: { required: true, type: 'string', maxLength: 50 },
   email: { required: true, type: 'string', maxLength: EMAIL_MAX_LENGTH },
   dateOfBirth: { required: true, type: 'date' },
   gender: { type: 'string', maxLength: 10 },
@@ -32,20 +43,27 @@ export const accountValidator = {
   idParam: validateParams('id'),
 
   /** Đăng ký khách hàng: tạo Account + Customer cùng lúc nên validate cả 2 nhóm trường (email bắt buộc). */
-  register: [validateBody(CUSTOMER_FIELDS), validateEmailFormat],
+  register: [validateBody(CUSTOMER_FIELDS), validateStrictEmail],
 
   /** Staff (Admin/Manager) thêm khách hàng mới (POST /api/admin/customers). */
-  createCustomerByAdmin: [validateBody(CUSTOMER_FIELDS), validateEmailFormat],
+  createCustomerByAdmin: [validateBody(CUSTOMER_FIELDS), validateStrictEmail],
 
   /** Admin thêm tài khoản nội bộ (POST /api/admin/staff) — chỉ Admin hoặc Manager, không có hồ sơ khách hàng. */
   createStaff: [
     validateBody({
       username: { required: true, type: 'string', maxLength: 50 },
+      lastName: { required: true, type: 'string', maxLength: 50 },
+      firstName: { required: true, type: 'string', maxLength: 50 },
       email: { required: true, type: 'string', maxLength: EMAIL_MAX_LENGTH },
       password: { required: true, type: 'string', maxLength: MAX_PASSWORD_LENGTH },
       roleName: { required: true, type: 'string', enum: [ROLE_NAMES.ADMIN, ROLE_NAMES.MANAGER] },
+      dateOfBirth: { type: 'date' },
+      gender: { type: 'string', maxLength: 10 },
+      phone: { type: 'string', maxLength: 20 },
+      address: { type: 'string', maxLength: 255 },
+      position: { type: 'string', maxLength: 100 },
     }),
-    validateEmailFormat,
+    validateStrictEmail,
   ],
 
   login: validateBody({

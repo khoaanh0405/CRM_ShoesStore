@@ -11,7 +11,7 @@ import { formatDate, formatPrice } from '@/utils/format';
 import { ChevronLeft, Edit3, ImageOff } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-/** Chi tiết sản phẩm + mô tả + đánh giá đã được duyệt + nút "Viết đánh giá" (mục 4.3.3). */
+/** Chi tiết sản phẩm + đánh giá đã được duyệt (kèm phản hồi của cửa hàng) + nút "Viết đánh giá". */
 export default function ProductDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -34,7 +34,6 @@ export default function ProductDetailPage() {
   const approved = data.feedbacks.filter((f) => f.status === FEEDBACK_STATUS.APPROVED);
   const average = approved.length > 0 ? approved.reduce((sum, f) => sum + f.rating, 0) / approved.length : 0;
   const soldOut = product.stockQuantity <= 0;
-  const description = product.description?.trim();
 
   const specs: [string, string | null][] = [
     ['Thương hiệu', product.brand],
@@ -74,21 +73,6 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
-      {/* Mô tả sản phẩm */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <SectionTitle title="Mô tả sản phẩm" />
-        <div style={{ padding: `0 ${SCREEN_PADDING}px` }}>
-          <Card style={{ padding: 22 }}>
-            {description ? (
-              <p style={{ color: AppColors.textPrimary, fontSize: 15, lineHeight: '24px', whiteSpace: 'pre-wrap' }}>{description}</p>
-            ) : (
-              <span style={{ color: AppColors.textSecondary, fontSize: 14 }}>Sản phẩm này chưa có mô tả.</span>
-            )}
-          </Card>
-        </div>
-      </div>
-
-      {/* Đánh giá của khách hàng */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <SectionTitle title="Đánh giá của khách hàng" />
         {approved.length === 0 ? (

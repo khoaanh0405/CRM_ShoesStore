@@ -19,25 +19,24 @@ import ProfilePage from '@/pages/Profile';
 import SurveyFormPage from '@/pages/SurveyForm';
 import SurveysPage from '@/pages/Surveys';
 import { ClipboardList, Loader2, MessageCircle } from 'lucide-react';
-import type { ReactNode } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { useEffect, type ReactNode } from 'react';
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { showAlert } from '@/lib/dialog';
+import { ACCOUNT_DELETED_EVENT } from '@/services/api-client';
 
-// Trang cần đăng nhập (hồ sơ, thông báo, làm khảo sát...) — chưa đăng nhập thì chuyển sang trang đăng nhập
+// Trang cần đăng nhập (hồ sơ, thông báo, làm khảo sát...)
 const guard = (page: ReactNode, narrow = false) => (
   <RequireAuth>
     <SiteLayout narrow={narrow}>{page}</SiteLayout>
   </RequireAuth>
 );
 
-// Trang công khai: ai cũng xem được (trang chủ, sản phẩm)
+// Trang công khai
 const open = (page: ReactNode, narrow = false) => (
   <SiteLayout narrow={narrow}>{page}</SiteLayout>
 );
 
-/**
- * Tab Khảo sát / Đánh giá: khách chưa đăng nhập vẫn vào được trang (giữ header,
- * menu, footer) nhưng nội dung là khối "cần đăng nhập" kèm nút dẫn tới đăng nhập.
- */
+/** Tab Khảo sát / Đánh giá: khách chưa đăng nhập thấy khối "cần đăng nhập". */
 function GatedTab({ page, icon, message }: { page: ReactNode; icon: typeof ClipboardList; message: string }) {
   const { status } = useAuth();
   if (status === 'loading') {
@@ -57,10 +56,6 @@ const gate = (page: ReactNode, icon: typeof ClipboardList, message: string) => (
   </SiteLayout>
 );
 
-/**
- * Đăng nhập/Đăng ký/Quên mật khẩu dùng chung SiteLayout (header, menu,
- * breadcrumb, footer) — chỉ phần nội dung là thẻ "auth-card" 2 cột.
- */
 const authPage = (page: ReactNode) => (
   <RequireGuest>
     <SiteLayout>
@@ -77,10 +72,31 @@ function PresenceTracker() {
   return null;
 }
 
+/** Khách đang đăng nhập mà bị xóa: đăng xuất + hộp thoại riêng (không dùng chung với thông báo bị khóa). */
+function AccountDeletedListener() {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+  useEffect(() => {
+    const onDeleted = () => {
+      logout();
+      navigate('/tabs', { replace: true });
+      void showAlert({
+        title: 'Tài khoản của bạn không tồn tại',
+        message: 'Tài khoản đã bị xóa khỏi hệ thống. Vui lòng liên hệ cửa hàng nếu đây là nhầm lẫn.',
+        tone: 'error',
+      });
+    };
+    window.addEventListener(ACCOUNT_DELETED_EVENT, onDeleted);
+    return () => window.removeEventListener(ACCOUNT_DELETED_EVENT, onDeleted);
+  }, [logout, navigate]);
+  return null;
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <PresenceTracker />
+      <AccountDeletedListener />
       <DialogHost />
       <div className="app-shell">
         <Routes>

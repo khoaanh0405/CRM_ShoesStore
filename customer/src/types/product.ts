@@ -1,6 +1,6 @@
 export type Product = {
   productId: number;
-  supplierId: number;
+  categoryId?: number | null;
   productName: string;
   category: string | null;
   brand: string | null;
@@ -12,7 +12,6 @@ export type Product = {
   stockQuantity: number;
   isActive: boolean;
   imageUrl: string | null;
-  supplier?: { supplierId: number; supplierName: string } | null;
 };
 
 export type ProductSortBy = 'productId' | 'price' | 'productName';

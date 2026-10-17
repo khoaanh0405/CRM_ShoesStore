@@ -19,7 +19,7 @@ export const customerRepository = {
     return prisma.customer.findMany({
       where: { ...ONLY_CUSTOMER_ROLE, ...(includeDeleted ? {} : { isDeleted: false }) },
       orderBy: { customerId: 'asc' },
-      include: { customerPreferences: true, account: { select: { isLocked: true } } },
+      include: { customerPreferences: { include: { category: { select: { categoryId: true, categoryName: true, isDeleted: true } } } }, account: { select: { isLocked: true } } },
     });
   },
 
@@ -51,24 +51,38 @@ export const customerRepository = {
   findByIdWithPreferences(customerId) {
     return prisma.customer.findUnique({
       where: { customerId },
-      include: { customerPreferences: true },
+      include: { customerPreferences: { include: { category: { select: { categoryId: true, categoryName: true, isDeleted: true } } } } },
     });
   },
 
+  /**
+   * Tìm theo họ tên hoặc email. Họ tên được lưu tách (lastName/firstName) nên từ khóa được tách thành
+   * từng từ; mỗi từ phải khớp họ HOẶC tên (vd "văn an" khớp lastName "Nguyễn Văn" + firstName "An").
+   * Sắp xếp theo Tên rồi tới Họ (cách xếp tên người Việt).
+   */
   search({ keyword, gender, includeDeleted = false } = {}) {
+    const k = keyword?.trim();
+    const tokens = k ? k.split(/\s+/) : [];
     return prisma.customer.findMany({
       where: {
         ...ONLY_CUSTOMER_ROLE,
         ...(includeDeleted ? {} : { isDeleted: false }),
-        ...(keyword && {
+        ...(k && {
           OR: [
-            { fullName: { contains: keyword, mode: 'insensitive' } },
-            { email: { contains: keyword, mode: 'insensitive' } },
+            {
+              AND: tokens.map((t) => ({
+                OR: [
+                  { firstName: { contains: t, mode: 'insensitive' } },
+                  { lastName: { contains: t, mode: 'insensitive' } },
+                ],
+              })),
+            },
+            { email: { contains: k, mode: 'insensitive' } },
           ],
         }),
         ...(gender && { gender }),
       },
-      orderBy: { fullName: 'asc' },
+      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
     });
   },
 
@@ -76,16 +90,16 @@ export const customerRepository = {
    * customerId phải là account_id của 1 Account (role Customer) đã tồn tại
    * từ trước — xem ghi chú đầu file.
    */
-  create({ customerId, fullName, dateOfBirth, gender, phone, email, address }) {
+  create({ customerId, firstName, lastName, dateOfBirth, gender, phone, email, address }) {
     return prisma.customer.create({
-      data: { customerId, fullName, dateOfBirth, gender, phone, email, address },
+      data: { customerId, firstName, lastName, dateOfBirth, gender, phone, email, address },
     });
   },
 
-  update(customerId, { fullName, dateOfBirth, gender, phone, email, address }) {
+  update(customerId, { firstName, lastName, dateOfBirth, gender, phone, email, address }) {
     return prisma.customer.update({
       where: { customerId },
-      data: { fullName, dateOfBirth, gender, phone, email, address },
+      data: { firstName, lastName, dateOfBirth, gender, phone, email, address },
     });
   },
 

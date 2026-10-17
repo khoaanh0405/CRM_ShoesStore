@@ -6,27 +6,30 @@ import Pagination from '../../components/Pagination';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { showConfirm } from '../../lib/dialog';
 import { normalizeEmail, validateEmail, validateNewPassword, PASSWORD_HINT } from '../../utils/validation';
+import { compareByName, fullNameOf } from '../../utils/name';
 import './CustomersPage.css';
 
 interface Customer {
   customerId: number;
-  fullName: string;
+  firstName: string; // Tên
+  lastName: string;  // Họ (kèm tên đệm)
+  username?: string | null;
+  dateOfBirth?: string | null;
   email?: string | null;
   phone?: string | null;
   gender?: string | null;
   address?: string | null;
   isLocked: boolean;
-  preferences?: { tag: string }[];
+  preferences?: { categoryId: number; categoryName: string }[];
 }
 
 const ITEMS_PER_PAGE = 10;
-const PREFERENCE_OPTIONS = ['Giày Sneaker', 'Giày Chạy Bộ', 'Giày Bóng Rổ', 'Giày Thể Thao', 'Giày Cao Gót', 'Giày Sandal', 'Giày Da'];
 
 type StatusFilter = 'ALL' | 'ACTIVE' | 'LOCKED';
 type GenderFilter = 'ALL' | 'Nam' | 'Nữ' | 'Khác';
 type SortBy = 'NEWEST' | 'OLDEST' | 'NAME_ASC' | 'NAME_DESC';
 
-const EMPTY_FORM = { username: '', email: '', password: '', fullName: '', dateOfBirth: '', gender: '', phone: '', address: '' };
+const EMPTY_FORM = { username: '', email: '', password: '', lastName: '', firstName: '', dateOfBirth: '', gender: '', phone: '', address: '' };
 
 const NotUpdated = () => <span className="text-muted">Chưa cập nhật</span>;
 
@@ -37,6 +40,7 @@ const CustomersPage = () => {
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [detail, setDetail] = useState<Customer | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
 
   const [searchDraft, setSearchDraft] = useState('');
@@ -72,6 +76,17 @@ const CustomersPage = () => {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Sở thích = danh mục: lấy danh sách lọc từ API danh mục thay vì hard-code.
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
+  useEffect(() => {
+    api.get('/categories')
+      .then((r) => {
+        const rows = r.data?.data ?? r.data ?? [];
+        setCategoryOptions(rows.map((c: { categoryName: string }) => c.categoryName));
+      })
+      .catch(() => setCategoryOptions([]));
+  }, []);
   useAutoRefresh(() => load(true), 5000);
 
   const filtered = useMemo(() => {
@@ -80,19 +95,19 @@ const CustomersPage = () => {
       .filter((c) => {
         const matchSearch =
           !k ||
-          c.fullName.toLowerCase().includes(k) ||
+          fullNameOf(c).toLowerCase().includes(k) ||
           (c.phone ?? '').includes(k) ||
           (c.email ?? '').toLowerCase().includes(k);
         const matchStatus = filters.status === 'ALL' || (filters.status === 'LOCKED') === c.isLocked;
         const matchGender = filters.gender === 'ALL' || c.gender === filters.gender;
-        const matchPref = filters.pref === 'ALL' || (c.preferences ?? []).some((p) => p.tag === filters.pref);
+        const matchPref = filters.pref === 'ALL' || (c.preferences ?? []).some((p) => p.categoryName === filters.pref);
         return matchSearch && matchStatus && matchGender && matchPref;
       })
       .sort((a, b) => {
         switch (sortBy) {
           case 'OLDEST': return a.customerId - b.customerId;
-          case 'NAME_ASC': return a.fullName.localeCompare(b.fullName, 'vi');
-          case 'NAME_DESC': return b.fullName.localeCompare(a.fullName, 'vi');
+          case 'NAME_ASC': return compareByName(a, b);
+          case 'NAME_DESC': return compareByName(b, a);
           default: return b.customerId - a.customerId;
         }
       });
@@ -105,8 +120,8 @@ const CustomersPage = () => {
   useEffect(() => { if (page > totalPages) setPage(totalPages); }, [totalPages, page]);
 
   const handleAdd = async () => {
-    if (!form.username.trim() || !form.fullName.trim() || !form.dateOfBirth) {
-      toast.error('Vui lòng nhập đầy đủ Username, họ tên và ngày sinh.');
+    if (!form.username.trim() || !form.lastName.trim() || !form.firstName.trim() || !form.dateOfBirth) {
+      toast.error('Vui lòng nhập đầy đủ Username, họ, tên và ngày sinh.');
       return;
     }
     const emailErr = validateEmail(form.email);
@@ -119,7 +134,8 @@ const CustomersPage = () => {
       await api.post('/admin/customers', {
         ...form,
         username: form.username.trim(),
-        fullName: form.fullName.trim(),
+        lastName: form.lastName.trim().replace(/\s+/g, ' '),
+        firstName: form.firstName.trim().replace(/\s+/g, ' '),
         email: normalizeEmail(form.email),
         phone: form.phone.trim(),
         address: form.address.trim(),
@@ -151,7 +167,7 @@ const CustomersPage = () => {
   const handleDelete = async (c: Customer) => {
     const ok = await showConfirm({
       title: 'Xóa khách hàng?',
-      message: `"${c.fullName}" sẽ bị xóa (xóa mềm, vẫn giữ lịch sử).`,
+      message: `"${fullNameOf(c)}" sẽ bị xóa (xóa mềm, vẫn giữ lịch sử).`,
       confirmLabel: 'Xóa', tone: 'warning', danger: true,
     });
     if (!ok) return;
@@ -211,7 +227,7 @@ const CustomersPage = () => {
 
         <select className="customer-select" value={prefDraft} onChange={(e) => setPrefDraft(e.target.value)}>
           <option value="ALL">Tất cả sở thích</option>
-          {PREFERENCE_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
+          {categoryOptions.map((p) => <option key={p} value={p}>{p}</option>)}
         </select>
 
         <select className="customer-select" value={sortBy} onChange={(e) => { setSortBy(e.target.value as SortBy); setPage(1); }}>
@@ -250,7 +266,7 @@ const CustomersPage = () => {
                 const prefs = c.preferences ?? [];
                 return (
                   <tr key={c.customerId}>
-                    <td className="font-medium">{c.fullName}</td>
+                    <td className="font-medium">{fullNameOf(c) || <span className="text-muted">—</span>}</td>
                     <td>{c.email || <span className="text-muted">—</span>}</td>
                     <td>{c.phone?.trim() ? c.phone : <NotUpdated />}</td>
                     <td>{c.gender || '—'}</td>
@@ -263,7 +279,7 @@ const CustomersPage = () => {
                       {prefs.length === 0 ? <NotUpdated /> : (
                         <div className="pref-badges">
                           {prefs.slice(0, 2).map((p, idx) => (
-                            <span key={`${c.customerId}-${p.tag}-${idx}`} className="pref-badge">{p.tag}</span>
+                            <span key={`${c.customerId}-${p.categoryId}-${idx}`} className="pref-badge">{p.categoryName}</span>
                           ))}
                           {prefs.length > 2 && <span className="pref-badge more">+{prefs.length - 2}</span>}
                         </div>
@@ -276,6 +292,7 @@ const CustomersPage = () => {
                     </td>
                     <td className="col-actions">
                       <div className="action-group">
+                        <button className="action-btn customer-view-btn" onClick={() => setDetail(c)}>Chi tiết</button>
                         <button className="action-btn toggle-off-btn" onClick={() => handleLock(c)} disabled={actionLoadingId === c.customerId}>
                           {c.isLocked ? 'Mở khóa' : 'Khóa'}
                         </button>
@@ -291,6 +308,39 @@ const CustomersPage = () => {
       )}
 
       <Pagination currentPage={page} totalPages={totalPages} totalItems={total} itemsPerPage={ITEMS_PER_PAGE} itemLabel="khách hàng" onPageChange={setPage} />
+
+      {detail && (
+        <div className="modal-overlay" onClick={() => setDetail(null)}>
+          <div className="modal-card customer-detail-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Chi tiết khách hàng</h3>
+              <button className="modal-close-btn" onClick={() => setDetail(null)}><X size={20} /></button>
+            </div>
+            <div className="modal-body modal-grid-2">
+              {([
+                ['Mã khách hàng', String(detail.customerId)],
+                ['Tên đăng nhập', detail.username],
+                ['Họ tên', fullNameOf(detail)],
+                ['Email', detail.email],
+                ['Ngày sinh', detail.dateOfBirth ? new Date(detail.dateOfBirth).toLocaleDateString('vi-VN') : null],
+                ['Giới tính', detail.gender],
+                ['Số điện thoại', detail.phone],
+                ['Địa chỉ', detail.address],
+                ['Trạng thái', detail.isLocked ? 'Đã khóa' : 'Đang hoạt động'],
+                ['Sở thích', (detail.preferences ?? []).map((p) => p.categoryName).join(', ') || null],
+              ] as [string, string | null | undefined][]).map(([label, value]) => (
+                <div className="form-group" key={label}>
+                  <span className="form-label">{label}</span>
+                  <span className="customer-detail-value">{value?.trim() || 'Chưa cập nhật'}</span>
+                </div>
+              ))}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setDetail(null)}>Đóng</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAdd && (
         <div className="modal-overlay" onClick={() => setShowAdd(false)}>
@@ -314,9 +364,13 @@ const CustomersPage = () => {
                 <input type="password" className="form-input" maxLength={50} value={form.password} onChange={setF('password')} />
                 <span className="text-muted" style={{ fontSize: 12 }}>{PASSWORD_HINT}</span>
               </div>
-              <div className="form-group full-width">
-                <label className="form-label">Họ tên *</label>
-                <input className="form-input" value={form.fullName} onChange={setF('fullName')} />
+              <div className="form-group">
+                <label className="form-label">Họ *</label>
+                <input className="form-input" maxLength={50} placeholder="VD: Nguyễn Văn" value={form.lastName} onChange={setF('lastName')} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Tên *</label>
+                <input className="form-input" maxLength={50} placeholder="VD: An" value={form.firstName} onChange={setF('firstName')} />
               </div>
               <div className="form-group">
                 <label className="form-label">Ngày sinh *</label>

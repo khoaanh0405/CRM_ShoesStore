@@ -21,8 +21,7 @@ const CONTENT_MAX = 2000;
 const normalize = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
 
 /**
- * Gửi phản hồi về sản phẩm (mục 4.3.3) và CHỈNH SỬA đánh giá (route /feedback/:id/edit)
- * khi đánh giá còn "Chờ duyệt". Chống spam: chặn double-click + chặn gửi lại cùng nội dung cho cùng sản phẩm.
+ * Viết đánh giá (mục 4.3.3) và CHỈNH SỬA đánh giá (route /feedback/:id/edit) khi còn "Chờ duyệt".
  */
 export default function FeedbackCreatePage() {
   const navigate = useNavigate();
@@ -65,7 +64,7 @@ export default function FeedbackCreatePage() {
   const selected = products?.find((p) => p.productId === selectedId) ?? null;
 
   const handleSubmit = async () => {
-    if (lockRef.current) return; // chống double click
+    if (lockRef.current) return;
     const next = {
       product: selectedId == null ? 'Vui lòng chọn sản phẩm.' : undefined,
       rating: rating < 1 ? 'Vui lòng chọn số sao.' : undefined,
@@ -79,7 +78,6 @@ export default function FeedbackCreatePage() {
     setSubmitting(true);
     setFormError(null);
     try {
-      // Chặn gửi lặp lại cùng một nội dung cho cùng một sản phẩm (bỏ qua chính đánh giá đang sửa)
       const all = await feedbackService.listByCustomer(customerId).catch(() => []);
       const duplicated = all.some((f) => f.feedbackId !== editId && f.productId === selectedId && normalize(f.content) === normalize(content));
       if (duplicated) {

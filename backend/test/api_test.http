@@ -1,13 +1,10 @@
 ### ===================================================================
-### BỘ TEST API — CRM ShoesStore (cập nhật theo code hiện tại)
-### ===================================================================
-### 1. Bật backend: cd backend && npm run dev (port 5001 nếu bạn đặt PORT=5001)
-### 2. Chạy mục 0 để lấy token Admin / Manager / Customer
-### 3. Sửa các biến @xxxId bên dưới cho khớp dữ liệu của bạn
+### BỘ TEST API — CRM ShoesStore (theo schema có Employee)
 ### .env cần: TEST_ADMIN_USER/PASS, TEST_MANAGER_USER/PASS, TEST_CUSTOMER_USER/PASS
-
+### Chạy mục 0 trước để lấy token. Sửa các @id cho khớp dữ liệu.
+### ===================================================================
 @baseUrl = http://localhost:5001
-@customerId = 1
+@customerId = 3
 @productId = 1
 @feedbackId = 1
 @surveyId = 1
@@ -15,34 +12,23 @@
 @categoryId = 1
 @supplierId = 1
 @bannerId = 1
-@accountId = 2
-
-
-### ===================================================================
-### 0. TOKEN
-### ===================================================================
+@accountId = 5
 
 ### 0.1 Customer
 # @name customerLogin
 POST {{baseUrl}}/api/accounts/login
 Content-Type: application/json
 
-{
-  "username": "{{$dotenv TEST_CUSTOMER_USER}}",
-  "password": "{{$dotenv TEST_CUSTOMER_PASS}}"
-}
+{ "username": "{{$dotenv TEST_CUSTOMER_USER}}", "password": "{{$dotenv TEST_CUSTOMER_PASS}}" }
 
 @customerToken = {{customerLogin.response.body.$.token}}
 
-### 0.2 Admin
+### 0.2 Admin (response.account có employee: { employeeId, employeeCode, fullName, ... })
 # @name adminLogin
 POST {{baseUrl}}/api/accounts/login
 Content-Type: application/json
 
-{
-  "username": "{{$dotenv TEST_ADMIN_USER}}",
-  "password": "{{$dotenv TEST_ADMIN_PASS}}"
-}
+{ "username": "{{$dotenv TEST_ADMIN_USER}}", "password": "{{$dotenv TEST_ADMIN_PASS}}" }
 
 @adminToken = {{adminLogin.response.body.$.token}}
 
@@ -51,112 +37,98 @@ Content-Type: application/json
 POST {{baseUrl}}/api/accounts/login
 Content-Type: application/json
 
-{
-  "username": "{{$dotenv TEST_MANAGER_USER}}",
-  "password": "{{$dotenv TEST_MANAGER_PASS}}"
-}
+{ "username": "{{$dotenv TEST_MANAGER_USER}}", "password": "{{$dotenv TEST_MANAGER_PASS}}" }
 
 @managerToken = {{managerLogin.response.body.$.token}}
 
-### 0.4 Health check
+### 0.4 Health
 GET {{baseUrl}}/health
 
-
-### ===================================================================
-### 1. TÀI KHOẢN & XÁC THỰC
-### ===================================================================
-
-### 1.1 Đăng ký khách hàng (email bắt buộc, mật khẩu: >=6 ký tự, chữ hoa, số, ký tự đặc biệt)
+### ===================== 1. TÀI KHOẢN & HỒ SƠ NHÂN VIÊN =====================
+### 1.1 Đăng ký khách hàng
 POST {{baseUrl}}/api/accounts/register
 Content-Type: application/json
 
-{
-  "username": "testuser2026",
-  "email": "testuser2026@example.com",
-  "password": "Test@123",
-  "fullName": "Người Dùng Test",
-  "dateOfBirth": "2000-01-01",
-  "gender": "Nam",
-  "phone": "0988777666",
-  "address": "123 Nguyễn Trãi, Q.5, TP.HCM"
-}
+{ "username": "testuser2026", "email": "testuser2026@example.com", "password": "Test@123", "fullName": "Người Dùng Test", "dateOfBirth": "2000-01-01", "gender": "Nam", "phone": "0988777666", "address": "123 Nguyễn Trãi, Q.5, TP.HCM" }
 
-### 1.2 Thông tin tài khoản đang đăng nhập (phát hiện tài khoản bị khóa)
+### 1.2 Tài khoản đang đăng nhập
 GET {{baseUrl}}/api/accounts/me
-Authorization: Bearer {{customerToken}}
+Authorization: Bearer {{managerToken}}
 
-### 1.3 Đổi mật khẩu
+### 1.3 Hồ sơ Employee của chính mình (Admin/Manager)
+GET {{baseUrl}}/api/accounts/me/profile
+Authorization: Bearer {{managerToken}}
+
+### 1.4 Cập nhật hồ sơ Employee (ghi nhật ký)
+PUT {{baseUrl}}/api/accounts/me/profile
+Authorization: Bearer {{managerToken}}
+Content-Type: application/json
+
+{ "fullName": "Trần Minh Quản Lý", "email": "manager@ouran.com", "phone": "0901000002", "gender": "Nam", "dateOfBirth": "1995-06-20", "address": "45 Lê Lợi, Q.1, TP.HCM" }
+
+### 1.5 Đổi mật khẩu
 PATCH {{baseUrl}}/api/accounts/{{accountId}}/password
 Authorization: Bearer {{customerToken}}
 Content-Type: application/json
 
 { "oldPassword": "Test@123", "newPassword": "Test@1234" }
 
-### 1.4 Quên mật khẩu — bước 1: gửi OTP qua email
+### 1.6 Quên mật khẩu: gửi OTP -> kiểm tra -> đặt lại
 POST {{baseUrl}}/api/accounts/forgot-password
 Content-Type: application/json
 
 { "email": "testuser2026@example.com" }
 
-### 1.5 Quên mật khẩu — bước 2: kiểm tra OTP (6 chữ số)
+###
 POST {{baseUrl}}/api/accounts/verify-otp
 Content-Type: application/json
 
 { "email": "testuser2026@example.com", "otp": "123456" }
 
-### 1.6 Quên mật khẩu — bước 3: đặt lại mật khẩu
+###
 POST {{baseUrl}}/api/accounts/reset-password
 Content-Type: application/json
 
 { "email": "testuser2026@example.com", "otp": "123456", "newPassword": "Test@12345" }
 
-### 1.7 Danh sách tài khoản (Admin)
+### 1.7 Danh sách / chi tiết tài khoản (Admin; có customer hoặc employee)
 GET {{baseUrl}}/api/accounts
 Authorization: Bearer {{adminToken}}
 
-### 1.8 Chi tiết tài khoản (Admin)
+###
 GET {{baseUrl}}/api/accounts/{{accountId}}
 Authorization: Bearer {{adminToken}}
 
-### 1.9 Khóa tài khoản (Admin/Manager) -> ghi nhật ký
+### 1.8 Khóa / mở khóa (ghi nhật ký)
 PATCH {{baseUrl}}/api/accounts/{{accountId}}/lock
 Authorization: Bearer {{adminToken}}
 
-### 1.10 Mở khóa tài khoản
+###
 PATCH {{baseUrl}}/api/accounts/{{accountId}}/unlock
 Authorization: Bearer {{adminToken}}
 
-### 1.11 Đổi vai trò (Admin) -> body dùng roleName
+### 1.9 Đổi vai trò (lên Admin/Manager sẽ tự tạo Employee)
 PATCH {{baseUrl}}/api/accounts/{{accountId}}/role
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
 { "roleName": "Manager" }
 
-### 1.12 Admin tạo tài khoản nội bộ (Admin hoặc Manager)
+### 1.10 Admin tạo tài khoản nội bộ -> tạo cả Employee (fullName tùy chọn)
 POST {{baseUrl}}/api/admin/staff
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
-{ "username": "manager2", "email": "manager2@ouran.com", "password": "Manager@123", "roleName": "Manager" }
+{ "username": "manager2", "email": "manager2@ouran.com", "password": "Manager@123", "roleName": "Manager", "fullName": "Lê Quản Lý Hai" }
 
-### 1.13 Staff thêm khách hàng
+### 1.11 Staff thêm khách hàng (customers.created_by = employee tạo)
 POST {{baseUrl}}/api/admin/customers
 Authorization: Bearer {{managerToken}}
 Content-Type: application/json
 
-{
-  "username": "khach_moi",
-  "email": "khachmoi@example.com",
-  "password": "Khach@123",
-  "fullName": "Khách Mới",
-  "dateOfBirth": "1999-09-09",
-  "gender": "Nữ",
-  "phone": "0911222333",
-  "address": "Q.1, TP.HCM"
-}
+{ "username": "khach_moi", "email": "khachmoi@example.com", "password": "Khach@123", "fullName": "Khách Mới", "dateOfBirth": "1999-09-09", "gender": "Nữ", "phone": "0911222333", "address": "Q.1, TP.HCM" }
 
-### 1.14 Thống kê dashboard / số khách online (Staff)
+### 1.12 Thống kê / online / vai trò
 GET {{baseUrl}}/api/admin/stats
 Authorization: Bearer {{managerToken}}
 
@@ -164,173 +136,127 @@ Authorization: Bearer {{managerToken}}
 GET {{baseUrl}}/api/admin/online-count
 Authorization: Bearer {{managerToken}}
 
-### 1.15 Danh sách vai trò (Admin)
+###
 GET {{baseUrl}}/api/roles
 Authorization: Bearer {{adminToken}}
 
-
-### ===================================================================
-### 2. DANH MỤC (CATEGORIES) — GET công khai, ghi chỉ Admin
-### ===================================================================
-
-### 2.1 Danh sách danh mục (kèm productCount)
+### ===================== 2. DANH MỤC (xóa mềm) =====================
 GET {{baseUrl}}/api/categories
 
-### 2.2 Thêm danh mục
+###
 POST {{baseUrl}}/api/categories
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
 { "categoryName": "Boots", "description": "Giày bốt" }
 
-### 2.3 Sửa danh mục
+###
 PUT {{baseUrl}}/api/categories/{{categoryId}}
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
 { "categoryName": "Sneaker", "description": "Giày sneaker thời trang" }
 
-### 2.4 Xóa danh mục (409 nếu còn sản phẩm)
+### Xóa mềm (409 nếu còn sản phẩm; tạo lại cùng tên sẽ khôi phục)
 DELETE {{baseUrl}}/api/categories/{{categoryId}}
 Authorization: Bearer {{adminToken}}
 
-
-### ===================================================================
-### 3. SẢN PHẨM (PRODUCTS) — GET công khai, ghi chỉ Admin
-### ===================================================================
-
-### 3.1 Danh sách (mặc định chỉ sản phẩm đang bán)
+### ===================== 3. SẢN PHẨM =====================
 GET {{baseUrl}}/api/products
 
-### 3.2 Gồm cả sản phẩm đã ẩn
+###
 GET {{baseUrl}}/api/products?includeInactive=true
 
-### 3.3 Tìm kiếm/lọc (category = TÊN danh mục, hoặc dùng categoryId)
+### category = TÊN danh mục, hoặc categoryId
 GET {{baseUrl}}/api/products/search?brand=Nike&category=Sneaker&sortBy=price&sortOrder=asc
 
 ###
-GET {{baseUrl}}/api/products/search?categoryId={{categoryId}}&keyword=giày
-
-### 3.4 Chi tiết (có category, description)
 GET {{baseUrl}}/api/products/{{productId}}
 
-### 3.5 Đánh giá của sản phẩm (kèm replies)
+###
 GET {{baseUrl}}/api/products/{{productId}}/feedbacks
 
-### 3.6 Thêm sản phẩm (categoryId + description)
+###
 POST {{baseUrl}}/api/products
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
-{
-  "supplierId": {{supplierId}},
-  "categoryId": {{categoryId}},
-  "productName": "Giày Chạy Bộ Ultra Boost 2026",
-  "brand": "Adidas",
-  "size": "42",
-  "color": "Trắng/Xám",
-  "material": "Vải dệt cao cấp",
-  "description": "Đế Boost êm ái, upper Primeknit ôm chân, phù hợp chạy đường dài.",
-  "price": 1850000,
-  "stockQuantity": 50,
-  "imageUrl": "https://picsum.photos/seed/ultraboost/600/600"
-}
+{ "supplierId": {{supplierId}}, "categoryId": {{categoryId}}, "productName": "Giày Chạy Bộ Ultra Boost 2026", "brand": "Adidas", "size": "40/41/42", "color": "Trắng/Xám", "material": "Vải dệt cao cấp", "price": 1850000, "stockQuantity": 50, "imageUrl": "https://picsum.photos/seed/ultraboost/600/600" }
 
-### 3.7 Sửa sản phẩm / mô tả (description: null để xóa mô tả)
+###
 PUT {{baseUrl}}/api/products/{{productId}}
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
-{
-  "categoryId": {{categoryId}},
-  "productName": "Giày Sneaker Classic V2",
-  "price": 950000,
-  "stockQuantity": 80,
-  "description": "Mô tả mới của sản phẩm."
-}
+{ "categoryId": {{categoryId}}, "productName": "Giày Sneaker Classic V2", "price": 950000, "stockQuantity": 80 }
 
-### 3.8 Ẩn / hiện sản phẩm
+###
 PATCH {{baseUrl}}/api/products/{{productId}}/active
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
 { "isActive": false }
 
-
-### ===================================================================
-### 4. NHÀ CUNG CẤP (SUPPLIERS)
-### ===================================================================
-
-### 4.1 Danh sách / tìm kiếm (công khai)
+### ===================== 4. NHÀ CUNG CẤP (xóa mềm) =====================
 GET {{baseUrl}}/api/suppliers
 
 ###
 GET {{baseUrl}}/api/suppliers/search?keyword=Sài Gòn
 
-### 4.2 Chi tiết kèm sản phẩm
+###
 GET {{baseUrl}}/api/suppliers/{{supplierId}}/products
 
-### 4.3 Thêm (Admin) -> ghi nhật ký
+###
 POST {{baseUrl}}/api/suppliers
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
-{ "supplierName": "Công ty Giày Miền Tây", "phone": "0283777888", "email": "contact@miental.vn", "address": "Cần Thơ" }
+{ "supplierName": "Công ty Giày Miền Tây", "phone": "0283777888", "email": "contact@mientay.vn", "address": "Cần Thơ" }
 
-### 4.4 Sửa
+###
 PUT {{baseUrl}}/api/suppliers/{{supplierId}}
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
 { "supplierName": "Công ty Giày Miền Tây", "phone": "0283000111" }
 
-### 4.5 Xóa (409 nếu còn sản phẩm)
+### Xóa mềm (409 nếu còn sản phẩm)
 DELETE {{baseUrl}}/api/suppliers/{{supplierId}}
 Authorization: Bearer {{adminToken}}
 
-
-### ===================================================================
-### 5. BANNER — GET công khai, quản lý chỉ Admin (đều ghi nhật ký)
-### ===================================================================
-
-### 5.1 Banner đang bật (web khách hàng)
+### ===================== 5. BANNER (xóa mềm, ghi nhật ký) =====================
 GET {{baseUrl}}/api/banners
 
-### 5.2 Tất cả banner (Admin)
+###
 GET {{baseUrl}}/api/banners/all
 Authorization: Bearer {{adminToken}}
 
-### 5.3 Thêm banner (imageUrl là http(s) hoặc data:image/...)
+###
 POST {{baseUrl}}/api/banners
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
 { "imageUrl": "https://picsum.photos/seed/banner1/1600/500", "title": "Khuyến mãi mùa hè", "sortOrder": 0, "isActive": true }
 
-### 5.4 Sửa
+###
 PUT {{baseUrl}}/api/banners/{{bannerId}}
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
 { "title": "Banner đã sửa", "sortOrder": 1 }
 
-### 5.5 Bật / ẩn
+###
 PATCH {{baseUrl}}/api/banners/{{bannerId}}/active
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
 { "isActive": false }
 
-### 5.6 Xóa
+###
 DELETE {{baseUrl}}/api/banners/{{bannerId}}
 Authorization: Bearer {{adminToken}}
 
-
-### ===================================================================
-### 6. KHÁCH HÀNG & SỞ THÍCH
-### ===================================================================
-
-### 6.1 Danh sách / báo cáo / tìm kiếm (Staff)
+### ===================== 6. KHÁCH HÀNG & SỞ THÍCH =====================
 GET {{baseUrl}}/api/customers
 Authorization: Bearer {{managerToken}}
 
@@ -342,25 +268,18 @@ Authorization: Bearer {{managerToken}}
 GET {{baseUrl}}/api/customers/search?keyword=Nguyễn&gender=Nam
 Authorization: Bearer {{managerToken}}
 
-### 6.2 Hồ sơ khách hàng
+###
 GET {{baseUrl}}/api/customers/{{customerId}}/profile
 Authorization: Bearer {{customerToken}}
 
-### 6.3 Cập nhật hồ sơ (email không được trùng)
+###
 PUT {{baseUrl}}/api/customers/{{customerId}}
 Authorization: Bearer {{customerToken}}
 Content-Type: application/json
 
-{
-  "fullName": "Nguyễn Văn An",
-  "dateOfBirth": "2000-05-15",
-  "gender": "Nam",
-  "phone": "0901234567",
-  "email": "nguyenvana@example.com",
-  "address": "123 Nguyễn Trãi, Q.1, TP.HCM"
-}
+{ "fullName": "Nguyễn Văn An", "dateOfBirth": "2000-05-15", "gender": "Nam", "phone": "0901234567", "email": "nguyenvana@example.com", "address": "123 Nguyễn Trãi, Q.1, TP.HCM" }
 
-### 6.4 Sở thích (chỉ được chọn trong danh sách cho phép)
+###
 GET {{baseUrl}}/api/customers/{{customerId}}/preferences
 Authorization: Bearer {{customerToken}}
 
@@ -371,144 +290,122 @@ Content-Type: application/json
 
 { "preferenceTag": "Giày Sneaker" }
 
-### 6.5 Xóa sở thích (id = preferenceId)
+###
 DELETE {{baseUrl}}/api/preferences/1
 Authorization: Bearer {{customerToken}}
 
-### 6.6 Xóa mềm khách hàng (Staff) -> ghi nhật ký
+### Xóa mềm khách hàng (ghi nhật ký)
 DELETE {{baseUrl}}/api/customers/{{customerId}}
 Authorization: Bearer {{managerToken}}
 
-
-### ===================================================================
-### 7. ĐÁNH GIÁ (FEEDBACKS) & PHẢN HỒI (REVIEW REPLIES)
-### ===================================================================
-
-### 7.1 Khách gửi đánh giá (chống spam: 1 lần/60s, tối đa 10/ngày)
+### ===================== 7. ĐÁNH GIÁ & PHẢN HỒI =====================
+### Khách gửi (1 lần/60s, tối đa 10/ngày)
 POST {{baseUrl}}/api/feedbacks
 Authorization: Bearer {{customerToken}}
 Content-Type: application/json
 
-{
-  "customerId": {{customerId}},
-  "productId": {{productId}},
-  "title": "Giày đi rất êm và bền",
-  "content": "Đi bộ cả ngày không bị đau gót chân, mẫu mã đúng hình.",
-  "rating": 5
-}
+{ "customerId": {{customerId}}, "productId": {{productId}}, "title": "Giày đi rất êm và bền", "content": "Đi bộ cả ngày không bị đau gót chân.", "rating": 5 }
 
-### 7.2 Khách xem đánh giá của mình (kèm replies)
+###
 GET {{baseUrl}}/api/customers/{{customerId}}/feedbacks
 Authorization: Bearer {{customerToken}}
 
-### 7.3 Khách SỬA đánh giá — chỉ khi còn Pending, 409 nếu đã duyệt/từ chối
+### Khách sửa — chỉ khi Pending (409 nếu đã xử lý)
 PUT {{baseUrl}}/api/feedbacks/{{feedbackId}}
 Authorization: Bearer {{customerToken}}
 Content-Type: application/json
 
-{ "title": "Giày rất êm (đã sửa)", "content": "Sau 1 tuần sử dụng vẫn rất thoải mái.", "rating": 4 }
+{ "title": "Giày rất êm (đã sửa)", "content": "Sau 1 tuần vẫn rất thoải mái.", "rating": 4 }
 
-### 7.4 Khách thu hồi đánh giá Pending
+### Khách thu hồi (xóa mềm) khi Pending
 DELETE {{baseUrl}}/api/feedbacks/{{feedbackId}}
 Authorization: Bearer {{customerToken}}
 
-### 7.5 Manager xem tất cả đánh giá (mới nhất trước)
+### Manager xem (mới nhất trước; có handler, replies)
 GET {{baseUrl}}/api/feedbacks?status=Pending
 Authorization: Bearer {{managerToken}}
 
-### 7.6 Manager duyệt / từ chối
+### Duyệt/từ chối -> feedbacks.handled_by = employee_id của Manager
 PATCH {{baseUrl}}/api/feedbacks/{{feedbackId}}/status
 Authorization: Bearer {{managerToken}}
 Content-Type: application/json
 
 { "status": "Approved" }
 
-### 7.7 Manager trả lời — CHỈ khi đánh giá đã Approved (409 nếu chưa duyệt)
+### Trả lời — CHỈ khi đã Approved (409 nếu chưa), review_replies.employee_id = Manager
 POST {{baseUrl}}/api/feedbacks/{{feedbackId}}/replies
 Authorization: Bearer {{managerToken}}
 Content-Type: application/json
 
 { "content": "Cảm ơn bạn đã chia sẻ! Ouran rất vui vì bạn hài lòng." }
 
-### 7.8 Danh sách phản hồi của 1 đánh giá (Staff)
+###
 GET {{baseUrl}}/api/feedbacks/{{feedbackId}}/replies
 Authorization: Bearer {{managerToken}}
 
-### 7.9 Sửa phản hồi (chỉ người viết, id = replyId)
+###
 PUT {{baseUrl}}/api/replies/1
 Authorization: Bearer {{managerToken}}
 Content-Type: application/json
 
 { "content": "Nội dung phản hồi đã chỉnh sửa." }
 
-### 7.10 Xóa phản hồi
+### Xóa mềm phản hồi
 DELETE {{baseUrl}}/api/replies/1
 Authorization: Bearer {{managerToken}}
 
-
-### ===================================================================
-### 8. KHẢO SÁT (SURVEYS) — Manager quản lý, createdBy lấy từ token
-### ===================================================================
-
-### 8.1 Danh sách khảo sát (mới nhất trước, có creator)
+### ===================== 8. KHẢO SÁT (surveys.created_by = employee_id) =====================
 GET {{baseUrl}}/api/surveys
 Authorization: Bearer {{managerToken}}
 
-### 8.2 Tạo nhanh (productId = null là khảo sát chung)
-# @name createSurvey
+###
 POST {{baseUrl}}/api/surveys/simple
 Authorization: Bearer {{managerToken}}
 Content-Type: application/json
 
 { "title": "Khảo sát xu hướng Thu Đông 2026", "description": "Thăm dò ý kiến khách hàng", "isActive": true, "productId": null }
 
-### 8.3 Thêm câu hỏi (SINGLE_CHOICE hoặc TEXT)
+###
 POST {{baseUrl}}/api/questions
 Authorization: Bearer {{managerToken}}
 Content-Type: application/json
 
 { "surveyId": {{surveyId}}, "questionContent": "Bạn thích màu nào nhất?", "questionType": "SINGLE_CHOICE", "options": ["Đen", "Trắng"] }
 
-### 8.4 Thêm lựa chọn cho câu hỏi
+###
 POST {{baseUrl}}/api/options
 Authorization: Bearer {{managerToken}}
 Content-Type: application/json
 
 { "questionId": {{questionId}}, "optionText": "Xanh pastel" }
 
-### 8.5 Khảo sát đầy đủ (câu hỏi + lựa chọn + creator)
+###
 GET {{baseUrl}}/api/surveys/{{surveyId}}/full
 Authorization: Bearer {{managerToken}}
 
-### 8.6 Gửi khảo sát cho khách hàng (chặn gửi trùng nếu nội dung không đổi)
+###
 POST {{baseUrl}}/api/surveys/{{surveyId}}/assign
 Authorization: Bearer {{managerToken}}
 Content-Type: application/json
 
-{ "customerIds": [1, 2, 3] }
+{ "customerIds": [3, 4, 5] }
 
-### 8.7 Đối tượng đã nhận khảo sát
+###
 GET {{baseUrl}}/api/surveys/{{surveyId}}/targets
 Authorization: Bearer {{managerToken}}
 
-### 8.8 Khách xem danh sách khảo sát của mình (thay cho /surveys/target/me cũ)
+### Khách xem khảo sát của mình
 GET {{baseUrl}}/api/customers/{{customerId}}/surveys
 Authorization: Bearer {{customerToken}}
 
-### 8.9 Khách nộp bài (phải trả lời ĐỦ mọi câu; customerId phải là của chính mình)
+### Khách nộp (trả lời ĐỦ mọi câu)
 POST {{baseUrl}}/api/surveys/{{surveyId}}/submit
 Authorization: Bearer {{customerToken}}
 Content-Type: application/json
 
-{
-  "customerId": {{customerId}},
-  "answers": [
-    { "questionId": 1, "answerValue": "Đen", "optionId": 1 },
-    { "questionId": 2, "answerValue": "Mong shop làm thêm nhiều màu sáng." }
-  ]
-}
+{ "customerId": {{customerId}}, "answers": [ { "questionId": 1, "answerValue": "Đen", "optionId": 1 }, { "questionId": 2, "answerValue": "Mong shop làm thêm màu sáng." } ] }
 
-### 8.10 Thống kê kết quả / danh sách bài nộp
+###
 GET {{baseUrl}}/api/surveys/{{surveyId}}/stats
 Authorization: Bearer {{managerToken}}
 
@@ -516,19 +413,14 @@ Authorization: Bearer {{managerToken}}
 GET {{baseUrl}}/api/surveys/{{surveyId}}/responses
 Authorization: Bearer {{managerToken}}
 
-### 8.11 Đóng / mở khảo sát
+###
 PATCH {{baseUrl}}/api/surveys/{{surveyId}}/active
 Authorization: Bearer {{managerToken}}
 Content-Type: application/json
 
 { "isActive": false }
 
-
-### ===================================================================
-### 9. THÔNG BÁO & PRESENCE
-### ===================================================================
-
-### 9.1 Danh sách thông báo / số chưa đọc / đọc tất cả
+### ===================== 9. THÔNG BÁO & PRESENCE =====================
 GET {{baseUrl}}/api/customers/{{customerId}}/notifications
 Authorization: Bearer {{customerToken}}
 
@@ -540,11 +432,11 @@ Authorization: Bearer {{customerToken}}
 PATCH {{baseUrl}}/api/customers/{{customerId}}/notifications/read-all
 Authorization: Bearer {{customerToken}}
 
-### 9.2 Đánh dấu 1 thông báo đã đọc
+###
 PATCH {{baseUrl}}/api/notifications/1/read
 Authorization: Bearer {{customerToken}}
 
-### 9.3 Heartbeat online (không cần đăng nhập)
+###
 POST {{baseUrl}}/api/presence/heartbeat
 Content-Type: application/json
 
@@ -556,16 +448,11 @@ Content-Type: application/json
 
 { "sessionId": "test-session-1", "visitorId": "test-visitor-1" }
 
-
-### ===================================================================
-### 10. NHẬT KÝ HOẠT ĐỘNG (AUDIT LOGS) — chỉ Admin
-### ===================================================================
-
-### 10.1 Mới nhất, phân trang
+### ===================== 10. NHẬT KÝ HOẠT ĐỘNG (Admin; audit_logs.employee_id) =====================
 GET {{baseUrl}}/api/audit-logs?page=1&limit=20
 Authorization: Bearer {{adminToken}}
 
-### 10.2 Lọc theo vai trò / hành động / đối tượng / khoảng ngày / từ khóa
+###
 GET {{baseUrl}}/api/audit-logs?actorRole=Admin&entityType=Banner&from=2026-10-01&to=2026-10-31
 Authorization: Bearer {{adminToken}}
 

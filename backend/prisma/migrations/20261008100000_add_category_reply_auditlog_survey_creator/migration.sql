@@ -1,0 +1,6 @@
+-- Intentionally empty.
+-- The category conversion, review_replies, audit_logs, and surveys.created_by
+-- changes are already owned by the preceding migration:
+-- 20261008020146_add_category_audit_product_reply.
+-- Keep this migration directory so existing migration history remains ordered,
+-- but do not repeat CREATE TABLE / ALTER TABLE statements here.

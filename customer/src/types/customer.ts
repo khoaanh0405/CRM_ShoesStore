@@ -1,6 +1,9 @@
 export type CustomerProfile = {
   customerId: number;
-  fullName: string;
+  firstName: string; // Tên
+  lastName: string;  // Họ (kèm tên đệm)
+  /** Chỉ-đọc, backend suy ra từ lastName + firstName ("Nguyễn Văn An"). */
+  fullName?: string;
   dateOfBirth: string;
   gender: string | null;
   phone: string | null;
@@ -10,10 +13,17 @@ export type CustomerProfile = {
   isLocked: boolean;
 };
 
-export type CustomerPreference = { preferenceId: number; customerId: number; preferenceTag: string; };
+/** Sở thích = một danh mục đã chọn (không còn lưu tên danh mục dạng chuỗi riêng). */
+export type CustomerPreference = {
+  preferenceId: number;
+  customerId: number;
+  categoryId: number;
+  category: { categoryId: number; categoryName: string; description: string | null };
+};
 
 export type UpdateProfilePayload = {
-  fullName?: string;
+  firstName?: string;
+  lastName?: string;
   dateOfBirth?: string;
   gender?: string;
   phone?: string;

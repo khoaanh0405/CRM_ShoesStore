@@ -21,6 +21,7 @@ interface AuditLog {
 const PAGE_SIZE = 20;
 
 type Tone = 'green' | 'red' | 'amber' | 'blue' | 'purple';
+// (SUPPLIER_*/BANNER_* giữ lại chỉ để hiển thị nhật ký cũ — chức năng nhà cung cấp/banner đã bị gỡ)
 const ACTIONS: Record<string, { label: string; tone: Tone }> = {
   LOCK_ACCOUNT: { label: 'Khóa tài khoản', tone: 'red' },
   UNLOCK_ACCOUNT: { label: 'Mở khóa tài khoản', tone: 'green' },
@@ -50,12 +51,13 @@ const ACTIONS: Record<string, { label: string; tone: Tone }> = {
   UPDATE_BANNER: { label: 'Sửa banner', tone: 'blue' },
   TOGGLE_BANNER: { label: 'Bật/ẩn banner', tone: 'amber' },
   DELETE_BANNER: { label: 'Xóa banner', tone: 'red' },
+  UPDATE_PROFILE: { label: 'Cập nhật hồ sơ cá nhân', tone: 'blue' },
 };
 
 const ENTITIES: Record<string, string> = {
   Account: 'Tài khoản', Customer: 'Khách hàng', Feedback: 'Đánh giá', ReviewReply: 'Phản hồi',
   Survey: 'Khảo sát', Product: 'Sản phẩm', Category: 'Danh mục',
-  Supplier: 'Nhà cung cấp', Banner: 'Banner',
+  Supplier: 'Nhà cung cấp', Banner: 'Banner', Employee: 'Nhân sự',
 };
 
 const fmtTime = (iso: string) => {

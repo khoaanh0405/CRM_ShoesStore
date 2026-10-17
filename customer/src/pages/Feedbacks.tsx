@@ -66,10 +66,8 @@ export default function FeedbacksPage() {
     if (withdrawingId != null) return;
     const ok = await showConfirm({
       title: 'Thu hồi đánh giá?',
-      message: 'Đánh giá đang chờ duyệt sẽ bị xóa và không thể khôi phục.',
-      confirmLabel: 'Thu hồi',
-      tone: 'warning',
-      danger: true,
+      message: 'Đánh giá đang chờ duyệt sẽ bị gỡ khỏi danh sách của bạn.',
+      confirmLabel: 'Thu hồi', tone: 'warning', danger: true,
     });
     if (!ok) return;
     setWithdrawingId(f.feedbackId);
@@ -164,7 +162,6 @@ function FeedbackCard({ feedback, productName, onOpenProduct, onEdit, onWithdraw
       <span style={{ color: AppColors.textPrimary, fontSize: 16, fontWeight: 800 }}>{feedback.title}</span>
       <span style={{ color: AppColors.textSecondary, fontSize: 14, lineHeight: '20px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' as any }}>{feedback.content}</span>
 
-      {/* Phản hồi của cửa hàng */}
       {replies.map((r) => (
         <div key={r.replyId} style={{ marginTop: 4, padding: '10px 12px', borderRadius: Radius.md, background: AppColors.background, borderLeft: `3px solid ${AppColors.accent}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: AppColors.textPrimary }}>

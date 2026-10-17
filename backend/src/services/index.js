@@ -1,9 +1,9 @@
 export { roleService } from './role.service.js';
 export { accountService } from './account.service.js';
-export { supplierService } from './supplier.service.js';
 export { productService } from './product.service.js';
 export { customerService } from './customer.service.js';
 export { customerPreferenceService } from './customerPreference.service.js';
+export { employeeService } from './employee.service.js';
 export { feedbackService } from './feedback.service.js';
 export { surveyService } from './survey.service.js';
 export { surveyQuestionService } from './surveyQuestion.service.js';

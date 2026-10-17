@@ -25,10 +25,6 @@ export const productController = {
     res.json(await productService.getById(parseId(req.params.id, 'productId')));
   },
 
-  async listBySupplier(req, res) {
-    res.json(await productService.listBySupplier(parseId(req.params.supplierId, 'supplierId')));
-  },
-
   async create(req, res) {
     const product = await productService.create(req.body);
     await auditLogService.record(req, {

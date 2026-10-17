@@ -12,13 +12,3 @@ export const QUESTION_TYPES = {
 } as const;
 
 export const GENDER_OPTIONS = ['Nam', 'Nữ', 'Khác'] as const;
-
-export const PREFERENCE_SUGGESTIONS = [
-  'Giày Sneaker',
-  'Giày Chạy Bộ',
-  'Giày Bóng Rổ',
-  'Giày Thể Thao',
-  'Giày Cao Gót',
-  'Giày Sandal',
-  'Giày Da',
-] as const;

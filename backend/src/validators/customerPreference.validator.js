@@ -4,8 +4,9 @@ export const customerPreferenceValidator = {
   idParam: validateParams('id'),
   customerIdParam: validateParams('customerId'),
 
+  /** Sở thích chỉ được chọn từ danh mục có sẵn -> chỉ nhận categoryId. */
   save: validateBody({
-    preferenceTag: { required: true, type: 'string', maxLength: 100 },
+    categoryId: { required: true, type: 'int', min: 1 },
   }),
 };
 

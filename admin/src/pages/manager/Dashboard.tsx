@@ -6,6 +6,7 @@ import DonutChart from '../../components/DonutChart';
 import { RatingStars, FeedbackStatusBadge } from '../../components/FeedbackBits';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useNavigate } from 'react-router-dom';
+import { fullNameOf } from '../../utils/name';
 import './Dashboard.css';
 
 const AGE_BUCKETS = [
@@ -217,7 +218,7 @@ const ManagerDashboard: React.FC = () => {
             </thead>
             <tbody>
               {recentFeedbacks.map((f, idx) => {
-                const name = f.customer?.fullName ?? `KH #${f.customerId}`;
+                const name = fullNameOf(f.customer) || `KH #${f.customerId}`;
                 return (
                   <tr key={f.feedbackId}>
                     <td style={{ color: 'var(--color-text-muted)' }}>{idx + 1}</td>
@@ -274,7 +275,7 @@ const ManagerDashboard: React.FC = () => {
                       {customersWithTag(detailTag).map((c, i) => (
                         <tr key={c.customerId}>
                           <td className="col-index">{i + 1}</td>
-                          <td className="font-medium">{c.fullName}</td>
+                          <td className="font-medium">{fullNameOf(c) || '—'}</td>
                           <td>{c.phone ?? '—'}</td>
                           <td>{c.gender ?? '—'}</td>
                         </tr>

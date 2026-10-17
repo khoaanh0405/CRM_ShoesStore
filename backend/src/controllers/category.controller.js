@@ -1,11 +1,11 @@
 import { categoryService } from '../services/category.service.js';
 import { auditLogService } from '../services/auditLog.service.js';
 import { AUDIT_ACTION, AUDIT_ENTITY } from '../constants/audit.constant.js';
-import { parseId } from '../utils/index.js';
+import { parseId, parseBoolean } from '../utils/index.js';
 
 export const categoryController = {
   async list(req, res) {
-    res.json(await categoryService.list());
+    res.json(await categoryService.list({ withProducts: parseBoolean(req.query.withProducts) ?? false }));
   },
 
   async create(req, res) {
