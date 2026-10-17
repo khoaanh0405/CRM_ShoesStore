@@ -6,10 +6,11 @@ import {
   getCustomers, createQuestion, createOption, assignSurvey, getSurveyFull,
 } from '../services/api';
 import type { QuestionType } from '../types/survey';
+import { fullNameOf, type PersonName } from '../utils/name';
 import './CreateSurveyModal.css';
 
 type ProductLite = { productId: number; productName: string; brand?: string | null };
-type CustomerLite = { customerId: number; fullName: string; phone?: string | null; isLocked?: boolean };
+type CustomerLite = PersonName & { customerId: number; phone?: string | null; isLocked?: boolean };
 type Audience = 'all' | 'select' | 'later';
 
 interface DraftQuestion {
@@ -72,7 +73,7 @@ const CreateSurveyModal: React.FC<Props> = ({ onClose, onCreated, onPartial }) =
   const shownCustomers = useMemo(() => {
     const k = custSearch.trim().toLowerCase();
     return activeCustomers.filter(
-      (c) => !k || c.fullName.toLowerCase().includes(k) || (c.phone ?? '').includes(k),
+      (c) => !k || fullNameOf(c).toLowerCase().includes(k) || (c.phone ?? '').includes(k),
     );
   }, [activeCustomers, custSearch]);
 
@@ -317,7 +318,7 @@ const CreateSurveyModal: React.FC<Props> = ({ onClose, onCreated, onPartial }) =
                         className={`csm-chip ${selected.has(c.customerId) ? 'sel' : ''}`}
                         onClick={() => toggleCustomer(c.customerId)}>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <strong>{c.fullName}</strong>
+                          <strong>{fullNameOf(c)}</strong>
                           {c.phone && <small>{c.phone}</small>}
                         </div>
                         {selected.has(c.customerId) && <Check size={14} color="#7C3AED" />}

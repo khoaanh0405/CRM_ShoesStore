@@ -1,3 +1,8 @@
+import { fullNameOf, type PersonName } from './name';
+
+/** Tên có thể truyền vào dưới dạng chuỗi họ tên ("Nguyễn Văn An") hoặc đối tượng { firstName, lastName }. */
+export type NameInput = string | PersonName | null | undefined;
+
 export function formatPrice(value: number | string | null | undefined): string {
   const n = Number(value);
   if (!Number.isFinite(n)) return '—';
@@ -17,13 +22,16 @@ export function toDateInput(iso?: string | null): string {
   return iso ? iso.slice(0, 10) : '';
 }
 
-export function initialOf(fullName?: string | null): string {
-  const last = (fullName ?? '').trim().split(/\s+/).pop() ?? '';
-  return last ? last.charAt(0).toUpperCase() : '?';
+/** Tên gọi (từ cuối của Tên). Đối tượng: ưu tiên firstName; chuỗi: lấy từ cuối như trước. */
+export function givenNameOf(name?: NameInput): string {
+  const text = typeof name === 'object' && name !== null ? (name.firstName ?? '').trim() || fullNameOf(name) : (name ?? '');
+  return text.trim().split(/\s+/).pop() ?? '';
 }
 
-export function givenNameOf(fullName?: string | null): string {
-  return (fullName ?? '').trim().split(/\s+/).pop() ?? '';
+/** Chữ cái đầu của Tên, dùng cho avatar. */
+export function initialOf(name?: NameInput): string {
+  const last = givenNameOf(name);
+  return last ? last.charAt(0).toUpperCase() : '?';
 }
 
 export function formatDateOnly(value?: string | null): string {

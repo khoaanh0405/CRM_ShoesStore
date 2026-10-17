@@ -8,19 +8,32 @@ import { useAuth } from '@/context/AuthContext';
 import { getApiErrorMessage } from '@/services/api-client';
 import {
   normalizeEmail, normalizePhone, normalizeSpaces, validateAddress, validateConfirmPassword, validateDateOfBirth,
-  validateEmail, validateFullName, validateNewPassword, validateNewUsername, validatePhone,
+  validateEmail, validateNewPassword, validateNewUsername, validatePhone,
 } from '@/utils/validation';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const GENDER_OPTIONS = ['Nam', 'Nữ', 'Khác'];
 
-type RegisterForm = { username: string; email: string; password: string; confirm: string; fullName: string; dateOfBirth: string; gender: string; phone: string; address: string; };
+type RegisterForm = { username: string; email: string; password: string; confirm: string; lastName: string; firstName: string; dateOfBirth: string; gender: string; phone: string; address: string; };
 type Errors = Partial<Record<keyof RegisterForm, string | null>>;
-const INITIAL_FORM: RegisterForm = { username: '', email: '', password: '', confirm: '', fullName: '', dateOfBirth: '', gender: '', phone: '', address: '' };
+const INITIAL_FORM: RegisterForm = { username: '', email: '', password: '', confirm: '', lastName: '', firstName: '', dateOfBirth: '', gender: '', phone: '', address: '' };
+
+const NAME_PART_MAX = 50;
+const NAME_PART_REGEX = /^[\p{L}][\p{L}\s'.-]*$/u;
+
+/** Kiểm tra 1 ô tên (Họ hoặc Tên): bắt buộc, tối đa 50 ký tự, chỉ gồm chữ cái (có dấu), khoảng trắng, ' . - */
+function validateNamePart(label: 'Họ' | 'Tên', value: string): string | null {
+  const v = normalizeSpaces(value);
+  if (!v) return `Vui lòng nhập ${label.toLowerCase()}.`;
+  if (v.length > NAME_PART_MAX) return `${label} tối đa ${NAME_PART_MAX} ký tự.`;
+  if (!NAME_PART_REGEX.test(v)) return `${label} chỉ được gồm chữ cái.`;
+  return null;
+}
 
 const VALIDATORS: Record<keyof RegisterForm, (f: RegisterForm) => string | null> = {
-  fullName: (f) => validateFullName(f.fullName),
+  lastName: (f) => validateNamePart('Họ', f.lastName),
+  firstName: (f) => validateNamePart('Tên', f.firstName),
   dateOfBirth: (f) => validateDateOfBirth(f.dateOfBirth),
   username: (f) => validateNewUsername(f.username),
   email: (f) => validateEmail(f.email),
@@ -70,7 +83,8 @@ export default function RegisterPage() {
         username: form.username.trim(),
         email: normalizeEmail(form.email),
         password: form.password,
-        fullName: normalizeSpaces(form.fullName),
+        lastName: normalizeSpaces(form.lastName),
+        firstName: normalizeSpaces(form.firstName),
         dateOfBirth: form.dateOfBirth.trim(),
         gender: form.gender || undefined,
         phone: normalizePhone(form.phone) || undefined,
@@ -95,8 +109,11 @@ export default function RegisterPage() {
         </div>
 
         <div className="auth-grid">
-          <AuthTextField label="Họ và tên" maxLength={100} value={form.fullName} onChangeText={setField('fullName')} onBlur={blur('fullName')} error={errors.fullName} />
+          <AuthTextField label="Họ" placeholder="VD: Nguyễn Văn" maxLength={NAME_PART_MAX} value={form.lastName} onChangeText={setField('lastName')} onBlur={blur('lastName')} error={errors.lastName} />
+          <AuthTextField label="Tên" placeholder="VD: An" maxLength={NAME_PART_MAX} value={form.firstName} onChangeText={setField('firstName')} onBlur={blur('firstName')} error={errors.firstName} />
+
           <AuthTextField label="Ngày sinh" type="date" min="1900-01-01" max={new Date().toISOString().slice(0, 10)} value={form.dateOfBirth} onChangeText={setField('dateOfBirth')} onBlur={blur('dateOfBirth')} error={errors.dateOfBirth} />
+          <AuthTextField label="Số điện thoại" inputMode="tel" maxLength={15} value={form.phone} onChangeText={setField('phone')} onBlur={blur('phone')} error={errors.phone} />
 
           <AuthTextField label="Tên đăng nhập" autoCapitalize="none" autoCorrect="off" maxLength={50} value={form.username} onChangeText={setField('username')} onBlur={blur('username')} error={errors.username} />
           <AuthTextField label="Email" type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" maxLength={100} value={form.email} onChangeText={setField('email')} onBlur={blur('email')} error={errors.email} />
@@ -104,8 +121,7 @@ export default function RegisterPage() {
           <AuthTextField label="Mật khẩu" type="password" secureToggle maxLength={50} value={form.password} onChangeText={setField('password')} onBlur={blur('password')} error={errors.password} />
           <AuthTextField label="Nhập lại mật khẩu" type="password" secureToggle maxLength={50} value={form.confirm} onChangeText={setField('confirm')} onBlur={blur('confirm')} error={errors.confirm} />
 
-          <AuthTextField label="Số điện thoại" placeholder="Không bắt buộc" inputMode="tel" maxLength={15} value={form.phone} onChangeText={setField('phone')} onBlur={blur('phone')} error={errors.phone} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div className="full" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span style={{ color: AuthColors.textSecondary, fontSize: 13, fontWeight: 600 }}>Giới tính</span>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', minHeight: 46 }}>
               {GENDER_OPTIONS.map((option) => (
@@ -115,7 +131,7 @@ export default function RegisterPage() {
           </div>
 
           <div className="full">
-            <AuthTextField label="Địa chỉ" placeholder="Không bắt buộc (số nhà, đường, quận/huyện...)" maxLength={255} value={form.address} onChangeText={setField('address')} onBlur={blur('address')} error={errors.address} />
+            <AuthTextField label="Địa chỉ" maxLength={255} value={form.address} onChangeText={setField('address')} onBlur={blur('address')} error={errors.address} />
           </div>
         </div>
 

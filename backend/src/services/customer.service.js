@@ -7,6 +7,7 @@ import { customerRepository, customerPreferenceRepository } from '../repositorie
 import { NotFoundError, ValidationError, ForbiddenError, ConflictError } from '../errors/AppError.js';
 import { AGE_BUCKETS, MESSAGES } from '../constants/index.js';
 import { calculateAge, assertStrictEmail } from '../utils/index.js';
+import { normalizeNamePart, withFullName } from '../utils/name.util.js';
 
 function ageBucketOf(age) {
   const bucket = AGE_BUCKETS.find((b) => age >= b.min && age <= b.max);
@@ -20,7 +21,7 @@ export const customerService = {
       // Sở thích = danh mục khách đã chọn (bỏ danh mục đã bị xóa mềm).
       const alive = (customerPreferences ?? []).filter((p) => !p.category?.isDeleted);
       return {
-        ...c,
+        ...withFullName(c),
         isLocked: account?.isLocked ?? false,
         customerPreferences: alive,
         preferences: alive.map((p) => ({ categoryId: p.categoryId, categoryName: p.category.categoryName })),
@@ -31,7 +32,7 @@ export const customerService = {
   async getById(customerId, options = {}) {
     const customer = await customerRepository.findById(customerId, options);
     if (!customer) throw new NotFoundError(MESSAGES.NOT_FOUND.CUSTOMER);
-    return customer;
+    return withFullName(customer);
   },
 
   /** Hồ sơ đầy đủ (kèm username/isLocked) — dùng cho trang chi tiết Admin hoặc trang cá nhân Customer. */
@@ -39,11 +40,12 @@ export const customerService = {
     const customer = await customerRepository.findByIdWithAccount(customerId);
     if (!customer) throw new NotFoundError(MESSAGES.NOT_FOUND.CUSTOMER);
     const { account, ...rest } = customer;
-    return { ...rest, username: account.username, isLocked: account.isLocked };
+    return { ...withFullName(rest), username: account.username, isLocked: account.isLocked };
   },
 
-  search({ keyword, gender, includeDeleted = false } = {}) {
-    return customerRepository.search({ keyword, gender, includeDeleted });
+  async search({ keyword, gender, includeDeleted = false } = {}) {
+    const rows = await customerRepository.search({ keyword, gender, includeDeleted });
+    return rows.map(withFullName);
   },
 
   /**
@@ -51,14 +53,17 @@ export const customerService = {
    * người đang đăng nhập (lấy từ token/session ở Controller) — truyền vào
    * đây để đảm bảo không sửa được hồ sơ người khác. Bỏ trống nếu Admin gọi.
    */
-  async updateProfile(customerId, { fullName, dateOfBirth, gender, phone, email, address }, requesterId) {
+  async updateProfile(customerId, { firstName, lastName, dateOfBirth, gender, phone, email, address }, requesterId) {
     if (requesterId !== undefined && requesterId !== customerId) {
       throw new ForbiddenError('Không thể chỉnh sửa thông tin của khách hàng khác.');
     }
     await this.getById(customerId);
 
-    if (fullName !== undefined && !fullName.trim()) {
-      throw new ValidationError('Họ tên không được để trống.');
+    if (lastName !== undefined && !String(lastName).trim()) {
+      throw new ValidationError('Họ không được để trống.');
+    }
+    if (firstName !== undefined && !String(firstName).trim()) {
+      throw new ValidationError('Tên không được để trống.');
     }
 
     // Đổi email: phải hợp lệ và không trùng với khách hàng khác.
@@ -71,21 +76,23 @@ export const customerService = {
       }
     }
 
-    return customerRepository.update(customerId, {
-      fullName: fullName?.trim(),
+    const updated = await customerRepository.update(customerId, {
+      firstName: normalizeNamePart(firstName),
+      lastName: normalizeNamePart(lastName),
       dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
       gender,
       phone,
       email: normalizedEmail,
       address,
     });
+    return withFullName(updated);
   },
 
   /** Admin "Xóa khách hàng" (mục 4.1.2) — luôn là soft delete. */
   async remove(customerId) {
     const customer = await this.getById(customerId);
     if (customer.isDeleted) throw new ValidationError('Khách hàng này đã bị xóa trước đó.');
-    return customerRepository.softDelete(customerId);
+    return withFullName(await customerRepository.softDelete(customerId));
   },
 
   /**

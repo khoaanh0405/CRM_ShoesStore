@@ -15,8 +15,8 @@ export const employeeController = {
 
   /** PUT /api/employees/me — nhân sự tự sửa thông tin của mình. */
   async updateMe(req, res) {
-    const { fullName, dateOfBirth, gender, phone, email, address } = req.body;
-    const profile = await employeeService.updateMe(req.user.accountId, { fullName, dateOfBirth, gender, phone, email, address });
+    const { firstName, lastName, dateOfBirth, gender, phone, email, address } = req.body;
+    const profile = await employeeService.updateMe(req.user.accountId, { firstName, lastName, dateOfBirth, gender, phone, email, address });
     await auditLogService.record(req, {
       action: AUDIT_ACTION.UPDATE_PROFILE, entityType: AUDIT_ENTITY.EMPLOYEE, entityId: req.user.accountId,
       description: `Cập nhật hồ sơ cá nhân của "${profile.username}"`,

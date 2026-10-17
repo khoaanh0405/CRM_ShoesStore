@@ -9,7 +9,6 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 /* ---------- tiện ích ---------- */
-// Random có seed cố định -> mỗi lần seed cho ra đúng cùng một bộ dữ liệu demo.
 function mulberry32(a) {
   return () => {
     a |= 0; a = (a + 0x6d2b79f5) | 0;
@@ -34,7 +33,6 @@ const daysAgo = (n, hour = 10) => {
   return d > now ? now : d;
 };
 
-// Ngày tạo tài khoản ngẫu nhiên (RNG riêng để không làm đổi dữ liệu demo khác).
 const randAcc = mulberry32(7);
 const randomPast = (minDays, maxDays) => {
   const d = new Date();
@@ -43,17 +41,11 @@ const randomPast = (minDays, maxDays) => {
   return d;
 };
 
-/* ---------- email khách hàng ---------- */
-// Mỗi khách hàng có 1 email duy nhất (chữ thường). Mặc định: <username>@example.com.
-// Tài khoản 'nguyenvana' dùng email THẬT của bạn để test luồng Quên mật khẩu (OTP gửi qua email).
-// Muốn test bằng email khác: sửa giá trị bên dưới rồi chạy lại seed.
 const EMAIL_OVERRIDES = {
   nguyenvana: 'nguyenhuudai104@gmail.com',
 };
 const emailOf = (username) => EMAIL_OVERRIDES[username] ?? `${username}@example.com`;
 
-/* ---------- dữ liệu nguồn ---------- */
-// Danh mục (tiếng Việt). Sở thích của khách hàng CHỈ được chọn trong các danh mục này (customer_preferences.category_id).
 const CATEGORIES = [
   ['Giày Sneaker', 'Giày sneaker thời trang'],
   ['Giày Chạy Bộ', 'Giày chạy bộ'],
@@ -61,10 +53,8 @@ const CATEGORIES = [
   ['Giày Thể Thao', 'Giày thể thao & tập luyện'],
   ['Giày Cao Gót', 'Giày cao gót'],
   ['Giày Sandal', 'Sandal & dép'],
-  ['Giày Da', 'Giày da công sở'],
 ];
 
-// 14 sản phẩm KHÁC NHAU hoàn toàn; `category` là tên danh mục ở CATEGORIES.
 const PRODUCTS = [
   { productName: 'Giày Sneaker Air Classic', category: 'Giày Sneaker', brand: 'Nike', size: '37/38/39/40/41/42', color: 'Trắng/Đen', material: 'Da tổng hợp', price: 850000, stockQuantity: 100 },
   { productName: 'Giày Sneaker Urban Street', category: 'Giày Sneaker', brand: 'Adidas', size: '38/39/40/41', color: 'Xám', material: 'Vải canvas', price: 1250000, stockQuantity: 80 },
@@ -79,44 +69,37 @@ const PRODUCTS = [
   { productName: 'Sandal Quai Mùa Hè', category: 'Giày Sandal', brand: "Biti's", size: '38/39', color: 'Trắng', material: 'Nhựa dẻo', price: 350000, stockQuantity: 120 },
   { productName: 'Sandal Thể Thao Đi Biển', category: 'Giày Sandal', brand: 'Bata', size: '40/41', color: 'Xanh rêu', material: 'Cao su EVA', price: 490000, stockQuantity: 90 },
   { productName: 'Giày Thể Thao Training Pro', category: 'Giày Thể Thao', brand: 'Reebok', size: '39/40/41/42', color: 'Đen/Xám', material: 'Vải lưới thoáng khí', price: 1390000, stockQuantity: 55 },
-  { productName: 'Giày Da Oxford Công Sở', category: 'Giày Da', brand: 'Bata', size: '39/40/41/42/43', color: 'Nâu', material: 'Da bò', price: 1490000, stockQuantity: 40 },
 ];
 
-// [username, họ tên, ngày sinh, giới tính, sđt, địa chỉ, [tên danh mục yêu thích], isLocked, isDeleted]
-// Email sinh tự động bằng emailOf(username).
-// 0-20: đang hoạt động | 21-22: bị khóa | 23-25: đã xóa mềm. Độ tuổi & giới tính đa dạng để báo cáo CRM có số liệu.
 const CUSTOMERS = [
-  ['nguyenvana', 'Nguyễn Văn An', '2008-04-12', 'Nam', '0901000001', 'Q.1, TP.HCM', ['Giày Sneaker'], false, false],
-  ['tranthib', 'Trần Thị Bích', '2007-09-30', 'Nữ', '0901000002', 'Q.3, TP.HCM', ['Giày Sneaker', 'Giày Sandal'], false, false],
-  ['levanc', 'Lê Văn Cường', '2002-01-15', 'Nam', '0901000003', 'Q.5, TP.HCM', ['Giày Chạy Bộ'], false, false],
-  ['phamthid', 'Phạm Thị Dung', '2001-03-25', 'Nữ', '0901000004', 'Q.10, TP.HCM', ['Giày Cao Gót'], false, false],
-  ['hoangvane', 'Hoàng Văn Em', '2003-11-08', 'Nam', '0901000005', 'Q.Tân Bình, TP.HCM', ['Giày Bóng Rổ', 'Giày Thể Thao'], false, false],
-  ['vothif', 'Võ Thị Phương', '2000-06-19', 'Nữ', '0901000006', 'Q.7, TP.HCM', ['Giày Sandal'], false, false],
-  ['dangvang', 'Đặng Văn Giang', '1998-07-22', 'Nam', '0901000007', 'Q.Bình Thạnh, TP.HCM', ['Giày Bóng Rổ'], false, false],
-  ['buithih', 'Bùi Thị Hoa', '1999-02-18', 'Nữ', '0901000008', 'Q.Gò Vấp, TP.HCM', ['Giày Sneaker', 'Giày Thể Thao'], false, false],
-  ['ngophii', 'Ngô Phi Hùng', '1996-11-05', 'Nam', '0901000009', 'Q.4, TP.HCM', ['Giày Da'], false, false],
-  ['lythik', 'Lý Thị Kim', '1997-09-09', 'Nữ', '0901000010', 'Q.2, TP.HCM', ['Giày Chạy Bộ', 'Giày Thể Thao'], false, false],
-  ['truongvanl', 'Trương Văn Lâm', '1994-04-30', 'Nam', '0901000011', 'Q.11, TP.HCM', ['Giày Thể Thao', 'Giày Chạy Bộ'], false, false],
-  ['dothim', 'Đỗ Thị Mai', '1993-06-14', 'Nữ', '0901000012', 'Q.Phú Nhuận, TP.HCM', ['Giày Cao Gót', 'Giày Sandal'], false, false],
-  ['nguyenvann', 'Nguyễn Văn Nam', '1990-12-01', 'Nam', '0901000013', 'Q.12, TP.HCM', ['Giày Da', 'Giày Sneaker'], false, false],
-  ['tranthio', 'Trần Thị Oanh', '1989-05-27', 'Nữ', '0901000014', 'Q.Thủ Đức, TP.HCM', ['Giày Cao Gót', 'Giày Da'], false, false],
-  ['phamvanp', 'Phạm Văn Phúc', '1987-08-16', 'Nam', '0901000015', 'Q.6, TP.HCM', ['Giày Da'], false, false],
-  ['lethiq', 'Lê Thị Quyên', '1985-10-03', 'Nữ', '0901000016', 'Q.8, TP.HCM', ['Giày Sandal', 'Giày Cao Gót'], false, false],
-  ['vovanr', 'Võ Văn Rạng', '1982-01-21', 'Nam', '0901000017', 'Q.9, TP.HCM', ['Giày Chạy Bộ', 'Giày Da'], false, false],
-  ['hothis', 'Hồ Thị Sương', '1979-03-11', 'Nữ', '0901000018', 'Q.Tân Phú, TP.HCM', ['Giày Sandal'], false, false],
-  ['dinhvant', 'Đinh Văn Tài', '1975-12-24', 'Nam', '0901000019', 'Huyện Bình Chánh, TP.HCM', ['Giày Da'], false, false],
-  ['maithiu', 'Mai Thị Uyên', '1970-07-07', 'Nữ', '0901000020', 'Q.Bình Tân, TP.HCM', ['Giày Sandal', 'Giày Da'], false, false],
-  ['caovanv', 'Cao Văn Vinh', '2004-05-05', 'Khác', '0901000021', 'Q.1, TP.HCM', ['Giày Sneaker', 'Giày Bóng Rổ'], false, false],
-  // bị khóa
-  ['luuthix', 'Lưu Thị Xuân', '1995-02-02', 'Nữ', '0901000022', 'Q.5, TP.HCM', ['Giày Cao Gót'], true, false],
-  ['tavany', 'Tạ Văn Yên', '1992-09-19', 'Nam', '0901000023', 'Q.Tân Bình, TP.HCM', ['Giày Thể Thao'], true, false],
-  // đã xóa mềm (vẫn giữ lịch sử phản hồi)
-  ['phanvann', 'Phan Văn Nghĩa', '1992-03-03', 'Nam', '0901000024', 'Q.6, TP.HCM', ['Giày Da'], false, true],
-  ['huynhthio', 'Huỳnh Thị Ơn', '1997-08-28', 'Nữ', '0901000025', 'Q.8, TP.HCM', ['Giày Cao Gót'], false, true],
-  ['vuvanp', 'Vũ Văn Quân', '1991-12-19', 'Nam', '0901000026', 'Q.9, TP.HCM', ['Giày Bóng Rổ'], false, true],
+  ['nguyenvana', 'Nguyễn Văn', 'An', '2008-04-12', 'Nam', '0901000001', 'Q.1, TP.HCM', ['Giày Sneaker'], false, false],
+  ['tranthib', 'Trần Thị', 'Bích', '2007-09-30', 'Nữ', '0901000002', 'Q.3, TP.HCM', ['Giày Sneaker', 'Giày Sandal'], false, false],
+  ['levanc', 'Lê Văn', 'Cường', '2002-01-15', 'Nam', '0901000003', 'Q.5, TP.HCM', ['Giày Chạy Bộ'], false, false],
+  ['phamthid', 'Phạm Thị', 'Dung', '2001-03-25', 'Nữ', '0901000004', 'Q.10, TP.HCM', ['Giày Cao Gót'], false, false],
+  ['hoangvane', 'Hoàng Văn', 'Em', '2003-11-08', 'Nam', '0901000005', 'Q.Tân Bình, TP.HCM', ['Giày Bóng Rổ', 'Giày Thể Thao'], false, false],
+  ['vothif', 'Võ Thị', 'Phương', '2000-06-19', 'Nữ', '0901000006', 'Q.7, TP.HCM', ['Giày Sandal'], false, false],
+  ['dangvang', 'Đặng Văn', 'Giang', '1998-07-22', 'Nam', '0901000007', 'Q.Bình Thạnh, TP.HCM', ['Giày Bóng Rổ'], false, false],
+  ['buithih', 'Bùi Thị', 'Hoa', '1999-02-18', 'Nữ', '0901000008', 'Q.Gò Vấp, TP.HCM', ['Giày Sneaker', 'Giày Thể Thao'], false, false],
+  ['ngophii', 'Ngô Phi', 'Hùng', '1996-11-05', 'Nam', '0901000009', 'Q.4, TP.HCM', [], false, false],
+  ['lythik', 'Lý Thị', 'Kim', '1997-09-09', 'Nữ', '0901000010', 'Q.2, TP.HCM', ['Giày Chạy Bộ', 'Giày Thể Thao'], false, false],
+  ['truongvanl', 'Trương Văn', 'Lâm', '1994-04-30', 'Nam', '0901000011', 'Q.11, TP.HCM', ['Giày Thể Thao', 'Giày Chạy Bộ'], false, false],
+  ['dothim', 'Đỗ Thị', 'Mai', '1993-06-14', 'Nữ', '0901000012', 'Q.Phú Nhuận, TP.HCM', ['Giày Cao Gót', 'Giày Sandal'], false, false],
+  ['nguyenvann', 'Nguyễn Văn', 'Nam', '1990-12-01', 'Nam', '0901000013', 'Q.12, TP.HCM', ['Giày Sneaker'], false, false],
+  ['tranthio', 'Trần Thị', 'Oanh', '1989-05-27', 'Nữ', '0901000014', 'Q.Thủ Đức, TP.HCM', ['Giày Cao Gót'], false, false],
+  ['phamvanp', 'Phạm Văn', 'Phúc', '1987-08-16', 'Nam', '0901000015', 'Q.6, TP.HCM', [], false, false],
+  ['lethiq', 'Lê Thị', 'Quyên', '1985-10-03', 'Nữ', '0901000016', 'Q.8, TP.HCM', ['Giày Sandal', 'Giày Cao Gót'], false, false],
+  ['vovanr', 'Võ Văn', 'Rạng', '1982-01-21', 'Nam', '0901000017', 'Q.9, TP.HCM', ['Giày Chạy Bộ'], false, false],
+  ['hothis', 'Hồ Thị', 'Sương', '1979-03-11', 'Nữ', '0901000018', 'Q.Tân Phú, TP.HCM', ['Giày Sandal'], false, false],
+  ['dinhvant', 'Đinh Văn', 'Tài', '1975-12-24', 'Nam', '0901000019', 'Huyện Bình Chánh, TP.HCM', [], false, false],
+  ['maithiu', 'Mai Thị', 'Uyên', '1970-07-07', 'Nữ', '0901000020', 'Q.Bình Tân, TP.HCM', ['Giày Sandal'], false, false],
+  ['caovanv', 'Cao Văn', 'Vinh', '2004-05-05', 'Khác', '0901000021', 'Q.1, TP.HCM', ['Giày Sneaker', 'Giày Bóng Rổ'], false, false],
+  ['luuthix', 'Lưu Thị', 'Xuân', '1995-02-02', 'Nữ', '0901000022', 'Q.5, TP.HCM', ['Giày Cao Gót'], true, false],
+  ['tavany', 'Tạ Văn', 'Yên', '1992-09-19', 'Nam', '0901000023', 'Q.Tân Bình, TP.HCM', ['Giày Thể Thao'], true, false],
+  ['phanvann', 'Phan Văn', 'Nghĩa', '1992-03-03', 'Nam', '0901000024', 'Q.6, TP.HCM', [], false, true],
+  ['huynhthio', 'Huỳnh Thị', 'Ơn', '1997-08-28', 'Nữ', '0901000025', 'Q.8, TP.HCM', ['Giày Cao Gót'], false, true],
+  ['vuvanp', 'Vũ Văn', 'Quân', '1991-12-19', 'Nam', '0901000026', 'Q.9, TP.HCM', ['Giày Bóng Rổ'], false, true],
 ];
 
-// [chỉ số khách hàng, chỉ số sản phẩm, tiêu đề, nội dung, rating, trạng thái, số ngày trước]
 const FEEDBACKS = [
   [0, 0, 'Đôi giày rất đẹp', 'Form giày gọn, phối đồ đi học rất hợp. Đi cả ngày vẫn êm chân.', 5, 'Approved', 40],
   [1, 0, 'Chất lượng tốt so với giá', 'Da mềm, đường may chắc chắn. Sẽ giới thiệu cho bạn bè.', 4, 'Approved', 38],
@@ -131,7 +114,6 @@ const FEEDBACKS = [
   [11, 9, 'Màu đỏ đô sang trọng', 'Gót vừa phải, đi tiệc không mỏi chân. Rất hài lòng.', 5, 'Approved', 20],
   [19, 11, 'Bền, chống trượt tốt', 'Mình dùng đi biển, chống trượt khá tốt, nhanh khô.', 4, 'Approved', 18],
   [23, 0, 'Từng dùng khá ổn', 'Trước khi ngừng sử dụng dịch vụ, sản phẩm này khá ổn.', 4, 'Approved', 55],
-  // chờ duyệt — để manager demo duyệt/từ chối
   [12, 0, 'Giao hàng hơi chậm', 'Chất lượng giày tốt nhưng đơn vị vận chuyển giao hơi lâu.', 4, 'Pending', 3],
   [13, 8, 'Mũi giày hơi hẹp', 'Đi 1 tiếng đầu thấy chật ngón cái, mong có thêm size rộng.', 3, 'Pending', 2],
   [14, 6, 'Đế hơi trơn trên sân xi măng', 'Trong nhà thì tốt, ngoài trời hơi trơn. Mong cải thiện độ bám.', 2, 'Pending', 2],
@@ -140,13 +122,11 @@ const FEEDBACKS = [
   [20, 2, 'Rất mong ngày ra mắt', 'Thấy mẫu Aero Lite 2027 giới thiệu rất đẹp, mong sớm có size 40.', 5, 'Pending', 1],
   [17, 11, 'Quai hơi cứng', 'Quai chưa đủ mềm, mang lâu bị hằn chân.', 3, 'Pending', 0],
   [8, 1, 'Phối đồ công sở được', 'Thiết kế trẻ trung nhưng vẫn lịch sự, hợp đi làm.', 4, 'Pending', 0],
-  // bị từ chối (spam/không liên quan)
   [18, 4, 'quảng cáo linkkkk', 'Xem sản phẩm giá rẻ tại website abc.xyz, ưu đãi lớn.', 1, 'Rejected', 15],
   [21, 8, 'aaaaaaaa', 'Nội dung không liên quan, lặp ký tự vô nghĩa.', 1, 'Rejected', 12],
   [15, 5, 'Bình luận không đúng sản phẩm', 'Nội dung nói về dịch vụ khác, không phải sản phẩm này.', 2, 'Rejected', 10],
 ];
 
-// Khảo sát: q = [nội dung, loại, [lựa chọn], [trọng số ngẫu nhiên]]
 const SURVEYS = [
   {
     key: 'satisfaction',
@@ -226,15 +206,15 @@ const SURVEYS = [
 async function main() {
   console.log('Đang reset và seed dữ liệu CRM...');
 
-  // 0. Xóa sạch dữ liệu cũ (seed chạy lại bao nhiêu lần cũng không bị trùng)
-    await prisma.$executeRawUnsafe(`
+  // 0. Xóa sạch dữ liệu cũ
+  await prisma.$executeRawUnsafe(`
     TRUNCATE TABLE "audit_logs", "review_replies", "password_reset_otps", "notifications", "survey_answers", "survey_responses", "survey_targets",
       "survey_question_options", "survey_questions", "surveys", "feedbacks",
       "customer_preferences", "customers", "employees", "products", "categories", "accounts", "roles"
     RESTART IDENTITY CASCADE
   `);
 
-  // 1. Vai trò + tài khoản nội bộ (Admin & Manager có hồ sơ trong bảng employees, không có hồ sơ Customer)
+  // 1. Vai trò
   const [adminRole, managerRole, customerRole] = await Promise.all([
     prisma.role.create({ data: { roleName: 'Admin', description: 'Quản trị viên hệ thống' } }),
     prisma.role.create({ data: { roleName: 'Manager', description: 'Quản lý CRM (khách hàng, phản hồi, khảo sát)' } }),
@@ -242,29 +222,49 @@ async function main() {
   ]);
   const passwordHash = await bcrypt.hash('123456', 10);
 
+  // Tài khoản Admin
   const adminAccount = await prisma.account.create({
     data: {
       username: 'admin', email: 'admin@ouran.com', passwordHash,
       roleId: adminRole.roleId, createdAt: randomPast(300, 420),
-      employee: {
-        create: {
-          fullName: 'Nguyễn Quản Trị', dateOfBirth: new Date('1990-01-15'), gender: 'Nam', phone: '0909000001',
-          email: 'admin@ouran.com', address: 'Q.1, TP.HCM', position: 'Quản trị viên hệ thống', hireDate: new Date('2024-01-02'),
-        },
-      },
+    },
+  });
+  await prisma.employee.create({
+    data: {
+      employeeId: adminAccount.accountId, // Đảm bảo khớp id với accountId
+      firstName: 'Trị',
+      lastName: 'Nguyễn Quản',
+      dateOfBirth: new Date('1990-01-15'),
+      gender: 'Nam',
+      phone: '0909000001',
+      email: 'admin@ouran.com',
+      address: 'Q.1, TP.HCM',
+      position: 'Quản trị viên hệ thống',
+      hireDate: new Date('2024-01-02'),
+      updatedAt: new Date(),
     },
   });
 
+  // Tài khoản Manager
   const managerAccount = await prisma.account.create({
     data: {
       username: 'manager', email: 'manager@ouran.com', passwordHash,
       roleId: managerRole.roleId, createdAt: randomPast(200, 299),
-      employee: {
-        create: {
-          fullName: 'Trần Quản Lý', dateOfBirth: new Date('1992-06-20'), gender: 'Nữ', phone: '0909000002',
-          email: 'manager@ouran.com', address: 'Q.3, TP.HCM', position: 'Quản lý CRM', hireDate: new Date('2024-03-01'),
-        },
-      },
+    },
+  });
+  await prisma.employee.create({
+    data: {
+      employeeId: managerAccount.accountId, // Đảm bảo khớp id với accountId
+      firstName: 'Lý',
+      lastName: 'Trần Quản',
+      dateOfBirth: new Date('1992-06-20'),
+      gender: 'Nữ',
+      phone: '0909000002',
+      email: 'manager@ouran.com',
+      address: 'Q.3, TP.HCM',
+      position: 'Quản lý CRM',
+      hireDate: new Date('2024-03-01'),
+      updatedAt: new Date(),
     },
   });
 
@@ -286,25 +286,39 @@ async function main() {
     }));
   }
 
-  // 3. Khách hàng (tài khoản + hồ sơ + email + sở thích trong 1 lần tạo)
+  // 3. Khách hàng (Tách biệt tạo Account rồi đến Customer để tránh lỗi P2011)
   const customers = [];
-  for (const [username, fullName, dob, gender, phone, address, prefs, isLocked, isDeleted] of CUSTOMERS) {
+  for (const [username, lastName, firstName, dob, gender, phone, address, prefs, isLocked, isDeleted] of CUSTOMERS) {
     const acc = await prisma.account.create({
       data: {
-        username, passwordHash, roleId: customerRole.roleId, isLocked,
-        email: emailOf(username), createdAt: randomPast(5, 280),
-        customer: {
-          create: {
-            fullName, dateOfBirth: new Date(dob), gender, phone, address,
-            email: emailOf(username),
-            isDeleted, deletedAt: isDeleted ? daysAgo(5) : null,
-            // Sở thích = danh mục đã chọn (categoryId); (customerId, categoryId) là UNIQUE nên khử trùng ở đây.
-            customerPreferences: { create: [...new Set(prefs)].map((name) => ({ categoryId: categoryMap[name] })) },
-          },
+        username,
+        passwordHash,
+        roleId: customerRole.roleId,
+        isLocked,
+        email: emailOf(username),
+        createdAt: randomPast(5, 280),
+      },
+    });
+
+    await prisma.customer.create({
+      data: {
+        customerId: acc.accountId,
+        firstName,
+        lastName,
+        dateOfBirth: new Date(dob),
+        gender,
+        phone,
+        address,
+        email: emailOf(username),
+        isDeleted,
+        deletedAt: isDeleted ? daysAgo(5) : null,
+        customerPreferences: {
+          create: [...new Set(prefs)].map((name) => ({ categoryId: categoryMap[name] })),
         },
       },
     });
-    customers.push({ id: acc.accountId, prefs, isLocked, isDeleted, name: fullName });
+
+    customers.push({ id: acc.accountId, prefs, isLocked, isDeleted, name: `${lastName} ${firstName}` });
   }
   const activeCustomers = customers.filter((c) => !c.isLocked && !c.isDeleted);
 
@@ -316,7 +330,7 @@ async function main() {
     })),
   });
 
-    const approved = await prisma.feedback.findMany({ where: { status: 'Approved' }, take: 3, orderBy: { feedbackId: 'asc' } });
+  const approved = await prisma.feedback.findMany({ where: { status: 'Approved' }, take: 3, orderBy: { feedbackId: 'asc' } });
   for (const f of approved) {
     await prisma.reviewReply.create({
       data: { feedbackId: f.feedbackId, accountId: managerAccount.accountId, content: 'Cảm ơn bạn đã chia sẻ! Ouran rất vui vì bạn hài lòng với sản phẩm.' },
@@ -347,23 +361,22 @@ async function main() {
     });
     surveyRecords[def.key] = survey;
 
-    // Chọn đối tượng nhận khảo sát
     let targets;
     if (def.targetIdxs) targets = def.targetIdxs.map((i) => customers[i]);
     else if (def.targetsBy) targets = activeCustomers.filter(def.targetsBy);
-    else targets = activeCustomers; // khảo sát chung: gửi cho toàn bộ khách đang hoạt động
+    else targets = activeCustomers;
 
-    // Ai đã trả lời
     let responders;
     if (def.respondCount != null) responders = targets.slice(0, def.respondCount);
     else if (def.responseRate != null) responders = targets.filter(() => rand() < def.responseRate);
     else responders = targets.slice(0, 15);
 
-    // Khảo sát đầu tiên có thêm 1 bài làm lịch sử của khách đã xóa mềm
     if (def.key === 'satisfaction') {
       const deleted = customers.find((c) => c.isDeleted);
-      targets = [...targets, deleted];
-      responders = [...responders, deleted];
+      if (deleted) {
+        targets = [...targets, deleted];
+        responders = [...responders, deleted];
+      }
     }
     const responderIds = new Set(responders.map((c) => c.id));
 
@@ -371,7 +384,6 @@ async function main() {
       await prisma.surveyTarget.createMany({
         data: targets.map((c) => ({ surveyId: survey.surveyId, customerId: c.id, isCompleted: responderIds.has(c.id) })),
       });
-      // Thông báo "có khảo sát mới" cho khách đang hoạt động (đã làm rồi thì coi như đã đọc)
       targets.filter((c) => !c.isDeleted).forEach((c) => notifications.push({
         customerId: c.id, type: 'SURVEY_ASSIGNED', title: 'Bạn có khảo sát mới',
         message: `Bạn vừa nhận được khảo sát "${survey.title}". Hãy hoàn thành để giúp chúng tôi cải thiện dịch vụ.`,
@@ -379,7 +391,6 @@ async function main() {
       }));
     }
 
-    // Bài làm + câu trả lời
     if (responders.length) {
       await prisma.surveyResponse.createMany({
         data: responders.map((c) => ({

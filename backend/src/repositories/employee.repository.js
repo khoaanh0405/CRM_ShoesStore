@@ -26,16 +26,16 @@ export const employeeRepository = {
     return prisma.employee.findUnique({ where: { email } });
   },
 
-  create({ employeeId, fullName, dateOfBirth, gender, phone, email, address, position }) {
+  create({ employeeId, firstName, lastName, dateOfBirth, gender, phone, email, address, position }) {
     return prisma.employee.create({
-      data: { employeeId, fullName, dateOfBirth, gender, phone, email, address, position },
+      data: { employeeId, firstName, lastName, dateOfBirth, gender, phone, email, address, position },
     });
   },
 
-  update(employeeId, { fullName, dateOfBirth, gender, phone, email, address, position }) {
+  update(employeeId, { firstName, lastName, dateOfBirth, gender, phone, email, address, position }) {
     return prisma.employee.update({
       where: { employeeId },
-      data: { fullName, dateOfBirth, gender, phone, email, address, position },
+      data: { firstName, lastName, dateOfBirth, gender, phone, email, address, position },
     });
   },
 };

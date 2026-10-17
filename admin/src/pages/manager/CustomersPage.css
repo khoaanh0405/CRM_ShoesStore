@@ -378,3 +378,72 @@
   .customer-search-toolbar { flex-wrap: wrap; }
   .customer-select { flex: 1 1 calc(33% - 10px); min-width: 0; }
 }
+
+/* Cố định cột thao tác để các nút thẳng hàng ở mọi dòng */
+.custom-table th.col-actions,
+.custom-table td.col-actions {
+  width: 230px;
+  min-width: 230px;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.custom-table .action-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  width: 100%;
+}
+
+.custom-table .action-btn {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 68px;
+  width: 68px;
+  min-width: 68px;
+  height: 32px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  font-size: 12.5px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.custom-table .customer-view-btn {
+  background: #CFFAFE;
+  color: #0891B2;
+}
+.custom-table .customer-view-btn:hover:not(:disabled) {
+  background: #A5F3FC;
+  border-color: #67E8F9;
+  color: #0E7490;
+}
+
+.custom-table .toggle-off-btn {
+  background: #FEF3C7;
+  color: #D97706;
+}
+.custom-table .toggle-off-btn:hover:not(:disabled) {
+  background: #FDE68A;
+  border-color: #FCD34D;
+  color: #B45309;
+}
+
+.custom-table .delete-btn {
+  background: #FEE2E2;
+  color: #DC2626;
+}
+.custom-table .delete-btn:hover:not(:disabled) {
+  background: #FECACA;
+  border-color: #FCA5A5;
+}
+
+.custom-table .action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

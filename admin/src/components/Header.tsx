@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Menu } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useProfileStore } from '../store/useProfileStore';
+import { fullNameOf } from '../utils/name';
 import logo from '../../assets/images/logo.png';
 import './Header.css';
 
@@ -17,7 +18,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
 
   useEffect(() => { loadProfile(); }, [loadProfile]);
 
-  const displayName = profile?.fullName || user?.username || 'bạn';
+  const displayName = fullNameOf(profile) || user?.username || 'bạn';
 
   return (
     <header className="header">

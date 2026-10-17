@@ -9,6 +9,7 @@ import { employeeRepository, accountRepository, customerRepository } from '../re
 import { NotFoundError, ValidationError, ConflictError } from '../errors/AppError.js';
 import { MESSAGES, ROLE_NAMES } from '../constants/index.js';
 import { assertStrictEmail } from '../utils/index.js';
+import { normalizeNamePart, withFullName } from '../utils/name.util.js';
 import prisma from '../config/database.js';
 
 const DEFAULT_POSITION = {
@@ -20,7 +21,7 @@ const DEFAULT_POSITION = {
 function toProfile(employee) {
   const { account, ...rest } = employee;
   return {
-    ...rest,
+    ...withFullName(rest),
     username: account.username,
     isLocked: account.isLocked,
     role: account.role,
@@ -45,11 +46,13 @@ export const employeeService = {
     if (roleName !== ROLE_NAMES.ADMIN && roleName !== ROLE_NAMES.MANAGER) {
       throw new ValidationError('Chỉ tài khoản Admin/Manager mới có hồ sơ nhân sự.');
     }
-    // Nếu trước đây là khách hàng thì tận dụng họ tên/ngày sinh/... sẵn có.
+    // Nếu trước đây là khách hàng thì tận dụng họ/tên/ngày sinh/... sẵn có.
+    // Chưa có hồ sơ nào: tạm lấy username làm Tên, Họ để trống — nhân sự có thể tự cập nhật ở trang cá nhân.
     const c = account.customer;
     return employeeRepository.create({
       employeeId: accountId,
-      fullName: c?.fullName ?? account.username,
+      firstName: c?.firstName ?? account.username,
+      lastName: c?.lastName ?? '',
       dateOfBirth: c?.dateOfBirth ?? null,
       gender: c?.gender ?? null,
       phone: c?.phone ?? null,
@@ -67,11 +70,14 @@ export const employeeService = {
   },
 
   /** Nhân sự tự sửa thông tin của mình. `position` do Admin quyết định nên không cho tự sửa ở đây. */
-  async updateMe(accountId, { fullName, dateOfBirth, gender, phone, email, address }) {
+  async updateMe(accountId, { firstName, lastName, dateOfBirth, gender, phone, email, address }) {
     await this.ensureForAccount(accountId);
 
-    if (fullName !== undefined && !String(fullName).trim()) {
-      throw new ValidationError('Họ tên không được để trống.');
+    if (lastName !== undefined && !String(lastName).trim()) {
+      throw new ValidationError('Họ không được để trống.');
+    }
+    if (firstName !== undefined && !String(firstName).trim()) {
+      throw new ValidationError('Tên không được để trống.');
     }
 
     let normalizedEmail;
@@ -92,7 +98,8 @@ export const employeeService = {
       prisma.employee.update({
         where: { employeeId: accountId },
         data: {
-          fullName: fullName?.trim(),
+          firstName: normalizeNamePart(firstName),
+          lastName: normalizeNamePart(lastName),
           dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
           gender,
           phone,

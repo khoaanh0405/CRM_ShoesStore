@@ -11,3 +11,4 @@ export { surveyQuestionOptionValidator } from './surveyQuestionOption.validator.
 export { surveyTargetValidator } from './surveyTarget.validator.js';
 export { surveyResponseValidator } from './surveyResponse.validator.js';
 export { notificationValidator } from './notification.validator.js';
+export { employeeValidator } from './employee.validator.js';

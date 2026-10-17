@@ -10,7 +10,12 @@ import { NotFoundError, ValidationError, ConflictError } from '../errors/AppErro
 import { QUESTION_TYPE_LIST, MIN_SURVEY_QUESTIONS, MESSAGES } from '../constants/index.js';
 import { NOTIFICATION_TYPE, NOTIFICATION_REF_TYPE } from '../constants/notification.constant.js';
 
-const CREATOR_SELECT = { employeeId: true, employeeCode: true, fullName: true };
+// Survey.creator trỏ tới Account (surveys.created_by -> accounts.account_id); họ tên nằm ở hồ sơ Employee đi kèm.
+const CREATOR_SELECT = {
+  accountId: true,
+  username: true,
+  employee: { select: { firstName: true, lastName: true } },
+};
 
 async function resolveProductId(productId) {
   if (productId === undefined || productId === null || productId === '') return null;

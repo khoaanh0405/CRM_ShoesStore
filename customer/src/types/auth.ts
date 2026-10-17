@@ -2,7 +2,8 @@ export interface Role { roleId: number; roleName: string; description: string | 
 
 export interface Customer {
   customerId: number;
-  fullName: string;
+  firstName: string; // Tên
+  lastName: string;  // Họ (kèm tên đệm)
   dateOfBirth: string;
   gender: string | null;
   phone: string | null;
@@ -28,7 +29,8 @@ export interface LoginResponse { token: string; account: Account; }
 export interface RegisterPayload {
   username: string;
   password: string;
-  fullName: string;
+  lastName: string;  // Họ (kèm tên đệm)
+  firstName: string; // Tên
   email: string;
   dateOfBirth: string;
   gender?: string;

@@ -6,3 +6,4 @@ export { signToken, verifyToken } from './jwt.util.js';
 export { normalizeEmail, isValidEmail, assertValidEmail, assertStrictEmail, assertStrongPassword, EMAIL_MAX_LENGTH } from './validation.util.js';
 export { generateOtp, hashOtp, verifyOtpHash } from './otp.util.js';
 export { sendMail, sendPasswordResetOtpMail } from './mail.util.js';
+export { normalizeNamePart, buildFullName, withFullName } from './name.util.js';

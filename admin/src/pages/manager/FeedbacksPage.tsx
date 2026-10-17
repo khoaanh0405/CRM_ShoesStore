@@ -8,6 +8,7 @@ import { showConfirm } from '../../lib/dialog';
 import type { Feedback, FeedbackStatus } from '../../types/feedback';
 import Pagination from '../../components/Pagination';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { fullNameOf, type PersonName } from '../../utils/name';
 import './FeedbacksPage.css';
 
 type FilterTab = 'All' | FeedbackStatus;
@@ -47,12 +48,12 @@ interface ReplyItem {
   employeeId: number;
   content: string;
   createdAt: string;
-  employee?: { employeeId: number; employeeCode?: string; fullName: string };
+  employee?: PersonName & { employeeId: number; employeeCode?: string };
 }
 
 type FeedbackEx = Feedback & {
   replies?: ReplyItem[];
-  handler?: { employeeId: number; employeeCode?: string; fullName: string } | null;
+  handler?: (PersonName & { employeeId: number; employeeCode?: string }) | null;
   handledAt?: string | null;
 };
 
@@ -129,7 +130,7 @@ const FeedbackModal: React.FC<{
         </div>
         <div className="modal-body">
           <div className="modal-meta">
-            <div className="meta-row"><span className="meta-label">Khách hàng:</span><span>{feedback.customer?.fullName ?? `KH #${feedback.customerId}`}</span></div>
+            <div className="meta-row"><span className="meta-label">Khách hàng:</span><span>{fullNameOf(feedback.customer) || `KH #${feedback.customerId}`}</span></div>
             <div className="meta-row"><span className="meta-label">Sản phẩm:</span><span>{feedback.product?.productName ?? `SP #${feedback.productId}`}</span></div>
             <div className="meta-row"><span className="meta-label">Đánh giá:</span><RatingStars rating={feedback.rating} /></div>
             <div className="meta-row"><span className="meta-label">Trạng thái:</span><StatusBadge status={feedback.status} /></div>
@@ -137,7 +138,7 @@ const FeedbackModal: React.FC<{
             {feedback.handler && (
               <div className="meta-row">
                 <span className="meta-label">Người xử lý:</span>
-                <span>{feedback.handler.fullName}{feedback.handledAt ? ` · ${new Date(feedback.handledAt).toLocaleString('vi-VN')}` : ''}</span>
+                <span>{fullNameOf(feedback.handler)}{feedback.handledAt ? ` · ${new Date(feedback.handledAt).toLocaleString('vi-VN')}` : ''}</span>
               </div>
             )}
           </div>
@@ -162,7 +163,7 @@ const FeedbackModal: React.FC<{
               return (
                 <div key={r.replyId} className="reply-item">
                   <div className="reply-head">
-                    <b>{r.employee?.fullName ?? 'Manager'}</b>
+                    <b>{fullNameOf(r.employee) || 'Manager'}</b>
                     <span>{new Date(r.createdAt).toLocaleString('vi-VN')}</span>
                     {mine && editingId !== r.replyId && (
                       <span className="reply-actions">
@@ -336,8 +337,8 @@ const FeedbacksPage: React.FC = () => {
                   <td className="col-product"><span className="product-name">{fb.product?.productName ?? `SP #${fb.productId}`}</span></td>
                   <td className="col-customer">
                     <div className="customer-avatar">
-                      <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(fb.customer?.fullName ?? 'KH')}&background=8B5CF6&color=fff&size=32`} alt="" />
-                      <span>{fb.customer?.fullName ?? `KH #${fb.customerId}`}</span>
+                      <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(fullNameOf(fb.customer) || 'KH')}&background=8B5CF6&color=fff&size=32`} alt="" />
+                      <span>{fullNameOf(fb.customer) || `KH #${fb.customerId}`}</span>
                     </div>
                   </td>
                   <td className="col-title">

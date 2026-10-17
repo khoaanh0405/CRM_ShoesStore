@@ -9,6 +9,7 @@ import type { Survey } from '../../types/survey';
 import Pagination from '../../components/Pagination';
 import CreateSurveyModal from '../../components/CreateSurveyModal';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { fullNameOf } from '../../utils/name';
 import './SurveysPage.css';
 
 type ProductLite = { productId: number; productName: string; brand?: string | null };
@@ -231,7 +232,7 @@ const SurveysPage: React.FC = () => {
                           Tạo ngày {new Date(survey.createdAt).toLocaleDateString('vi-VN')}
                         </span>
                         <span className="meta-chip">
-                          Người tạo: {survey.creator?.fullName ?? '—'}
+                          Người tạo: {fullNameOf(survey.creator) || survey.creator?.username || '—'}
                         </span>
                       </div>
                     </div>

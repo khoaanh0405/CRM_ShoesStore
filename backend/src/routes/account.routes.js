@@ -28,7 +28,8 @@ router.put(
   '/me/profile',
   staffOnly,
   validateBody({
-    fullName: { required: true, type: 'string', maxLength: 100 },
+    lastName: { required: true, type: 'string', maxLength: 50 },
+    firstName: { required: true, type: 'string', maxLength: 50 },
     email: { required: true, type: 'string', maxLength: 100 },
     phone: { type: 'string', maxLength: 20 },
     gender: { type: 'string', maxLength: 10 },

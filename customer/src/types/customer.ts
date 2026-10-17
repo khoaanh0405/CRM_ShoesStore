@@ -1,6 +1,9 @@
 export type CustomerProfile = {
   customerId: number;
-  fullName: string;
+  firstName: string; // Tên
+  lastName: string;  // Họ (kèm tên đệm)
+  /** Chỉ-đọc, backend suy ra từ lastName + firstName ("Nguyễn Văn An"). */
+  fullName?: string;
   dateOfBirth: string;
   gender: string | null;
   phone: string | null;
@@ -19,7 +22,8 @@ export type CustomerPreference = {
 };
 
 export type UpdateProfilePayload = {
-  fullName?: string;
+  firstName?: string;
+  lastName?: string;
   dateOfBirth?: string;
   gender?: string;
   phone?: string;

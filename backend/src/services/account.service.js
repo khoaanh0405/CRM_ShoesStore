@@ -41,6 +41,7 @@ import {
   assertValidEmail, assertStrictEmail, normalizeEmail, assertStrongPassword,
   generateOtp, hashOtp, verifyOtpHash, sendPasswordResetOtpMail,
 } from '../utils/index.js';
+import { buildFullName, normalizeNamePart } from '../utils/name.util.js';
 
 /** Không bao giờ trả passwordHash ra ngoài Service/Controller. */
 function sanitize(account) {
@@ -75,15 +76,16 @@ async function assertEmailAvailable(normalizedEmail) {
 async function createAccountWithNewCustomer({
   username,
   password,
-  fullName,
+  lastName,
+  firstName,
   email,
   dateOfBirth,
   gender,
   phone,
   address,
 }) {
-  if (!username?.trim() || !password || !fullName?.trim() || !dateOfBirth) {
-    throw new ValidationError('Vui lòng nhập đầy đủ tên đăng nhập, mật khẩu, họ tên và ngày sinh.');
+  if (!username?.trim() || !password || !lastName?.trim() || !firstName?.trim() || !dateOfBirth) {
+    throw new ValidationError('Vui lòng nhập đầy đủ tên đăng nhập, mật khẩu, họ, tên và ngày sinh.');
   }
   const normalizedEmail = assertStrictEmail(email);
   assertStrongPassword(password, username);
@@ -108,7 +110,8 @@ async function createAccountWithNewCustomer({
       isLocked: false,
       customer: {
         create: {
-          fullName: fullName.trim(),
+          firstName: normalizeNamePart(firstName),
+          lastName: normalizeNamePart(lastName),
           dateOfBirth: new Date(dateOfBirth),
           gender,
           phone,
@@ -184,9 +187,10 @@ export const accountService = {
    * Admin tạo tài khoản nội bộ (Admin hoặc Manager) — POST /api/admin/staff.
    * Tạo đồng thời Account + Employee (hồ sơ nhân sự); không có hồ sơ Customer.
    */
-  async createStaff({ username, fullName, email, password, roleName, dateOfBirth, gender, phone, address, position }) {
+  async createStaff({ username, lastName, firstName, email, password, roleName, dateOfBirth, gender, phone, address, position }) {
     if (!username?.trim()) throw new ValidationError('Vui lòng nhập tên đăng nhập.');
-    if (!fullName?.trim()) throw new ValidationError('Vui lòng nhập họ tên nhân sự.');
+    if (!lastName?.trim()) throw new ValidationError('Vui lòng nhập họ của nhân sự.');
+    if (!firstName?.trim()) throw new ValidationError('Vui lòng nhập tên của nhân sự.');
     const cleanUsername = username.trim();
 
     if (cleanUsername.length < 4 || cleanUsername.length > 50) {
@@ -216,7 +220,8 @@ export const accountService = {
       passwordHash: await hashPassword(password),
       roleId: role.roleId,
       employee: {
-        fullName: fullName.trim(),
+        firstName: normalizeNamePart(firstName),
+        lastName: normalizeNamePart(lastName),
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
         gender: gender || null,
         phone: phone || null,
@@ -292,7 +297,7 @@ export const accountService = {
     });
 
     try {
-      await sendPasswordResetOtpMail({ to: email, fullName: customer.fullName, otp });
+      await sendPasswordResetOtpMail({ to: email, fullName: buildFullName(customer), otp });
     } catch (err) {
       await passwordResetOtpRepository.remove(record.otpId).catch(() => {});
       throw err;

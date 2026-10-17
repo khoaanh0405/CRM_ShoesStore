@@ -1,3 +1,5 @@
+import type { PersonName } from '../utils/name';
+
 export type QuestionType = 'TEXT' | 'SINGLE_CHOICE';
 
 export interface SurveyQuestionOption {
@@ -23,7 +25,8 @@ export interface Survey {
   isActive: boolean;
   questions?: SurveyQuestion[];
   createdBy?: number | null;
-  creator?: { employeeId: number; employeeCode: string; fullName: string } | null;
+  /** Người tạo: Account kèm hồ sơ Employee (creator.employee.firstName/lastName). */
+  creator?: (PersonName & { accountId?: number; employeeId?: number; employeeCode?: string; username?: string }) | null;
   _count?: {
     surveyTargets?: number;
     surveyResponses?: number;
@@ -35,9 +38,8 @@ export interface SurveyTarget {
   surveyId: number;
   customerId: number;
   isCompleted: boolean;
-  customer?: {
+  customer?: PersonName & {
     customerId: number;
-    fullName: string;
     phone?: string | null;
   };
 }
@@ -47,9 +49,8 @@ export interface SurveyResponse {
   surveyId: number;
   customerId: number;
   submittedAt: string;
-  customer?: {
+  customer?: PersonName & {
     customerId: number;
-    fullName: string;
   };
 }
 

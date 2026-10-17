@@ -30,7 +30,8 @@ function validateOtpFormat(req, res, next) {
 const CUSTOMER_FIELDS = {
   username: { required: true, type: 'string', maxLength: 50 },
   password: { required: true, type: 'string', minLength: MIN_PASSWORD_LENGTH, maxLength: MAX_PASSWORD_LENGTH },
-  fullName: { required: true, type: 'string', maxLength: 100 },
+  lastName: { required: true, type: 'string', maxLength: 50 },
+  firstName: { required: true, type: 'string', maxLength: 50 },
   email: { required: true, type: 'string', maxLength: EMAIL_MAX_LENGTH },
   dateOfBirth: { required: true, type: 'date' },
   gender: { type: 'string', maxLength: 10 },
@@ -51,7 +52,8 @@ export const accountValidator = {
   createStaff: [
     validateBody({
       username: { required: true, type: 'string', maxLength: 50 },
-      fullName: { required: true, type: 'string', maxLength: 100 },
+      lastName: { required: true, type: 'string', maxLength: 50 },
+      firstName: { required: true, type: 'string', maxLength: 50 },
       email: { required: true, type: 'string', maxLength: EMAIL_MAX_LENGTH },
       password: { required: true, type: 'string', maxLength: MAX_PASSWORD_LENGTH },
       roleName: { required: true, type: 'string', enum: [ROLE_NAMES.ADMIN, ROLE_NAMES.MANAGER] },

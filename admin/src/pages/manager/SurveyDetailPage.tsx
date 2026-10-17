@@ -19,6 +19,7 @@ import type {
   Survey, SurveyQuestion, SurveyStats, QuestionType
 } from '../../types/survey';
 import type { CustomerBasic } from '../../services/api';
+import { fullNameOf } from '../../utils/name';
 import './SurveyDetailPage.css';
 import './SurveyLock.css';
 
@@ -307,7 +308,7 @@ const TargetsTab: React.FC<{ survey: Survey }> = ({ survey }) => {
   }, [loadTargets]);
 
   const filtered = customers.filter((c) =>
-    c.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    fullNameOf(c).toLowerCase().includes(searchTerm.toLowerCase()) ||
     (c.phone ?? '').includes(searchTerm)
   );
 
@@ -403,12 +404,12 @@ const TargetsTab: React.FC<{ survey: Survey }> = ({ survey }) => {
                 title={isAssigned ? 'Đã gửi khảo sát' : ''}
               >
                 <img
-                  src={`https://ui-avatars.com/api/?name=${encodeURIComponent(c.fullName)}&background=8B5CF6&color=fff&size=32`}
+                  src={`https://ui-avatars.com/api/?name=${encodeURIComponent(fullNameOf(c))}&background=8B5CF6&color=fff&size=32`}
                   alt=""
                   className="chip-avatar"
                 />
                 <div className="chip-info">
-                  <span className="chip-name">{c.fullName}</span>
+                  <span className="chip-name">{fullNameOf(c)}</span>
                   {c.phone && <span className="chip-phone">{c.phone}</span>}
                 </div>
                 {isSelected && <Check size={14} className="chip-check" />}
@@ -628,7 +629,7 @@ const SurveyDetailPage: React.FC = () => {
           <div className="sdh-meta">
             <span>Tạo ngày {new Date(survey.createdAt).toLocaleDateString('vi-VN')}</span>
             <span>•</span>
-            <span>Tạo bởi <b>{(survey as any).creator?.fullName ?? 'Không rõ'}</b></span>
+            <span>Tạo bởi <b>{fullNameOf((survey as any).creator) || (survey as any).creator?.username || 'Không rõ'}</b></span>
             <span>•</span>
             <span>{survey.questions?.length ?? 0} câu hỏi</span>
             {locked && <><span>•</span><span>Đã có phản hồi (khóa chỉnh sửa)</span></>}

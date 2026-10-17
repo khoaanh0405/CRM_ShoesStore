@@ -11,6 +11,7 @@ import {
 import { useAuthStore } from '../store/useAuthStore';
 import { ROLE_NAMES } from '../config/constants';
 import api from '../services/api';
+import { fullNameOf } from '../utils/name';
 import './Sidebar.css';
 
 interface SidebarProps {
@@ -41,7 +42,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
   useEffect(() => {
     api.get('/employees/me').then(res => {
       const data = res.data?.data ?? res.data;
-      if (data?.fullName) setUserName(data.fullName);
+      const name = fullNameOf(data);
+      if (name) setUserName(name);
       if (data?.roleName) setUserRole(data.roleName);
       else if (roleName) setUserRole(roleName === ROLE_NAMES.MANAGER ? 'Manager' : 'Admin');
     }).catch(() => {

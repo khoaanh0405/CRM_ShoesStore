@@ -21,15 +21,16 @@ import type { Feedback, FeedbackStatus } from '@/types/feedback';
 import type { Product } from '@/types/product';
 import type { SurveyTarget } from '@/types/survey';
 import { formatDate, formatDateOnly, formatPrice, toDateInput } from '@/utils/format';
+import { fullNameOf, NAME_PART_MAX, validateNamePart } from '@/utils/name';
 import { recommendProducts } from '@/utils/recommend';
-import { normalizeEmail, normalizePhone, normalizeSpaces, validateAddress, validateDateOfBirth, validateFullName, PASSWORD_RULES, validateEmail, validateNewPassword, validatePhone } from '@/utils/validation';
+import { normalizeEmail, normalizePhone, normalizeSpaces, validateAddress, validateDateOfBirth, PASSWORD_RULES, validateEmail, validateNewPassword, validatePhone } from '@/utils/validation';
 import { Check, ClipboardList, Edit3, Grid, Heart, History, ImageOff, Key, LogOut, MessageCircle, Phone, ShieldCheck, User, type LucideIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { showConfirm } from '@/lib/dialog';
 
 type Section = 'info' | 'prefs' | 'history' | 'password';
-type ProfileForm = { fullName: string; dateOfBirth: string; gender: string; phone: string; email: string; address: string };
+type ProfileForm = { lastName: string; firstName: string; dateOfBirth: string; gender: string; phone: string; email: string; address: string };
 type FormErrors = Partial<Record<keyof ProfileForm, string | null>>;
 const EMPTY_PASSWORD = { oldPassword: '', newPassword: '', confirm: '' };
 
@@ -76,7 +77,7 @@ export default function ProfilePage() {
   const [section, setSection] = useState<Section>(MENU.some((m) => m.key === initialTab) ? (initialTab as Section) : 'info');
 
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState<ProfileForm>({ fullName: '', dateOfBirth: '', gender: '', phone: '', email: '', address: '' });
+  const [form, setForm] = useState<ProfileForm>({ lastName: '', firstName: '', dateOfBirth: '', gender: '', phone: '', email: '', address: '' });
   const [errors, setErrors] = useState<FormErrors>({});
   const [saving, setSaving] = useState(false);
   const [savingCategoryId, setSavingCategoryId] = useState<number | null>(null);
@@ -111,7 +112,7 @@ export default function ProfilePage() {
   const pwLabel = pw.newPassword ? ['Yếu', 'Yếu', 'Trung bình', 'Khá', 'Mạnh'][pwScore] : '—';
 
   const startEditing = (p: CustomerProfile) => {
-    setForm({ fullName: p.fullName, dateOfBirth: toDateInput(p.dateOfBirth), gender: p.gender ?? '', phone: p.phone ?? '', email: p.email ?? '', address: p.address ?? '' });
+    setForm({ lastName: p.lastName ?? '', firstName: p.firstName ?? '', dateOfBirth: toDateInput(p.dateOfBirth), gender: p.gender ?? '', phone: p.phone ?? '', email: p.email ?? '', address: p.address ?? '' });
     setErrors({});
     setEditing(true);
   };
@@ -122,12 +123,12 @@ export default function ProfilePage() {
 
   const saveProfile = async () => {
     if (customerId == null || saving) return;
-    const next: FormErrors = { fullName: validateFullName(form.fullName), dateOfBirth: validateDateOfBirth(form.dateOfBirth), phone: validatePhone(form.phone), email: validateEmail(form.email), address: validateAddress(form.address) };
+    const next: FormErrors = { lastName: validateNamePart('Họ', form.lastName), firstName: validateNamePart('Tên', form.firstName), dateOfBirth: validateDateOfBirth(form.dateOfBirth), phone: validatePhone(form.phone), email: validateEmail(form.email), address: validateAddress(form.address) };
     setErrors(next);
     if (Object.values(next).some(Boolean)) return;
     setSaving(true);
     try {
-      await customerService.updateProfile(customerId, { fullName: normalizeSpaces(form.fullName), dateOfBirth: form.dateOfBirth.trim(), gender: form.gender || undefined, phone: normalizePhone(form.phone), email: normalizeEmail(form.email), address: normalizeSpaces(form.address) });
+      await customerService.updateProfile(customerId, { lastName: normalizeSpaces(form.lastName), firstName: normalizeSpaces(form.firstName), dateOfBirth: form.dateOfBirth.trim(), gender: form.gender || undefined, phone: normalizePhone(form.phone), email: normalizeEmail(form.email), address: normalizeSpaces(form.address) });
       setEditing(false);
       await reload();
       alert('Đã lưu. Thông tin cá nhân của bạn đã được cập nhật.');
@@ -182,7 +183,7 @@ export default function ProfilePage() {
         <div className="account-user">
           <div className="account-avatar"><User size={40} /></div>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 800, color: AppColors.textPrimary }}>{profile.fullName}</div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: AppColors.textPrimary }}>{fullNameOf(profile)}</div>
           </div>
         </div>
         <nav className="account-menu">
@@ -207,11 +208,12 @@ export default function ProfilePage() {
             {editing ? (
               <>
                 <div className="form-grid">
-                  <AppTextField label="Họ và tên" maxLength={100} value={form.fullName} onChangeText={setField('fullName')} error={errors.fullName} />
+                  <AppTextField label="Họ" placeholder="VD: Nguyễn Văn" maxLength={NAME_PART_MAX} value={form.lastName} onChangeText={setField('lastName')} error={errors.lastName} />
+                  <AppTextField label="Tên" placeholder="VD: An" maxLength={NAME_PART_MAX} value={form.firstName} onChangeText={setField('firstName')} error={errors.firstName} />
                   <AppTextField label="Ngày sinh" type="date" min="1900-01-01" max={new Date().toISOString().slice(0, 10)} value={form.dateOfBirth} onChangeText={setField('dateOfBirth')} error={errors.dateOfBirth} />
-                  <div className="full" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <span style={{ color: AppColors.textPrimary, fontSize: 13, fontWeight: 600 }}>Giới tính</span>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', minHeight: 46 }}>
                       {GENDER_OPTIONS.map((g) => <Chip key={g} label={g} selected={form.gender === g} onClick={() => setField('gender')(form.gender === g ? '' : g)} />)}
                     </div>
                   </div>
@@ -229,7 +231,7 @@ export default function ProfilePage() {
             ) : (
               <>
                 <div className="info-grid">
-                  <InfoRow label="Họ và tên" value={profile.fullName} />
+                  <InfoRow label="Họ và tên" value={fullNameOf(profile)} />
                   <InfoRow label="Ngày sinh" value={formatDateOnly(profile.dateOfBirth)} />
                   <InfoRow label="Giới tính" value={profile.gender} />
                   <InfoRow label="Số điện thoại" value={profile.phone} />

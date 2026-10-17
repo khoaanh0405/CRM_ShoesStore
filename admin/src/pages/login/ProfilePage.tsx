@@ -3,6 +3,7 @@ import api, { changePassword } from '../../services/api';
 import toast from 'react-hot-toast';
 import { User, Lock, Key, Pencil } from 'lucide-react';
 import { normalizeEmail, validateEmail } from '../../utils/validation';
+import { fullNameOf } from '../../utils/name';
 import './ProfilePage.css';
 
 interface EmployeeProfile {
@@ -10,7 +11,9 @@ interface EmployeeProfile {
   username: string;
   roleName?: string;
   isLocked?: boolean;
-  fullName: string;
+  firstName: string; // Tên
+  lastName: string;  // Họ (kèm tên đệm)
+  fullName?: string; // chỉ-đọc, backend suy ra
   dateOfBirth?: string | null;
   gender?: string | null;
   phone?: string | null;
@@ -21,7 +24,7 @@ interface EmployeeProfile {
 }
 
 interface ProfileForm {
-  fullName: string; dateOfBirth: string; gender: string; phone: string; email: string; address: string;
+  lastName: string; firstName: string; dateOfBirth: string; gender: string; phone: string; email: string; address: string;
 }
 
 const GENDERS = ['Nam', 'Nữ', 'Khác'];
@@ -29,7 +32,8 @@ const errMsg = (e: any, fallback: string) => e?.response?.data?.message ?? fallb
 const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString('vi-VN') : '—');
 const toInputDate = (iso?: string | null) => (iso ? iso.slice(0, 10) : '');
 const toForm = (p: EmployeeProfile): ProfileForm => ({
-  fullName: p.fullName ?? '',
+  lastName: p.lastName ?? '',
+  firstName: p.firstName ?? '',
   dateOfBirth: toInputDate(p.dateOfBirth),
   gender: p.gender ?? '',
   phone: p.phone ?? '',
@@ -41,7 +45,7 @@ const ProfilePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'profile' | 'edit' | 'password'>('profile');
   const [profile, setProfile] = useState<EmployeeProfile | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [form, setForm] = useState<ProfileForm>({ fullName: '', dateOfBirth: '', gender: '', phone: '', email: '', address: '' });
+  const [form, setForm] = useState<ProfileForm>({ lastName: '', firstName: '', dateOfBirth: '', gender: '', phone: '', email: '', address: '' });
   const [saving, setSaving] = useState(false);
 
   const [passwords, setPasswords] = useState({
@@ -75,8 +79,10 @@ const ProfilePage: React.FC = () => {
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile) return;
-    const fullName = form.fullName.trim().replace(/\s+/g, ' ');
-    if (fullName.length < 2) return void toast.error('Họ tên tối thiểu 2 ký tự.');
+    const lastName = form.lastName.trim().replace(/\s+/g, ' ');
+    const firstName = form.firstName.trim().replace(/\s+/g, ' ');
+    if (!lastName) return void toast.error('Vui lòng nhập họ.');
+    if (!firstName) return void toast.error('Vui lòng nhập tên.');
     if (form.dateOfBirth && new Date(form.dateOfBirth).getTime() > Date.now()) return void toast.error('Ngày sinh không được ở tương lai.');
     const phone = form.phone.replace(/[\s.\-]/g, '');
     if (phone && !/^(0|\+84)(3|5|7|8|9)\d{8}$/.test(phone)) return void toast.error('Số điện thoại không hợp lệ (vd: 0912345678).');
@@ -90,7 +96,8 @@ const ProfilePage: React.FC = () => {
     setSaving(true);
     try {
       const res = await api.put('/employees/me', {
-        fullName,
+        lastName,
+        firstName,
         dateOfBirth: form.dateOfBirth || undefined,
         gender: form.gender || undefined,
         phone: phone || undefined,
@@ -155,7 +162,7 @@ const ProfilePage: React.FC = () => {
             <div className="profile-avatar-circle">
               <User size={40} />
             </div>
-            <h3>{profile.fullName}</h3>
+            <h3>{fullNameOf(profile)}</h3>
           </div>
           <nav className="profile-nav">
             <button
@@ -194,7 +201,7 @@ const ProfilePage: React.FC = () => {
                 <div className="info-row">
                   <div className="info-cell">
                     <label>Họ và tên</label>
-                    <p>{profile.fullName}</p>
+                    <p>{fullNameOf(profile) || '—'}</p>
                   </div>
                   <div className="info-cell">
                     <label>Ngày sinh</label>
@@ -269,12 +276,25 @@ const ProfilePage: React.FC = () => {
               <form onSubmit={handleSaveProfile} className="profile-edit-form-clean">
                 <div className="form-row-grid">
                   <div className="form-group">
-                    <label>Họ tên *</label>
-                    <input className="profile-input" value={form.fullName} maxLength={100} onChange={set('fullName')} />
+                    <label>Họ *</label>
+                    <input className="profile-input" value={form.lastName} maxLength={50} placeholder="VD: Nguyễn Văn" onChange={set('lastName')} />
                   </div>
+                  <div className="form-group">
+                    <label>Tên *</label>
+                    <input className="profile-input" value={form.firstName} maxLength={50} placeholder="VD: An" onChange={set('firstName')} />
+                  </div>
+                </div>
+                <div className="form-row-grid">
                   <div className="form-group">
                     <label>Ngày sinh</label>
                     <input className="profile-input" type="date" value={form.dateOfBirth} onChange={set('dateOfBirth')} />
+                  </div>
+                  <div className="form-group">
+                    <label>Giới tính</label>
+                    <select className="profile-input" value={form.gender} onChange={set('gender')}>
+                      <option value="">— Chưa chọn —</option>
+                      {GENDERS.map((g) => <option key={g} value={g}>{g}</option>)}
+                    </select>
                   </div>
                 </div>
                 <div className="form-row-grid">
@@ -288,14 +308,7 @@ const ProfilePage: React.FC = () => {
                   </div>
                 </div>
                 <div className="form-row-grid">
-                  <div className="form-group">
-                    <label>Giới tính</label>
-                    <select className="profile-input" value={form.gender} onChange={set('gender')}>
-                      <option value="">— Chưa chọn —</option>
-                      {GENDERS.map((g) => <option key={g} value={g}>{g}</option>)}
-                    </select>
-                  </div>
-                  <div className="form-group">
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                     <label>Địa chỉ</label>
                     <input className="profile-input" value={form.address} maxLength={255} onChange={set('address')} />
                   </div>

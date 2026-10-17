@@ -10,7 +10,10 @@ export interface MyProfile {
   role?: { roleName: string };
   employeeId: number | null;
   employeeCode: string | null;
-  fullName: string | null;
+  firstName: string | null; // Tên
+  lastName: string | null;  // Họ (kèm tên đệm)
+  /** Chỉ-đọc, backend suy ra từ lastName + firstName. */
+  fullName?: string | null;
   phone: string | null;
   gender: string | null;
   dateOfBirth: string | null;
