@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api, { changePassword } from '../../services/api';
 import toast from 'react-hot-toast';
-import { User, Lock, Key, Pencil } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { User, Lock, Key, Pencil, LogOut } from 'lucide-react';
+import { useAuthStore } from '../../store/useAuthStore';
+import { showConfirm } from '../../lib/dialog';
 import { normalizeEmail, validateEmail } from '../../utils/validation';
 import { fullNameOf } from '../../utils/name';
 import './ProfilePage.css';
@@ -42,6 +45,8 @@ const toForm = (p: EmployeeProfile): ProfileForm => ({
 });
 
 const ProfilePage: React.FC = () => {
+  const navigate = useNavigate();
+  const clearAuth = useAuthStore((s) => s.clear);
   const [activeTab, setActiveTab] = useState<'profile' | 'edit' | 'password'>('profile');
   const [profile, setProfile] = useState<EmployeeProfile | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -147,6 +152,19 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  const handleLogout = async () => {
+    const ok = await showConfirm({
+      title: 'Đăng xuất?',
+      message: 'Bạn có chắc muốn đăng xuất khỏi hệ thống?',
+      confirmLabel: 'Đăng xuất', tone: 'warning', danger: true,
+    });
+    if (!ok) return;
+    // clear() xóa user + token trong sessionStorage và reset store.
+    // Về '/' để route guard tự chuyển sang trang đăng nhập (không phụ thuộc đường dẫn login).
+    clearAuth();
+    navigate('/', { replace: true });
+  };
+
   if (loadError) return <div style={{ padding: '2rem' }}>{loadError}</div>;
   if (!profile) return <div style={{ padding: '2rem' }}>Đang tải...</div>;
 
@@ -184,6 +202,10 @@ const ProfilePage: React.FC = () => {
               <Lock size={20} /> Đổi mật khẩu
             </button>
           </nav>
+
+          <button type="button" className="profile-logout-btn" onClick={handleLogout}>
+            <LogOut size={20} /> Đăng xuất
+          </button>
         </div>
 
         {/* Khung nội dung chính bên phải */}

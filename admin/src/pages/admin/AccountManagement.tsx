@@ -28,8 +28,24 @@ interface AccountRow {
 }
 
 const ITEMS_PER_PAGE = 10;
-const STAFF_ROLES = ['Admin', 'Manager'] as const;
-type StaffRole = (typeof STAFF_ROLES)[number];
+/** Các vai trò có thể chọn khi tạo tài khoản mới (Admin/Manager → /admin/staff, Customer → /admin/customers). */
+const CREATE_ROLES = ['Admin', 'Manager', 'Customer'] as const;
+type CreateRole = (typeof CREATE_ROLES)[number];
+
+/** Hai tab của trang: Nhân sự (Admin + Manager) và Khách hàng. */
+type TabKey = 'STAFF' | 'CUSTOMER';
+const STAFF_ROLES = ['Admin', 'Manager'];
+const isCustomerAccount = (a: AccountRow) => a.role?.roleName === 'Customer';
+const TAB_META: Record<TabKey, { label: string; addLabel: string; itemLabel: string; subtitle: string }> = {
+  STAFF: {
+    label: 'Nhân sự', addLabel: 'Thêm tài khoản', itemLabel: 'tài khoản nhân sự',
+    subtitle: 'Tài khoản quản trị nội bộ: Admin và Manager.',
+  },
+  CUSTOMER: {
+    label: 'Khách hàng', addLabel: 'Thêm khách hàng', itemLabel: 'khách hàng',
+    subtitle: 'Tài khoản khách hàng đăng ký hoặc do Admin tạo.',
+  },
+};
 
 const ROLE_LABELS: Record<string, string> = { Admin: 'Admin', Manager: 'Manager', Customer: 'Khách hàng' };
 const ROLE_CLASS: Record<string, string> = {
@@ -42,7 +58,28 @@ const nameOf = (a: AccountRow) => fullNameOf(profileOf(a));
 const emailOf = (a: AccountRow) => a.email || a.employee?.email || a.customer?.email || '';
 const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString('vi-VN') : '—');
 
-const EMPTY_FORM = { username: '', lastName: '', firstName: '', email: '', phone: '', password: '', roleName: 'Manager' as StaffRole };
+const EMPTY_FORM = {
+  roleName: 'Manager' as CreateRole,
+  username: '', lastName: '', firstName: '', email: '', phone: '', password: '',
+  // Theo schema: customers.date_of_birth bắt buộc, employees.date_of_birth tùy chọn
+  dateOfBirth: '', gender: '', address: '',
+  // Chỉ dùng cho nhân sự (bảng employees)
+  position: '', hireDate: '',
+};
+
+const todayISO = () => new Date().toISOString().slice(0, 10);
+const MIN_DOB = '1900-01-01';
+const POSITION_SUGGESTIONS: Record<string, string> = { Admin: 'Quản trị viên', Manager: 'Quản lý' };
+
+/** Mũi tên cho ô dropdown (CSS gốc đặt appearance:none nên cần tự vẽ mũi tên). */
+const SELECT_ARROW =
+  "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>\")";
+
+const SELECT_STYLE: React.CSSProperties = {
+  appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer', paddingRight: 36,
+  backgroundImage: SELECT_ARROW, backgroundRepeat: 'no-repeat',
+  backgroundPosition: 'right 12px center', backgroundSize: 16,
+};
 
 const AccountManagement: React.FC = () => {
   const me = useAuthStore((s) => s.user);
@@ -50,6 +87,7 @@ const AccountManagement: React.FC = () => {
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
   const [roles, setRoles] = useState<RoleLite[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<TabKey>('STAFF');
 
   // Bộ lọc: chỉ áp dụng khi bấm "Tìm kiếm" / Enter
   const [searchDraft, setSearchDraft] = useState('');
@@ -67,7 +105,7 @@ const AccountManagement: React.FC = () => {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
 
-    const load = useCallback(async (silent = false) => {
+  const load = useCallback(async (silent = false) => {
     try {
       const [accs, rolesRes] = await Promise.all([
         getAccounts(),
@@ -102,9 +140,11 @@ const AccountManagement: React.FC = () => {
           a.username.toLowerCase().includes(k) ||
           emailOf(a).toLowerCase().includes(k) ||
           nameOf(a).toLowerCase().includes(k);
-        const matchRole = filters.role === 'ALL' || a.role?.roleName === filters.role;
+        const matchTab = tab === 'CUSTOMER' ? isCustomerAccount(a) : !isCustomerAccount(a);
+        // Bộ lọc vai trò chỉ có ở tab Nhân sự (tab Khách hàng chỉ có 1 vai trò)
+        const matchRole = tab === 'CUSTOMER' || filters.role === 'ALL' || a.role?.roleName === filters.role;
         const matchStatus = filters.status === 'ALL' || (filters.status === 'LOCKED') === a.isLocked;
-        return matchSearch && matchRole && matchStatus;
+        return matchTab && matchSearch && matchRole && matchStatus;
       })
       .sort((a, b) => {
         const rank: Record<string, number> = { Admin: 0, Manager: 1, Customer: 2 };
@@ -114,7 +154,13 @@ const AccountManagement: React.FC = () => {
         const t = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         return t !== 0 ? t : b.accountId - a.accountId; // mới đăng ký lên trước
       });
-  }, [accounts, filters]);
+  }, [accounts, filters, tab]);
+
+  // Số lượng hiển thị trên từng tab (không phụ thuộc bộ lọc đang áp dụng)
+  const tabCounts = useMemo(() => {
+    const customers = accounts.filter(isCustomerAccount).length;
+    return { STAFF: accounts.length - customers, CUSTOMER: customers } as Record<TabKey, number>;
+  }, [accounts]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   useEffect(() => { if (page > totalPages) setPage(totalPages); }, [page, totalPages]);
@@ -123,6 +169,16 @@ const AccountManagement: React.FC = () => {
   const applyFilters = (e: React.FormEvent) => {
     e.preventDefault();
     setFilters({ search: searchDraft, role: roleDraft, status: statusDraft });
+    setPage(1);
+  };
+  /** Chuyển tab: đặt lại bộ lọc và về trang 1 để tránh kết quả lọc của tab này "dính" sang tab kia. */
+  const switchTab = (next: TabKey) => {
+    if (next === tab) return;
+    setTab(next);
+    setSearchDraft('');
+    setRoleDraft('ALL');
+    setStatusDraft('ALL');
+    setFilters({ search: '', role: 'ALL', status: 'ALL' });
     setPage(1);
   };
   const clearSearch = () => {
@@ -183,33 +239,67 @@ const AccountManagement: React.FC = () => {
     }
   };
 
-  /* ---------- thêm tài khoản Admin / Manager ---------- */
+  /* ---------- thêm tài khoản (Admin / Manager / Khách hàng) ---------- */
+  const isCustomerForm = form.roleName === 'Customer';
+  const openAdd = () => {
+    // Mặc định chọn vai trò theo tab đang xem
+    setForm({ ...EMPTY_FORM, roleName: tab === 'CUSTOMER' ? 'Customer' : 'Manager' });
+    setShowAdd(true);
+  };
   const closeAdd = () => { if (!saving) { setShowAdd(false); setForm(EMPTY_FORM); } };
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     const username = form.username.trim();
+    const personLabel = isCustomerForm ? 'khách hàng' : 'nhân sự';
     if (username.length < 4) return void toast.error('Tên đăng nhập tối thiểu 4 ký tự.');
     if (!/^[A-Za-z0-9._]+$/.test(username)) return void toast.error('Tên đăng nhập chỉ gồm chữ cái không dấu, số, dấu chấm và gạch dưới.');
-    if (!form.lastName.trim()) return void toast.error('Vui lòng nhập họ của nhân sự.');
-    if (!form.firstName.trim()) return void toast.error('Vui lòng nhập tên của nhân sự.');
+    if (!form.lastName.trim()) return void toast.error(`Vui lòng nhập họ của ${personLabel}.`);
+    if (!form.firstName.trim()) return void toast.error(`Vui lòng nhập tên của ${personLabel}.`);
+    if (isCustomerForm && !form.dateOfBirth) return void toast.error('Vui lòng nhập ngày sinh của khách hàng.');
+    if (form.dateOfBirth && (form.dateOfBirth > todayISO() || form.dateOfBirth < MIN_DOB))
+      return void toast.error('Ngày sinh không hợp lệ (không được ở tương lai).');
+    if (!isCustomerForm && form.hireDate && form.hireDate > todayISO())
+      return void toast.error('Ngày vào làm không được ở tương lai.');
     const emailErr = validateEmail(form.email);
     if (emailErr) return void toast.error(emailErr);
     const pwErr = validateNewPassword(form.password, username);
     if (pwErr) return void toast.error(pwErr);
 
+    const common = {
+      username,
+      lastName: form.lastName.trim().replace(/\s+/g, ' '),
+      firstName: form.firstName.trim().replace(/\s+/g, ' '),
+      email: normalizeEmail(form.email),
+      password: form.password,
+    };
+
     setSaving(true);
     try {
-      await api.post('/admin/staff', {
-        username,
-        lastName: form.lastName.trim().replace(/\s+/g, ' '),
-        firstName: form.firstName.trim().replace(/\s+/g, ' '),
-        email: normalizeEmail(form.email),
-        phone: form.phone.trim() || undefined,
-        password: form.password,
-        roleName: form.roleName,
-      });
-      toast.success(`✅ Đã tạo tài khoản ${form.roleName}`);
+      if (isCustomerForm) {
+        await api.post('/admin/customers', {
+          ...common,
+          dateOfBirth: form.dateOfBirth,
+          gender: form.gender,
+          phone: form.phone.trim(),
+          address: form.address.trim(),
+        });
+      } else {
+        await api.post('/admin/staff', {
+          ...common,
+          phone: form.phone.trim() || undefined,
+          roleName: form.roleName,
+          dateOfBirth: form.dateOfBirth || undefined,
+          gender: form.gender || undefined,
+          address: form.address.trim() || undefined,
+          position: form.position.trim() || undefined,
+          hireDate: form.hireDate || undefined, // bỏ trống → DB mặc định ngày hiện tại
+        });
+      }
+      toast.success(`✅ Đã tạo tài khoản ${ROLE_LABELS[form.roleName]}`);
+      // Chuyển sang tab chứa tài khoản vừa tạo để người dùng thấy ngay kết quả
+      const targetTab: TabKey = form.roleName === 'Customer' ? 'CUSTOMER' : 'STAFF';
+      if (targetTab !== tab) switchTab(targetTab);
       setShowAdd(false);
       setForm(EMPTY_FORM);
       await load();
@@ -228,13 +318,30 @@ const AccountManagement: React.FC = () => {
       <div className="page-header">
         <div>
           <h1 className="page-title">Quản lý tài khoản</h1>
-          <p className="page-subtitle">Quản lý toàn bộ tài khoản hệ thống. Tài khoản khách hàng do Manager thêm.</p>
+          <p className="page-subtitle">{TAB_META[tab].subtitle}</p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-            <button className="btn-primary" onClick={() => setShowAdd(true)}>
-              <Plus size={16} /> Thêm tài khoản
+            <button className="btn-primary" onClick={openAdd}>
+              <Plus size={16} /> {TAB_META[tab].addLabel}
             </button>
         </div>
+      </div>
+
+      {/* Tab chuyển nhóm tài khoản */}
+      <div className="acc-tabs" role="tablist" aria-label="Nhóm tài khoản">
+        {(Object.keys(TAB_META) as TabKey[]).map((key) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={tab === key}
+            className={`acc-tab ${tab === key ? 'acc-tab--active' : ''}`}
+            onClick={() => switchTab(key)}
+          >
+            {TAB_META[key].label}
+            <span className="acc-tab__count">{tabCounts[key]}</span>
+          </button>
+        ))}
       </div>
 
       <div className="table-card">
@@ -244,7 +351,7 @@ const AccountManagement: React.FC = () => {
               <Search size={16} className="acc-toolbar__search-icon" />
               <input
                 className="acc-toolbar__search-input"
-                placeholder="Tìm theo tên đăng nhập, email, họ tên..."
+                placeholder={tab === 'CUSTOMER' ? 'Tìm theo tên đăng nhập, email, họ tên khách hàng...' : 'Tìm theo tên đăng nhập, email, họ tên...'}
                 value={searchDraft}
                 onChange={(e) => setSearchDraft(e.target.value)}
               />
@@ -254,12 +361,14 @@ const AccountManagement: React.FC = () => {
                 </button>
               )}
             </label>
-            <select className="form-select" value={roleDraft} onChange={(e) => setRoleDraft(e.target.value)}>
-              <option value="ALL">Tất cả vai trò</option>
-              <option value="Admin">Admin</option>
-              <option value="Manager">Manager</option>
-              <option value="Customer">Khách hàng</option>
-            </select>
+            {tab === 'STAFF' && (
+              <select className="form-select" value={roleDraft} onChange={(e) => setRoleDraft(e.target.value)}>
+                <option value="ALL">Tất cả vai trò</option>
+                {STAFF_ROLES.map((r) => (
+                  <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                ))}
+              </select>
+            )}
             <select className="form-select" value={statusDraft} onChange={(e) => setStatusDraft(e.target.value)}>
               <option value="ALL">Tất cả trạng thái</option>
               <option value="ACTIVE">Đang hoạt động</option>
@@ -276,7 +385,7 @@ const AccountManagement: React.FC = () => {
                 <th>STT</th>
                 <th>Họ tên</th>
                 <th>Email</th>
-                <th>Vai trò</th>
+                <th>{tab === 'CUSTOMER' ? 'Số điện thoại' : 'Vai trò'}</th>
                 <th>Ngày tạo</th>
                 <th>Trạng thái</th>
                 <th className="text-right">Thao tác</th>
@@ -286,7 +395,7 @@ const AccountManagement: React.FC = () => {
               {loading ? (
                 <tr><td colSpan={7} className="text-center text-muted py-8">Đang tải...</td></tr>
               ) : rows.length === 0 ? (
-                <tr><td colSpan={7} className="text-center text-muted py-8">Không có tài khoản nào</td></tr>
+                <tr><td colSpan={7} className="text-center text-muted py-8">Không có {TAB_META[tab].itemLabel} nào</td></tr>
               ) : rows.map((a, idx) => {
                 const roleName = a.role?.roleName ?? '';
                 const isSelf = a.accountId === me?.accountId;
@@ -295,6 +404,9 @@ const AccountManagement: React.FC = () => {
                     <td className="text-muted">{(page - 1) * ITEMS_PER_PAGE + idx + 1}</td>
                     <td className="font-medium">{nameOf(a) || <span className="text-muted">{a.username}</span>}</td>
                     <td>{emailOf(a) || <span className="text-muted">—</span>}</td>
+                    {tab === 'CUSTOMER' ? (
+                      <td>{a.customer?.phone || <span className="text-muted">—</span>}</td>
+                    ) : (
                     <td>
                       <select
                         className={`role-badge ${ROLE_CLASS[roleName] ?? 'role-customer'}`}
@@ -308,6 +420,7 @@ const AccountManagement: React.FC = () => {
                         ))}
                       </select>
                     </td>
+                    )}
                     <td>{fmtDate(a.createdAt)}</td>
                     <td>
                       <span className={`status-badge ${a.isLocked ? 'status-locked' : 'status-active'}`}>
@@ -347,43 +460,33 @@ const AccountManagement: React.FC = () => {
           totalPages={totalPages}
           totalItems={filtered.length}
           itemsPerPage={ITEMS_PER_PAGE}
-          itemLabel="tài khoản"
+          itemLabel={TAB_META[tab].itemLabel}
           onPageChange={setPage}
         />
       </div>
 
-      {/* Thêm tài khoản Admin / Manager */}
+      {/* Thêm tài khoản: chọn vai trò bằng dropdown */}
       {showAdd && (
         <div className="modal-overlay" onClick={closeAdd}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Thêm tài khoản nội bộ</h2>
+              <h2>Thêm tài khoản mới</h2>
               <button className="close-btn" onClick={closeAdd}><X size={18} /></button>
             </div>
             <form onSubmit={handleAdd}>
               <div className="modal-body">
-                <div style={fieldStyle}>
-                  <span style={labelStyle}>Vai trò *</span>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {STAFF_ROLES.map((r) => {
-                      const on = form.roleName === r;
-                      return (
-                        <button
-                          key={r}
-                          type="button"
-                          onClick={() => setForm({ ...form, roleName: r })}
-                          style={{
-                            flex: 1, height: 40, borderRadius: 8, fontWeight: 600, fontSize: 13.5, cursor: 'pointer',
-                            border: `1.5px solid ${on ? 'var(--color-primary)' : 'var(--color-border)'}`,
-                            background: on ? 'var(--color-primary)' : '#fff',
-                            color: on ? '#fff' : 'var(--color-text-muted)',
-                          }}
-                        >
-                          {r}
-                        </button>
-                      );
-                    })}
-                  </div>
+                <div className="form-group" style={fieldStyle}>
+                  <label style={labelStyle}>Vai trò *</label>
+                  <select
+                    value={form.roleName}
+                    disabled={saving}
+                    onChange={(e) => setForm({ ...form, roleName: e.target.value as CreateRole })}
+                    style={{ ...SELECT_STYLE, fontWeight: 600 }}
+                  >
+                    {CREATE_ROLES.map((r) => (
+                      <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="form-group" style={fieldStyle}>
@@ -405,7 +508,7 @@ const AccountManagement: React.FC = () => {
                 </div>
                 <div className="form-group" style={fieldStyle}>
                   <label style={labelStyle}>Email *</label>
-                  <input type="email" value={form.email} maxLength={100} autoComplete="off"
+                  <input type="email" value={form.email} maxLength={100} autoComplete="off" placeholder="ten@gmail.com"
                     onChange={(e) => setForm({ ...form, email: e.target.value })} />
                 </div>
                 <div className="form-group" style={fieldStyle}>
@@ -413,6 +516,48 @@ const AccountManagement: React.FC = () => {
                   <input value={form.phone} maxLength={20} autoComplete="off" inputMode="tel"
                     onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/[^\d+\s.-]/g, '') })} />
                 </div>
+
+                {/* Hồ sơ cá nhân (customers / employees trong schema) */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="form-group" style={fieldStyle}>
+                    <label style={labelStyle}>Ngày sinh{isCustomerForm ? ' *' : ''}</label>
+                    <input type="date" value={form.dateOfBirth} min={MIN_DOB} max={todayISO()}
+                      onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} />
+                  </div>
+                  <div className="form-group" style={fieldStyle}>
+                    <label style={labelStyle}>Giới tính</label>
+                    <select value={form.gender} style={SELECT_STYLE}
+                      onChange={(e) => setForm({ ...form, gender: e.target.value })}>
+                      <option value="">-- Chọn --</option>
+                      <option value="Nam">Nam</option>
+                      <option value="Nữ">Nữ</option>
+                      <option value="Khác">Khác</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="form-group" style={fieldStyle}>
+                  <label style={labelStyle}>Địa chỉ</label>
+                  <input value={form.address} maxLength={255} autoComplete="off"
+                    onChange={(e) => setForm({ ...form, address: e.target.value })} />
+                </div>
+
+                {/* Thông tin công việc — chỉ nhân sự (bảng employees) */}
+                {!isCustomerForm && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div className="form-group" style={fieldStyle}>
+                      <label style={labelStyle}>Chức vụ</label>
+                      <input value={form.position} maxLength={100} autoComplete="off"
+                        placeholder={`VD: ${POSITION_SUGGESTIONS[form.roleName] ?? 'Nhân viên'}`}
+                        onChange={(e) => setForm({ ...form, position: e.target.value })} />
+                    </div>
+                    <div className="form-group" style={fieldStyle}>
+                      <label style={labelStyle}>Ngày vào làm</label>
+                      <input type="date" value={form.hireDate} max={todayISO()}
+                        onChange={(e) => setForm({ ...form, hireDate: e.target.value })} />
+                    </div>
+                  </div>
+                )}
+
                 <div className="form-group" style={{ ...fieldStyle, marginBottom: 0 }}>
                   <label style={labelStyle}>Mật khẩu khởi tạo *</label>
                   <input type="password" value={form.password} maxLength={50} autoComplete="new-password"
@@ -423,7 +568,7 @@ const AccountManagement: React.FC = () => {
               <div className="modal-footer">
                 <button type="button" className="btn-refresh" onClick={closeAdd} disabled={saving}>Hủy</button>
                 <button type="submit" className="btn-primary" disabled={saving}>
-                  {saving ? 'Đang tạo...' : `Tạo tài khoản ${form.roleName}`}
+                  {saving ? 'Đang tạo...' : `Tạo tài khoản ${ROLE_LABELS[form.roleName]}`}
                 </button>
               </div>
             </form>

@@ -7,6 +7,7 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { showConfirm } from '../../lib/dialog';
 import { normalizeEmail, validateEmail, validateNewPassword, PASSWORD_HINT } from '../../utils/validation';
 import { compareByName, fullNameOf } from '../../utils/name';
+import { getAge } from '../../utils/customerStats';
 import './CustomersPage.css';
 
 interface Customer {
@@ -31,7 +32,13 @@ type SortBy = 'NEWEST' | 'OLDEST' | 'NAME_ASC' | 'NAME_DESC';
 
 const EMPTY_FORM = { username: '', email: '', password: '', lastName: '', firstName: '', dateOfBirth: '', gender: '', phone: '', address: '' };
 
+/** Ngày hôm nay (yyyy-mm-dd) — ngày sinh không được vượt quá mốc này. */
+const todayISO = () => new Date().toISOString().slice(0, 10);
+const MIN_DOB = '1900-01-01';
+
 const NotUpdated = () => <span className="text-muted">Chưa cập nhật</span>;
+const fmtDate = (iso?: string | null) =>
+  iso ? new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : null;
 
 const CustomersPage = () => {
   const [all, setAll] = useState<Customer[]>([]);
@@ -122,6 +129,10 @@ const CustomersPage = () => {
   const handleAdd = async () => {
     if (!form.username.trim() || !form.lastName.trim() || !form.firstName.trim() || !form.dateOfBirth) {
       toast.error('Vui lòng nhập đầy đủ Username, họ, tên và ngày sinh.');
+      return;
+    }
+    if (form.dateOfBirth < MIN_DOB || form.dateOfBirth > todayISO()) {
+      toast.error('Ngày sinh không hợp lệ (chỉ được chọn đến hết ngày hôm nay).');
       return;
     }
     const emailErr = validateEmail(form.email);
@@ -251,10 +262,13 @@ const CustomersPage = () => {
           <table className="custom-table">
             <thead>
               <tr>
-                <th>Họ tên</th>
-                <th>Email</th>
-                <th>SĐT</th>
+                <th>Mã KH</th>
+                <th>Họ</th>
+                <th>Tên</th>
+                <th>Ngày sinh</th>
                 <th>Giới tính</th>
+                <th>SĐT</th>
+                <th>Email</th>
                 <th>Địa chỉ</th>
                 <th>Sở thích</th>
                 <th>Trạng thái</th>
@@ -264,12 +278,23 @@ const CustomersPage = () => {
             <tbody>
               {customers.map((c) => {
                 const prefs = c.preferences ?? [];
+                const age = getAge(c.dateOfBirth);
                 return (
                   <tr key={c.customerId}>
-                    <td className="font-medium">{fullNameOf(c) || <span className="text-muted">—</span>}</td>
-                    <td>{c.email || <span className="text-muted">—</span>}</td>
-                    <td>{c.phone?.trim() ? c.phone : <NotUpdated />}</td>
+                    <td className="text-muted">{c.customerId}</td>
+                    <td className="font-medium">{c.lastName || <span className="text-muted">—</span>}</td>
+                    <td className="font-medium">{c.firstName || <span className="text-muted">—</span>}</td>
+                    <td>
+                      {c.dateOfBirth ? (
+                        <>
+                          <div>{fmtDate(c.dateOfBirth)}</div>
+                          {age !== null && age >= 0 && <div className="text-muted customer-age">{age} tuổi</div>}
+                        </>
+                      ) : <NotUpdated />}
+                    </td>
                     <td>{c.gender || '—'}</td>
+                    <td>{c.phone?.trim() ? c.phone : <NotUpdated />}</td>
+                    <td>{c.email || <span className="text-muted">—</span>}</td>
                     <td style={{ maxWidth: 220 }}>
                       {c.address?.trim()
                         ? <span title={c.address} style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.address}</span>
@@ -322,7 +347,7 @@ const CustomersPage = () => {
                 ['Tên đăng nhập', detail.username],
                 ['Họ tên', fullNameOf(detail)],
                 ['Email', detail.email],
-                ['Ngày sinh', detail.dateOfBirth ? new Date(detail.dateOfBirth).toLocaleDateString('vi-VN') : null],
+                ['Ngày sinh', fmtDate(detail.dateOfBirth)],
                 ['Giới tính', detail.gender],
                 ['Số điện thoại', detail.phone],
                 ['Địa chỉ', detail.address],
@@ -374,7 +399,7 @@ const CustomersPage = () => {
               </div>
               <div className="form-group">
                 <label className="form-label">Ngày sinh *</label>
-                <input type="date" className="form-input" value={form.dateOfBirth} onChange={setF('dateOfBirth')} />
+                <input type="date" className="form-input" min={MIN_DOB} max={todayISO()} value={form.dateOfBirth} onChange={setF('dateOfBirth')} />
               </div>
               <div className="form-group">
                 <label className="form-label">Giới tính</label>

@@ -332,6 +332,37 @@
   cursor: pointer;
 }
 
+/* Nút đăng xuất: nằm cuối sidebar */
+.profile-logout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  margin-top: auto;
+  padding: 0.85rem 1.15rem;
+  background: transparent;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  color: #ef4444;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.profile-logout-btn:hover {
+  background-color: #ef4444;
+  border-color: #ef4444;
+  color: #fff;
+}
+
+/* Khoảng cách giữa menu và nút đăng xuất khi sidebar thấp (mobile) */
+.profile-nav {
+  margin-bottom: 1.5rem;
+}
+
 /* Responsive */
 @media (max-width: 960px) {
   .profile-layout-container {

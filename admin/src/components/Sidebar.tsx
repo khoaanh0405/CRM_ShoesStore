@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   UserRound,
   History,
+  BarChart3,
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { ROLE_NAMES } from '../config/constants';
@@ -29,6 +30,7 @@ const managerMenu = [
   { to: '/customers', label: 'Quản lý khách hàng', icon: UserRound },
   { to: '/feedbacks', label: 'Quản lý đánh giá', icon: Star },
   { to: '/surveys', label: 'Quản lý khảo sát', icon: FileText },
+  { to: '/reports', label: 'Báo cáo', icon: BarChart3 },
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
