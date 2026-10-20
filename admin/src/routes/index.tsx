@@ -14,6 +14,7 @@ import CustomersPage from '../pages/manager/CustomersPage';
 import FeedbacksPage from '../pages/manager/FeedbacksPage';
 import SurveysPage from '../pages/manager/SurveysPage';
 import SurveyDetailPage from '../pages/manager/SurveyDetailPage';
+import CustomerReport from '../pages/manager/CustomerReport';
 
 const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -36,6 +37,7 @@ const router = createBrowserRouter([
           { path: 'feedbacks', element: <RoleGuard allow={[ROLE_NAMES.MANAGER]}><FeedbacksPage /></RoleGuard> },
           { path: 'surveys', element: <RoleGuard allow={[ROLE_NAMES.MANAGER]}><SurveysPage /></RoleGuard> },
           { path: 'surveys/:surveyId', element: <RoleGuard allow={[ROLE_NAMES.MANAGER]}><SurveyDetailPage /></RoleGuard> },
+          { path: 'reports', element: <RoleGuard allow={[ROLE_NAMES.MANAGER]}><CustomerReport /></RoleGuard> },
 
           // Đường dẫn không tồn tại -> về trang chủ (luôn để cuối)
           { path: '*', element: <Navigate to="/" replace /> },

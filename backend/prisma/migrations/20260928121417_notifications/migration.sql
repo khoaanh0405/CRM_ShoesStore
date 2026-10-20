@@ -1,3 +1,5 @@
+-- Thông báo cho khách hàng.
+
 -- CreateTable
 CREATE TABLE "notifications" (
     "notification_id" SERIAL NOT NULL,

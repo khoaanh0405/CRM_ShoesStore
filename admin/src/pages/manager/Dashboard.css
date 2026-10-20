@@ -156,82 +156,11 @@
   color: var(--color-text-main);
 }
 
-.bar-row.clickable { cursor: pointer; }
-.bar-row.clickable:hover .bar-row-label { color: var(--color-primary); }
+/* ===== 3 ô giữa: các ô cao bằng nhau, nội dung dàn đều để không còn khoảng trắng ===== */
+.db-mid-grid .panel { display: flex; flex-direction: column; }
+.db-mid-grid .donut-row { flex: 1; justify-content: center; gap: 32px; }
+.db-mid-grid .legend-list { gap: 14px; font-size: 14px; min-width: 130px; }
+.db-mid-grid .bar-list { flex: 1; justify-content: space-between; gap: 8px; }
+.db-mid-grid .survey-mini-list { flex: 1; gap: 0; }
+.db-mid-grid .survey-mini-list li { flex: 1; }
 
-.pref-table-wrapper {
-  max-height: 300px;
-  overflow-y: auto;
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  margin-top: 4px;
-}
-
-.pref-customer-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13.5px;
-}
-
-.pref-customer-table thead tr {
-  background: #f8fafc;
-}
-
-.pref-customer-table th {
-  text-align: left;
-  padding: 8px 10px;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  border-bottom: 1px solid var(--color-border);
-  position: sticky;
-  top: 0;
-  background: #f8fafc;
-}
-
-.pref-customer-table td {
-  padding: 9px 10px;
-  border-bottom: 1px solid #f1f5f9;
-  color: var(--color-text-main);
-}
-
-.pref-customer-table tbody tr:last-child td { border-bottom: none; }
-.pref-customer-table tbody tr:hover { background: #f8fafc; }
-
-.pref-customer-table .col-index {
-  width: 32px;
-  color: var(--color-text-muted);
-  font-size: 12.5px;
-}
-
-.pref-tag-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 16px;
-}
-
-.pref-tag-tab {
-  padding: 5px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg);
-  color: var(--color-text-muted);
-  font-size: 12.5px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-  white-space: nowrap;
-}
-
-.pref-tag-tab:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-.pref-tag-tab.active {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: #fff;
-}

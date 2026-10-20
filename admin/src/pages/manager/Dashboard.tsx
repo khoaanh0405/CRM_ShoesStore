@@ -1,31 +1,17 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Users, Wifi, Star, FileText, X } from 'lucide-react';
+import { Users, Wifi, Star, FileText } from 'lucide-react';
 import { getCustomers, getFeedbacks, getSurveys, getCustomerReport, getOnlineCustomerCount } from '../../services/api';
 import DonutChart from '../../components/DonutChart';
 import { RatingStars, FeedbackStatusBadge } from '../../components/FeedbackBits';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useNavigate } from 'react-router-dom';
 import { fullNameOf } from '../../utils/name';
+import { AGE_BUCKETS, REPORT_COLORS, getAge } from '../../utils/customerStats';
 import './Dashboard.css';
-
-const AGE_BUCKETS = [
-  { label: '18 - 25', min: 18, max: 25, color: '#F97316' },
-  { label: '26 - 35', min: 26, max: 35, color: '#2563EB' },
-  { label: '36 - 45', min: 36, max: 45, color: '#DC2626' },
-  { label: '46+', min: 46, max: 999, color: '#059669' },
-];
-
-const REPORT_COLORS = ['#7C3AED', '#F59E0B', '#059669', '#2563EB', '#DC2626', '#14B8A6'];
 
 // Làm mới số khách hàng online mỗi 5 giây (real-time)
 const ONLINE_POLL_MS = 5000;
-
-const getAge = (dob?: string) => {
-  if (!dob) return null;
-  const diff = Date.now() - new Date(dob).getTime();
-  return Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
-};
 
 const ManagerDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -34,7 +20,6 @@ const ManagerDashboard: React.FC = () => {
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [surveys, setSurveys] = useState<any[]>([]);
   const [preferences, setPreferences] = useState<{ tag: string; count: number }[]>([]);
-  const [detailTag, setDetailTag] = useState<string | null>(null);
   const [onlineCount, setOnlineCount] = useState<number | null>(null);
 
   const loadAll = useCallback(async (silent = false) => {
@@ -87,13 +72,10 @@ const ManagerDashboard: React.FC = () => {
 
   const recentSurveys = [...surveys]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 5);
+    .slice(0, 3);
 
   const totalPreferenceVotes = preferences.reduce((sum, p) => sum + p.count, 0);
   const prefPct = (n: number) => (totalPreferenceVotes ? Math.round((n / totalPreferenceVotes) * 1000) / 10 : 0);
-
-  const customersWithTag = (tag: string) =>
-    customers.filter((c) => (c.preferences ?? []).some((p: any) => (p.tag ?? p) === tag));
 
   if (loading) return <div className="dashboard-loading">Đang tải dữ liệu...</div>;
 
@@ -142,7 +124,7 @@ const ManagerDashboard: React.FC = () => {
           <h3 className="panel-title">Khách hàng theo độ tuổi</h3>
           <div className="donut-row">
             <DonutChart
-              size={140}
+              size={170}
               segments={ageCounts.map((a) => ({ value: a.value, color: a.color, label: a.label }))}
               centerLabel={`${totalCustomers}`}
               centerSub="Tổng khách hàng"
@@ -156,10 +138,7 @@ const ManagerDashboard: React.FC = () => {
         </div>
 
         <div className="panel">
-          <div className="panel-header-row">
-            <h3 className="panel-title">Sở thích khách hàng</h3>
-            {preferences.length > 0 && <span className="link-muted" onClick={() => setDetailTag(preferences[0].tag)}>Chi tiết</span>}
-          </div>
+          <h3 className="panel-title">Sở thích khách hàng</h3>
           {preferences.length === 0 ? (
             <p className="empty-hint">Chưa có dữ liệu sở thích khách hàng.</p>
           ) : (
@@ -169,7 +148,7 @@ const ManagerDashboard: React.FC = () => {
                 .sort((a, b) => b.count - a.count)
                 .slice(0, 6)
                 .map((p, i) => (
-                  <li key={p.tag} className="bar-row clickable" onClick={() => setDetailTag(p.tag)}>
+                  <li key={p.tag} className="bar-row">
                     <span className="bar-row-label" title={p.tag}>{p.tag}</span>
                     <span className="bar-row-track">
                       <span
@@ -243,51 +222,6 @@ const ManagerDashboard: React.FC = () => {
           </table>
         )}
       </div>
-
-      {detailTag && (
-        <div className="modal-overlay" onClick={() => setDetailTag(null)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Khách hàng thích "{detailTag}"</h3>
-              <button className="modal-close-btn" onClick={() => setDetailTag(null)}><X size={20} /></button>
-            </div>
-            <div className="modal-body">
-              <div className="pref-tag-tabs">
-                {preferences.map((p) => (
-                  <button
-                    key={p.tag}
-                    className={`pref-tag-tab ${p.tag === detailTag ? 'active' : ''}`}
-                    onClick={() => setDetailTag(p.tag)}
-                  >
-                    {p.tag} ({p.count})
-                  </button>
-                ))}
-              </div>
-              {customersWithTag(detailTag).length === 0 ? (
-                <p className="empty-hint">Chưa có khách hàng nào ghi nhận sở thích này.</p>
-              ) : (
-                <div className="pref-table-wrapper">
-                  <table className="pref-customer-table">
-                    <thead>
-                      <tr><th>#</th><th>Họ tên</th><th>SĐT</th><th>Giới tính</th></tr>
-                    </thead>
-                    <tbody>
-                      {customersWithTag(detailTag).map((c, i) => (
-                        <tr key={c.customerId}>
-                          <td className="col-index">{i + 1}</td>
-                          <td className="font-medium">{fullNameOf(c) || '—'}</td>
-                          <td>{c.phone ?? '—'}</td>
-                          <td>{c.gender ?? '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

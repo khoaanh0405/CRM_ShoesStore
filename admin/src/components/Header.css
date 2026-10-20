@@ -1,6 +1,8 @@
 /* ===== Header to hơn & căn chỉnh đẹp hơn ===== */
 .header {
   height: 74px; /* Tăng chiều cao header */
+  min-height: 74px;
+  flex-shrink: 0; /* Không cho header bị co lại khi nội dung trang dài (vd: tab Khách hàng 10 dòng) */
   padding: 0 32px; /* Tăng padding hai bên */
   display: flex;
   align-items: center;
