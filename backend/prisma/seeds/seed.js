@@ -41,6 +41,8 @@ const randomPast = (minDays, maxDays) => {
   return d;
 };
 
+const randReply = mulberry32(11); // tách riêng để không làm đổi dữ liệu ngẫu nhiên của khảo sát
+
 const EMAIL_OVERRIDES = {
   nguyenvana: 'nguyenhuudai104@gmail.com',
 };
@@ -100,31 +102,44 @@ const CUSTOMERS = [
   ['vuvanp', 'Vũ Văn', 'Quân', '1991-12-19', 'Nam', '0901000026', 'Q.9, TP.HCM', ['Giày Bóng Rổ'], false, true],
 ];
 
+// [chỉ số khách, chỉ số sản phẩm, tiêu đề, nội dung, rating, số ngày trước]
+// Không còn bước duyệt: mọi đánh giá hợp lệ đều được đăng ngay (status 'Approved').
+// Các đánh giá vi phạm (spam, link quảng cáo, ký tự lặp vô nghĩa) đã bị loại khỏi seed vì Backend
+// sẽ từ chối ngay khi gửi, nên không bao giờ nằm trong DB.
 const FEEDBACKS = [
-  [0, 0, 'Đôi giày rất đẹp', 'Form giày gọn, phối đồ đi học rất hợp. Đi cả ngày vẫn êm chân.', 5, 'Approved', 40],
-  [1, 0, 'Chất lượng tốt so với giá', 'Da mềm, đường may chắc chắn. Sẽ giới thiệu cho bạn bè.', 4, 'Approved', 38],
-  [2, 3, 'Chạy 10km rất êm', 'Đế phản hồi tốt, thoáng chân, chạy buổi sáng không bị nóng.', 5, 'Approved', 36],
-  [3, 8, 'Đi rất vừa chân', 'Form chuẩn, gót không bị cấn, đi cả ngày ở văn phòng vẫn thoải mái.', 5, 'Approved', 35],
-  [4, 6, 'Bám sân tốt', 'Chơi bóng rổ trong nhà thấy độ bám rất ổn, cổ giày ôm chắc.', 4, 'Approved', 33],
-  [5, 10, 'Sandal nhẹ và mát', 'Đi mùa hè rất dễ chịu, quai mềm không bị cấn.', 4, 'Approved', 30],
-  [6, 7, 'Đế hơi cứng lúc mới mang', 'Chất lượng ổn nhưng phải mang vài buổi mới quen. Mong cải thiện độ êm.', 3, 'Approved', 28],
-  [7, 1, 'Màu đẹp ngoài đời', 'Màu xám thanh lịch, vải canvas dày dặn. Hơi chật một chút ở mũi giày.', 4, 'Approved', 26],
-  [9, 4, 'Nhẹ như không', 'Ôm chân tốt, chạy đường dài không bị phồng rộp.', 5, 'Approved', 24],
-  [10, 5, 'Giá hợp lý', 'Fresh Foam rất êm, dùng tập gym lẫn chạy bộ đều ổn.', 4, 'Approved', 22],
-  [11, 9, 'Màu đỏ đô sang trọng', 'Gót vừa phải, đi tiệc không mỏi chân. Rất hài lòng.', 5, 'Approved', 20],
-  [19, 11, 'Bền, chống trượt tốt', 'Mình dùng đi biển, chống trượt khá tốt, nhanh khô.', 4, 'Approved', 18],
-  [23, 0, 'Từng dùng khá ổn', 'Trước khi ngừng sử dụng dịch vụ, sản phẩm này khá ổn.', 4, 'Approved', 55],
-  [12, 0, 'Giao hàng hơi chậm', 'Chất lượng giày tốt nhưng đơn vị vận chuyển giao hơi lâu.', 4, 'Pending', 3],
-  [13, 8, 'Mũi giày hơi hẹp', 'Đi 1 tiếng đầu thấy chật ngón cái, mong có thêm size rộng.', 3, 'Pending', 2],
-  [14, 6, 'Đế hơi trơn trên sân xi măng', 'Trong nhà thì tốt, ngoài trời hơi trơn. Mong cải thiện độ bám.', 2, 'Pending', 2],
-  [15, 10, 'Màu ngoài đời nhạt hơn ảnh', 'Chất lượng ok nhưng màu trắng hơi ngả xám so với hình.', 3, 'Pending', 1],
-  [16, 3, 'Chạy trail hơi trơn', 'Dùng chạy đường phố rất tốt, đường đất ẩm thì đế hơi trơn.', 4, 'Pending', 1],
-  [20, 2, 'Rất mong ngày ra mắt', 'Thấy mẫu Aero Lite 2027 giới thiệu rất đẹp, mong sớm có size 40.', 5, 'Pending', 1],
-  [17, 11, 'Quai hơi cứng', 'Quai chưa đủ mềm, mang lâu bị hằn chân.', 3, 'Pending', 0],
-  [8, 1, 'Phối đồ công sở được', 'Thiết kế trẻ trung nhưng vẫn lịch sự, hợp đi làm.', 4, 'Pending', 0],
-  [18, 4, 'quảng cáo linkkkk', 'Xem sản phẩm giá rẻ tại website abc.xyz, ưu đãi lớn.', 1, 'Rejected', 15],
-  [21, 8, 'aaaaaaaa', 'Nội dung không liên quan, lặp ký tự vô nghĩa.', 1, 'Rejected', 12],
-  [15, 5, 'Bình luận không đúng sản phẩm', 'Nội dung nói về dịch vụ khác, không phải sản phẩm này.', 2, 'Rejected', 10],
+  [0, 0, 'Đôi giày rất đẹp', 'Form giày gọn, phối đồ đi học rất hợp. Đi cả ngày vẫn êm chân.', 5, 40],
+  [1, 0, 'Chất lượng tốt so với giá', 'Da mềm, đường may chắc chắn. Sẽ giới thiệu cho bạn bè.', 4, 38],
+  [2, 3, 'Chạy 10km rất êm', 'Đế phản hồi tốt, thoáng chân, chạy buổi sáng không bị nóng.', 5, 36],
+  [3, 8, 'Đi rất vừa chân', 'Form chuẩn, gót không bị cấn, đi cả ngày ở văn phòng vẫn thoải mái.', 5, 35],
+  [4, 6, 'Bám sân tốt', 'Chơi bóng rổ trong nhà thấy độ bám rất ổn, cổ giày ôm chắc.', 4, 33],
+  [5, 10, 'Sandal nhẹ và mát', 'Đi mùa hè rất dễ chịu, quai mềm không bị cấn.', 4, 30],
+  [6, 7, 'Đế hơi cứng lúc mới mang', 'Chất lượng ổn nhưng phải mang vài buổi mới quen. Mong cải thiện độ êm.', 3, 28],
+  [7, 1, 'Màu đẹp ngoài đời', 'Màu xám thanh lịch, vải canvas dày dặn. Hơi chật một chút ở mũi giày.', 4, 26],
+  [9, 4, 'Nhẹ như không', 'Ôm chân tốt, chạy đường dài không bị phồng rộp.', 5, 24],
+  [10, 5, 'Giá hợp lý', 'Fresh Foam rất êm, dùng tập gym lẫn chạy bộ đều ổn.', 4, 22],
+  [11, 9, 'Màu đỏ đô sang trọng', 'Gót vừa phải, đi tiệc không mỏi chân. Rất hài lòng.', 5, 20],
+  [19, 11, 'Bền, chống trượt tốt', 'Mình dùng đi biển, chống trượt khá tốt, nhanh khô.', 4, 18],
+  [23, 0, 'Từng dùng khá ổn', 'Trước khi ngừng sử dụng dịch vụ, sản phẩm này khá ổn.', 4, 55],
+  [12, 0, 'Giao hàng hơi chậm', 'Chất lượng giày tốt nhưng đơn vị vận chuyển giao hơi lâu.', 4, 3],
+  [13, 8, 'Mũi giày hơi hẹp', 'Đi 1 tiếng đầu thấy chật ngón cái, mong có thêm size rộng.', 3, 2],
+  [14, 6, 'Đế hơi trơn trên sân xi măng', 'Trong nhà thì tốt, ngoài trời hơi trơn. Mong cải thiện độ bám.', 2, 2],
+  [15, 10, 'Màu ngoài đời nhạt hơn ảnh', 'Chất lượng ok nhưng màu trắng hơi ngả xám so với hình.', 3, 1],
+  [16, 3, 'Chạy trail hơi trơn', 'Dùng chạy đường phố rất tốt, đường đất ẩm thì đế hơi trơn.', 4, 1],
+  [20, 2, 'Rất mong ngày ra mắt', 'Thấy mẫu Aero Lite 2027 giới thiệu rất đẹp, mong sớm có size 40.', 5, 1],
+  [17, 11, 'Quai hơi cứng', 'Quai chưa đủ mềm, mang lâu bị hằn chân.', 3, 0],
+  [8, 1, 'Phối đồ công sở được', 'Thiết kế trẻ trung nhưng vẫn lịch sự, hợp đi làm.', 4, 0],
+];
+
+// Phản hồi mẫu của cửa hàng: [chỉ số trong FEEDBACKS, nội dung].
+// Cố ý để các đánh giá mới nhất (chỉ số 14-20) CHƯA có phản hồi để demo thao tác "Gửi phản hồi" của Manager.
+const REPLIES = [
+  [0, 'Cảm ơn bạn đã chia sẻ! Ouran rất vui vì bạn hài lòng với đôi giày.'],
+  [1, 'Cảm ơn bạn đã tin tưởng Ouran. Chúc bạn luôn thoải mái khi sử dụng sản phẩm!'],
+  [2, 'Rất vui vì Pegasus Pro đồng hành tốt cùng bạn trong các buổi chạy. Chúc bạn đạt nhiều cột mốc mới!'],
+  [4, 'Cảm ơn bạn đã đánh giá. Ouran sẽ tiếp tục chọn lọc các mẫu có độ bám tốt cho dân bóng rổ.'],
+  [6, 'Ouran ghi nhận góp ý của bạn. Phần đế thường cần vài buổi để thích nghi, nếu vẫn chưa êm bạn có thể liên hệ cửa hàng để được hỗ trợ đổi size hoặc tư vấn thêm.'],
+  [7, 'Cảm ơn bạn! Với mũi giày hơi chật, bạn có thể thử tăng nửa size hoặc liên hệ Ouran để được tư vấn size phù hợp.'],
+  [8, 'Cảm ơn bạn đã chia sẻ trải nghiệm. Ouran rất vui vì sản phẩm phù hợp với bạn!'],
 ];
 
 const SURVEYS = [
@@ -324,17 +339,29 @@ async function main() {
 
   // 4. Phản hồi sản phẩm
   await prisma.feedback.createMany({
-    data: FEEDBACKS.map(([ci, pi, title, content, rating, status, ago]) => ({
+    data: FEEDBACKS.map(([ci, pi, title, content, rating, ago]) => ({
       customerId: customers[ci].id, productId: products[pi].productId,
-      title, content, rating, status, createdAt: daysAgo(ago),
+      // Đặt status tường minh vì schema vẫn để default 'Pending'
+      title, content, rating, status: 'Approved', createdAt: daysAgo(ago),
     })),
   });
 
-  const approved = await prisma.feedback.findMany({ where: { status: 'Approved' }, take: 3, orderBy: { feedbackId: 'asc' } });
-  for (const f of approved) {
+  // Phản hồi của Manager (feedback seed theo thứ tự FEEDBACKS vì createMany + RESTART IDENTITY cho id tăng dần)
+  const savedFeedbacks = await prisma.feedback.findMany({ orderBy: { feedbackId: 'asc' } });
+  const replyNotifications = [];
+  for (const [idx, content] of REPLIES) {
+    const fb = savedFeedbacks[idx];
+    const repliedAt = new Date(Math.min(Date.now(), fb.createdAt.getTime() + (2 + Math.floor(randReply() * 20)) * 3600 * 1000));
     await prisma.reviewReply.create({
-      data: { feedbackId: f.feedbackId, accountId: managerAccount.accountId, content: 'Cảm ơn bạn đã chia sẻ! Ouran rất vui vì bạn hài lòng với sản phẩm.' },
+      data: { feedbackId: fb.feedbackId, accountId: managerAccount.accountId, content, createdAt: repliedAt },
     });
+    if (!customers.find((c) => c.id === fb.customerId)?.isDeleted) {
+      replyNotifications.push({
+        customerId: fb.customerId, type: 'FEEDBACK_REPLIED', title: 'Cửa hàng đã phản hồi đánh giá của bạn',
+        message: `Đánh giá "${fb.title}" của bạn vừa nhận được phản hồi từ cửa hàng.`,
+        refType: 'FEEDBACK', refId: fb.feedbackId, isRead: randReply() < 0.5, createdAt: repliedAt,
+      });
+    }
   }
 
   // 5. Khảo sát + đối tượng + bài làm + thông báo
@@ -415,24 +442,14 @@ async function main() {
     }
   }
 
-  // 6. Thông báo kết quả duyệt phản hồi cho khách
-  const feedbacks = await prisma.feedback.findMany({ where: { status: { in: ['Approved', 'Rejected'] } } });
-  feedbacks.filter((f) => !customers.find((c) => c.id === f.customerId)?.isDeleted).forEach((f, i) => {
-    const ok = f.status === 'Approved';
-    notifications.push({
-      customerId: f.customerId, type: ok ? 'FEEDBACK_APPROVED' : 'FEEDBACK_REJECTED',
-      title: ok ? 'Phản hồi của bạn đã được duyệt' : 'Phản hồi của bạn bị từ chối',
-      message: ok
-        ? `Phản hồi "${f.title}" của bạn đã được duyệt và hiển thị công khai.`
-        : `Phản hồi "${f.title}" của bạn đã bị từ chối. Vui lòng kiểm tra lại nội dung.`,
-      refType: 'FEEDBACK', refId: f.feedbackId, isRead: i % 3 !== 0, createdAt: daysAgo(1, 8),
-    });
-  });
+  // 6. Thông báo cho khách: khảo sát mới (ở trên) + cửa hàng đã phản hồi đánh giá
+  notifications.push(...replyNotifications);
   await prisma.notification.createMany({ data: notifications });
 
   console.log('Seed xong!');
   console.log(`- ${customers.length} khách hàng (${activeCustomers.length} hoạt động, 2 bị khóa, 3 đã xóa mềm), mỗi người 1 email riêng`);
-  console.log(`- ${CATEGORIES.length} danh mục, ${PRODUCTS.length} sản phẩm, ${FEEDBACKS.length} phản hồi, ${SURVEYS.length} khảo sát`);
+  console.log(`- ${CATEGORIES.length} danh mục, ${PRODUCTS.length} sản phẩm, ${FEEDBACKS.length} đánh giá (đều đã đăng, ${REPLIES.length} đã được cửa hàng phản hồi), ${SURVEYS.length} khảo sát`);
+  console.log('- Đánh giá chưa có phản hồi (để demo trả lời khách): ' + (FEEDBACKS.length - REPLIES.length));
   console.log('- 2 nhân sự (bảng employees): admin (Admin) và manager (Manager)');
   console.log('- Tài khoản test (mật khẩu 123456): admin (admin@ouran.com) | manager (manager@ouran.com) | nguyenvana | tranthib ...');
   console.log(`- Test quên mật khẩu: tài khoản nguyenvana, email ${emailOf('nguyenvana')}`);

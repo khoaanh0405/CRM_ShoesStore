@@ -11,11 +11,11 @@ const router = Router();
 router.get('/', managerOnly, feedbackController.list);
 router.get('/:id', authenticate, feedbackValidator.idParam, feedbackController.getById);
 
-// Giới hạn 5 đánh giá / 30 phút nằm trong feedbackSpamGuard
+// Giới hạn 5 đánh giá / 30 phút + chống gửi trùng nằm trong feedbackSpamGuard.
+// Kiểm duyệt nội dung (từ ngữ không phù hợp, spam, vô nghĩa...) chạy trong feedbackService.create.
 router.post('/', authenticate, feedbackValidator.create, ownCustomerOnly, feedbackSpamGuard, feedbackController.create);
 
 router.put('/:id', authenticate, authorize(ROLE_NAMES.CUSTOMER), feedbackValidator.idParam, feedbackValidator.update, feedbackController.update);
-router.patch('/:id/status', managerOnly, feedbackValidator.idParam, feedbackValidator.updateStatus, feedbackController.updateStatus);
 
 router.get('/:id/replies', staffOnly, feedbackValidator.idParam, reviewReplyController.listByFeedback);
 router.post('/:id/replies', managerOnly, feedbackValidator.idParam, validateBody({ content: { required: true, type: 'string', maxLength: 2000 } }), reviewReplyController.create);

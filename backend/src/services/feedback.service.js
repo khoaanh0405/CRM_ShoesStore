@@ -3,12 +3,15 @@
  * — đúng khuyến nghị trong feedback.repository.js ("Service layer nên
  * validate rating ở input trước khi gọi xuống để tránh lỗi khó hiểu cho
  * người dùng" thay vì để Postgres throw lỗi CHECK constraint 23514).
+ *
+ * Không còn bước Manager duyệt: nội dung được kiểm duyệt TỰ ĐỘNG bởi contentModerationService.
+ * Hợp lệ -> lưu với status 'Approved' (hiển thị ngay). Vi phạm -> ValidationError, KHÔNG ghi DB.
  */
 import { feedbackRepository, customerRepository, productRepository } from '../repositories/index.js';
-import { notificationService } from './notification.service.js';
+import { contentModerationService } from './contentModeration.service.js';
 import { NotFoundError, ValidationError } from '../errors/AppError.js';
-import { FEEDBACK_STATUS, FEEDBACK_STATUS_LIST, FEEDBACK_RATING, MESSAGES } from '../constants/index.js';
-import { NOTIFICATION_TYPE, NOTIFICATION_REF_TYPE } from '../constants/notification.constant.js';
+import { FEEDBACK_STATUS, FEEDBACK_RATING, MESSAGES } from '../constants/index.js';
+
 function assertValidRating(rating) {
   const ratingNum = Number(rating);
   if (!Number.isInteger(ratingNum) || ratingNum < FEEDBACK_RATING.MIN || ratingNum > FEEDBACK_RATING.MAX) {
@@ -28,18 +31,20 @@ export const feedbackService = {
   listByCustomer(customerId) {
     return feedbackRepository.findByCustomer(customerId);
   },
+  /** Chỉ trả các đánh giá đang hiển thị công khai (loại các đánh giá cũ đã bị gỡ/Rejected). */
   listByProduct(productId) {
-    return feedbackRepository.findByProduct(productId);
+    return feedbackRepository.findByProduct(productId, FEEDBACK_STATUS.APPROVED);
   },
   listByStatus(status) {
     return feedbackRepository.findByStatus(status);
   },
-  /** Khách hàng gửi phản hồi về sản phẩm (mục 4.3.3). Luôn khởi tạo status = 'Pending'. */
+  /**
+   * Khách hàng gửi phản hồi về sản phẩm (mục 4.3.3).
+   * Kiểm duyệt tự động -> hợp lệ thì lưu và hiển thị ngay (status = 'Approved').
+   */
   async create({ customerId, productId, title, content, rating, imageUrl }) {
-    if (!title?.trim() || !content?.trim()) {
-      throw new ValidationError('Tiêu đề và nội dung phản hồi không được để trống.');
-    }
     const ratingNum = assertValidRating(rating);
+    const clean = contentModerationService.moderateFeedback({ title: title ?? '', content: content ?? '' });
     const customer = await customerRepository.findById(customerId);
     if (!customer) throw new NotFoundError(MESSAGES.NOT_FOUND.CUSTOMER);
     const product = await productRepository.findById(productId);
@@ -47,50 +52,24 @@ export const feedbackService = {
     return feedbackRepository.create({
       customerId,
       productId,
-      title: title.trim(),
-      content: content.trim(),
+      title: clean.title,
+      content: clean.content,
       rating: ratingNum,
       imageUrl,
+      status: FEEDBACK_STATUS.APPROVED,
     });
   },
-  /** Khách hàng sửa phản hồi của chính mình. */
+  /** Khách hàng sửa phản hồi của chính mình — nội dung mới cũng phải qua kiểm duyệt. */
   async update(feedbackId, { title, content, rating, imageUrl }) {
     await this.getById(feedbackId);
-    if (title !== undefined && !title.trim()) throw new ValidationError('Tiêu đề không được để trống.');
-    if (content !== undefined && !content.trim()) throw new ValidationError('Nội dung không được để trống.');
+    const clean = contentModerationService.moderateFeedback({ title, content });
     const ratingNum = rating !== undefined ? assertValidRating(rating) : undefined;
     return feedbackRepository.update(feedbackId, {
-      title: title?.trim(),
-      content: content?.trim(),
+      title: clean.title,
+      content: clean.content,
       rating: ratingNum,
       imageUrl,
     });
-  },
-  /**
-   * Admin tiếp nhận/xử lý phản hồi (mục 4.1.4). Khi chuyển sang Approved/
-   * Rejected, tạo thêm 1 Notification để khách hàng biết phản hồi của mình
-   * đã được xử lý (hiện trên chuông thông báo phía khách hàng).
-   */
-  async updateStatus(feedbackId, status) {
-    if (!FEEDBACK_STATUS_LIST.includes(status)) {
-      throw new ValidationError(`Trạng thái không hợp lệ. Chỉ chấp nhận: ${FEEDBACK_STATUS_LIST.join(', ')}.`);
-    }
-    const feedback = await this.getById(feedbackId);
-    const updated = await feedbackRepository.updateStatus(feedbackId, status);
-    if (status === FEEDBACK_STATUS.APPROVED || status === FEEDBACK_STATUS.REJECTED) {
-      const isApproved = status === FEEDBACK_STATUS.APPROVED;
-      await notificationService.create({
-        customerId: feedback.customerId,
-        type: isApproved ? NOTIFICATION_TYPE.FEEDBACK_APPROVED : NOTIFICATION_TYPE.FEEDBACK_REJECTED,
-        title: isApproved ? 'Phản hồi của bạn đã được duyệt' : 'Phản hồi của bạn bị từ chối',
-        message: isApproved
-          ? `Phản hồi "${feedback.title}" của bạn đã được duyệt và hiển thị công khai.`
-          : `Phản hồi "${feedback.title}" của bạn đã bị từ chối. Vui lòng kiểm tra lại nội dung.`,
-        refType: NOTIFICATION_REF_TYPE.FEEDBACK,
-        refId: feedback.feedbackId,
-      });
-    }
-    return updated;
   },
   async remove(feedbackId) {
     await this.getById(feedbackId);

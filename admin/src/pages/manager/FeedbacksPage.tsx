@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Star, CheckCircle, XCircle, X, Send, Pencil, Trash2, MessageSquare } from 'lucide-react';
-import { getFeedbacks, updateFeedbackStatus } from '../../services/api';
+import { Star, X, Send, Pencil, Trash2, MessageSquare } from 'lucide-react';
+import { getFeedbacks } from '../../services/api';
 import api from '../../utils/api';
 import { useAuthStore } from '../../store/useAuthStore';
 import { showConfirm } from '../../lib/dialog';
@@ -10,15 +10,6 @@ import Pagination from '../../components/Pagination';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { fullNameOf, type PersonName } from '../../utils/name';
 import './FeedbacksPage.css';
-
-type FilterTab = 'All' | FeedbackStatus;
-
-const FILTER_TABS: { label: string; value: FilterTab }[] = [
-  { label: 'Tất cả', value: 'All' },
-  { label: 'Chờ duyệt', value: 'Pending' },
-  { label: 'Đã duyệt', value: 'Approved' },
-  { label: 'Từ chối', value: 'Rejected' },
-];
 
 const FEEDBACKS_PER_PAGE = 10;
 
@@ -34,9 +25,10 @@ const RatingStars: React.FC<{ rating: number }> = ({ rating }) => (
 
 const StatusBadge: React.FC<{ status: FeedbackStatus }> = ({ status }) => {
   const map = {
-    Pending: { label: 'Chờ duyệt', cls: 'badge-pending' },
-    Approved: { label: 'Đã duyệt', cls: 'badge-approved' },
-    Rejected: { label: 'Từ chối', cls: 'badge-rejected' },
+    // Đánh giá hợp lệ được đăng ngay (Approved). Pending/Rejected chỉ còn ở dữ liệu cũ.
+    Pending: { label: 'Chờ xử lý (cũ)', cls: 'badge-pending' },
+    Approved: { label: 'Đã đăng', cls: 'badge-approved' },
+    Rejected: { label: 'Đã gỡ', cls: 'badge-rejected' },
   };
   const { label, cls } = map[status];
   return <span className={`status-badge ${cls}`}>{label}</span>;
@@ -61,11 +53,8 @@ type FeedbackEx = Feedback & {
 const FeedbackModal: React.FC<{
   feedback: FeedbackEx;
   onClose: () => void;
-  onApprove: () => void;
-  onReject: () => void;
-  loading: boolean;
   onRepliesChanged: () => void;
-}> = ({ feedback, onClose, onApprove, onReject, loading, onRepliesChanged }) => {
+}> = ({ feedback, onClose, onRepliesChanged }) => {
   const me = useAuthStore((s) => s.user);
   const [replies, setReplies] = useState<ReplyItem[]>([]);
   const [text, setText] = useState('');
@@ -195,25 +184,10 @@ const FeedbackModal: React.FC<{
                 </button>
               </div>
             ) : (
-              <p className="reply-empty">
-                {feedback.status === 'Pending'
-                  ? 'Hãy duyệt đánh giá này trước, sau đó bạn mới có thể trả lời khách hàng.'
-                  : 'Đánh giá đã bị từ chối nên không thể trả lời.'}
-              </p>
+              <p className="reply-empty">Đánh giá này không còn hiển thị công khai nên không thể trả lời.</p>
             )}
           </div>
         </div>
-
-        {feedback.status === 'Pending' && (
-          <div className="modal-footer">
-            <button className="btn btn-approve" onClick={onApprove} disabled={loading}>
-              <CheckCircle size={16} />{loading ? 'Đang xử lý...' : 'Duyệt'}
-            </button>
-            <button className="btn btn-reject" onClick={onReject} disabled={loading}>
-              <XCircle size={16} />{loading ? 'Đang xử lý...' : 'Từ chối'}
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -221,9 +195,7 @@ const FeedbackModal: React.FC<{
 
 const FeedbacksPage: React.FC = () => {
   const [feedbacks, setFeedbacks] = useState<FeedbackEx[]>([]);
-  const [activeTab, setActiveTab] = useState<FilterTab>('All');
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
   const [selectedFeedback, setSelectedFeedback] = useState<FeedbackEx | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [newIds, setNewIds] = useState<Set<number>>(new Set());
@@ -244,7 +216,7 @@ const FeedbacksPage: React.FC = () => {
       if (knownIdsRef.current) {
         const fresh = sorted.filter((f) => !knownIdsRef.current!.has(f.feedbackId));
         if (fresh.length > 0) {
-          toast.success(`📩 Có ${fresh.length} đánh giá mới từ khách hàng`, { duration: 4000 });
+          toast.success(`Có ${fresh.length} đánh giá mới từ khách hàng`, { duration: 4000 });
           setNewIds(new Set<number>(fresh.map((f) => f.feedbackId)));
           setTimeout(() => setNewIds(new Set()), 6000);
         }
@@ -260,65 +232,26 @@ const FeedbacksPage: React.FC = () => {
   useEffect(() => { loadFeedbacks(); }, [loadFeedbacks]);
   useAutoRefresh(() => loadFeedbacks(true), 5000);
 
-  const filtered = activeTab === 'All' ? feedbacks : feedbacks.filter((f) => f.status === activeTab);
-
-  useEffect(() => { setCurrentPage(1); }, [activeTab]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / FEEDBACKS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(feedbacks.length / FEEDBACKS_PER_PAGE));
   useEffect(() => { if (currentPage > totalPages) setCurrentPage(totalPages); }, [totalPages, currentPage]);
 
-  const paginatedFeedbacks = filtered.slice((currentPage - 1) * FEEDBACKS_PER_PAGE, currentPage * FEEDBACKS_PER_PAGE);
-
-  const counts = {
-    All: feedbacks.length,
-    Pending: feedbacks.filter((f) => f.status === 'Pending').length,
-    Approved: feedbacks.filter((f) => f.status === 'Approved').length,
-    Rejected: feedbacks.filter((f) => f.status === 'Rejected').length,
-  };
-
-  const handleStatusChange = async (feedback: FeedbackEx, status: FeedbackStatus) => {
-    setActionLoading(true);
-    try {
-      await updateFeedbackStatus(feedback.feedbackId, status);
-      toast.success(status === 'Approved' ? '✅ Đã duyệt đánh giá!' : '❌ Đã từ chối đánh giá!');
-      await loadFeedbacks(true); // tải lại để có người xử lý (handler)
-    } catch (e: any) {
-      toast.error(e?.response?.data?.message ?? 'Thao tác thất bại, vui lòng thử lại');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const isSuspicious = (f: FeedbackEx) =>
-    feedbacks.filter(
-      (x) => x.customerId === f.customerId && x.status === 'Pending' &&
-        Math.abs(new Date(x.createdAt).getTime() - new Date(f.createdAt).getTime()) < 10 * 60 * 1000,
-    ).length >= 3;
+  const paginatedFeedbacks = feedbacks.slice((currentPage - 1) * FEEDBACKS_PER_PAGE, currentPage * FEEDBACKS_PER_PAGE);
 
   return (
     <div className="feedbacks-page">
       <div className="page-header">
         <div>
           <h1 className="page-title">Quản lý Đánh giá</h1>
-          <p className="page-subtitle">Duyệt và quản lý đánh giá sản phẩm từ khách hàng theo thời gian thực</p>
+          <p className="page-subtitle">Xem và quản lý đánh giá sản phẩm từ khách hàng theo thời gian thực</p>
         </div>
-      </div>
-
-      <div className="filter-tabs">
-        {FILTER_TABS.map((tab) => (
-          <button key={tab.value} className={`filter-tab ${activeTab === tab.value ? 'active' : ''}`} onClick={() => setActiveTab(tab.value)}>
-            {tab.label}
-            <span className="tab-count">{counts[tab.value]}</span>
-          </button>
-        ))}
       </div>
 
       {loading ? (
         <div className="loading-state"><div className="spinner" /><p>Đang tải đánh giá...</p></div>
-      ) : filtered.length === 0 ? (
+      ) : feedbacks.length === 0 ? (
         <div className="empty-state">
           <Star size={48} strokeWidth={1} />
-          <p>Không có đánh giá nào {activeTab !== 'All' ? `với trạng thái "${FILTER_TABS.find((t) => t.value === activeTab)?.label}"` : ''}</p>
+          <p>Chưa có đánh giá nào</p>
         </div>
       ) : (
         <div className="feedbacks-table-wrapper">
@@ -344,7 +277,6 @@ const FeedbacksPage: React.FC = () => {
                   <td className="col-title">
                     <span className="feedback-title" title={fb.title}>
                       {newIds.has(fb.feedbackId) && <span style={{ color: '#7C3AED', fontWeight: 700, marginRight: 4 }}>MỚI</span>}
-                      {isSuspicious(fb) && <span style={{ color: '#DC2626', fontWeight: 700 }}>⚠ </span>}
                       {fb.title}
                       {(fb.replies?.length ?? 0) > 0 && (
                         <span style={{ marginLeft: 6, padding: '1px 8px', borderRadius: 999, background: '#DBEAFE', color: '#2563EB', fontSize: 11, fontWeight: 700 }}>Đã phản hồi</span>
@@ -357,12 +289,6 @@ const FeedbacksPage: React.FC = () => {
                   <td className="col-actions">
                     <div className="action-group">
                       <button className="action-btn view-btn" title="Xem chi tiết" onClick={() => setSelectedFeedback(fb)}>Chi tiết</button>
-                      {fb.status === 'Pending' && (
-                        <>
-                          <button className="action-btn approve-btn" title="Duyệt đánh giá" onClick={() => handleStatusChange(fb, 'Approved')} disabled={actionLoading}>Duyệt</button>
-                          <button className="action-btn reject-btn" title="Từ chối đánh giá" onClick={() => handleStatusChange(fb, 'Rejected')} disabled={actionLoading}>Từ chối</button>
-                        </>
-                      )}
                     </div>
                   </td>
                 </tr>
@@ -370,7 +296,7 @@ const FeedbacksPage: React.FC = () => {
             </tbody>
           </table>
 
-          <Pagination currentPage={currentPage} totalPages={totalPages} totalItems={filtered.length} itemsPerPage={FEEDBACKS_PER_PAGE} itemLabel="đánh giá" onPageChange={setCurrentPage} />
+          <Pagination currentPage={currentPage} totalPages={totalPages} totalItems={feedbacks.length} itemsPerPage={FEEDBACKS_PER_PAGE} itemLabel="đánh giá" onPageChange={setCurrentPage} />
         </div>
       )}
 
@@ -378,9 +304,6 @@ const FeedbacksPage: React.FC = () => {
         <FeedbackModal
           feedback={selectedFeedback}
           onClose={() => setSelectedFeedback(null)}
-          onApprove={() => handleStatusChange(selectedFeedback, 'Approved')}
-          onReject={() => handleStatusChange(selectedFeedback, 'Rejected')}
-          loading={actionLoading}
           onRepliesChanged={() => loadFeedbacks(true)}
         />
       )}
