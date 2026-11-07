@@ -1,10 +1,3 @@
-/**
- * Repository cho model Employee (bảng employees) — hồ sơ nhân sự nội bộ (Admin/Manager).
- *
- * employees.employee_id KHÔNG tự tăng — nó CHÍNH LÀ accounts.account_id (quan hệ 1-1 dùng chung PK,
- * onDelete Cascade từ phía Account -> Employee), giống customers.customer_id.
- * Vai trò (Admin hay Manager) vẫn nằm ở accounts.role_id; bảng này chỉ giữ thông tin cá nhân/công việc.
- */
 import prisma from '../config/database.js';
 
 const WITH_ACCOUNT = { account: { select: { accountId: true, username: true, isLocked: true, createdAt: true, role: true } } };

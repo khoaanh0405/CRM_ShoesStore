@@ -1,10 +1,3 @@
-/**
- * Service cho SurveyAnswer. statsByQuestion() là phần lõi phục vụ mục 4.1.7
- * "Thống kê kết quả khảo sát": câu SINGLE_CHOICE đếm số lượt chọn theo từng
- * option (kèm optionText để hiển thị), câu TEXT trả về nguyên văn các câu
- * trả lời vì không có option để group-by (đúng ghi chú trong
- * surveyAnswer.repository.js).
- */
 import prisma from '../config/database.js';
 import {
   surveyAnswerRepository,

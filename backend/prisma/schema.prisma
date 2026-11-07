@@ -26,26 +26,11 @@ model Account {
   role              Role               @relation(fields: [roleId], references: [roleId])
   customer          Customer?
   employee          Employee?
-  passwordResetOtps PasswordResetOtp[]
   surveysCreated    Survey[]           @relation("SurveyCreator")
   reviewReplies     ReviewReply[]
   auditLogs         AuditLog[]
 
   @@map("accounts")
-}
-
-model PasswordResetOtp {
-  otpId     Int       @id @default(autoincrement()) @map("otp_id")
-  accountId Int       @map("account_id")
-  otpHash   String    @map("otp_hash") @db.VarChar(64)
-  expiresAt DateTime  @map("expires_at")
-  attempts  Int       @default(0)
-  usedAt    DateTime? @map("used_at")
-  createdAt DateTime  @default(now()) @map("created_at")
-  account   Account   @relation(fields: [accountId], references: [accountId], onDelete: Cascade)
-
-  @@index([accountId, createdAt])
-  @@map("password_reset_otps")
 }
 
 model Category {
@@ -140,7 +125,6 @@ model Feedback {
   feedbackId Int           @id @default(autoincrement()) @map("feedback_id")
   customerId Int           @map("customer_id")
   productId  Int           @map("product_id")
-  title      String        @db.VarChar(150)
   content    String
   rating     Int
   imageUrl   String?       @map("image_url") @db.VarChar(500)

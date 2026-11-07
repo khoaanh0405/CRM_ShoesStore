@@ -25,8 +25,7 @@ export function assertValidEmail(email) {
 
 /**
  * Email của tài khoản MỚI/được chỉnh sửa (đăng ký, hồ sơ, thêm nhân sự): đuôi @gmail.com và có
- * ít nhất 1 chữ số trước dấu @ — khớp validateEmail ở frontend. Dùng assertValidEmail (lỏng hơn)
- * cho Quên mật khẩu để tài khoản cũ có email khác vẫn lấy lại được mật khẩu.
+ * ít nhất 1 chữ số trước dấu @ — khớp validateEmail ở frontend.
  */
 export function assertStrictEmail(email) {
   const e = assertValidEmail(email);

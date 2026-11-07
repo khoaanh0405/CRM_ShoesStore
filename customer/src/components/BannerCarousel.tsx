@@ -1,12 +1,15 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import banner1 from '../../assets/images/Bitis_summer_sandal.png';
+import banner2 from '../../assets/images/Juno_Elegance_High_Heels.png';
+import banner3 from '../../assets/images/Nike_AirZoom_shoes.png';
+import banner4 from '../../assets/images/sneaker_classic_v2_shoes.png';
 
-// Ảnh banner của trang chủ (cố định trong giao diện — hệ thống không còn bảng banner trong CSDL).
 export const BANNERS = [
-  'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1600&q=70',
-  'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1600&q=70',
-  'https://images.unsplash.com/photo-1460353581641-37baddab0fa2?auto=format&fit=crop&w=1600&q=70',
-  'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&w=1600&q=70',
+  banner1,
+  banner2,
+  banner3,
+  banner4,
 ];
 
 /** Banner trang chủ, tự trượt qua từng ảnh, dừng khi rê chuột vào. */

@@ -61,51 +61,16 @@
   background: #e2e8f0;
 }
 
-.create-btn {
-  height: 40px;
-  padding: 0 18px;
-  font-size: 13.5px;
-  white-space: nowrap;
-  flex-shrink: 0;
+.page-header .create-btn {
+  width: auto !important;
+  max-width: fit-content !important;
+  margin: 0 !important;
+  height: 40px !important;
+  padding: 0 18px !important;
+  font-size: 13.5px !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
 }
-
-/* Bộ lọc trạng thái (Tổng / Đang hoạt động / Đã đóng) */
-.sv-filter {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-}
-
-.sv-filter-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  height: 38px;
-  padding: 0 16px;
-  border-radius: 999px;
-  border: 1.5px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text-muted);
-  font-size: 13.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.sv-filter-btn:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-.sv-filter-btn.on {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: #fff;
-}
-
-.sv-filter-btn.active.on { background: #059669; border-color: #059669; }
-.sv-filter-btn.closed.on { background: #64748B; border-color: #64748B; }
 
 /* Loading & Empty */
 .loading-state,
@@ -201,6 +166,24 @@
   font-size: 15px;
   font-weight: 600;
   color: var(--color-text-main);
+}
+
+.survey-card-code {
+  min-width: 56px;
+  height: 44px;
+  padding: 0 10px;
+  box-sizing: border-box;
+  border-radius: 10px;
+  background: var(--color-icon-bg);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.3px;
 }
 
 .active-badge {
@@ -472,43 +455,29 @@
   justify-content: flex-end;
 }
 
-/* Surveys toolbar */
-.surveys-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 24px;
-}
+/* Thanh tìm kiếm & bộ lọc (giao diện giống trang Khách hàng) */
+.filter-block { margin-bottom: 24px; display: flex; flex-direction: column; gap: 12px; }
+.filter-search-row { display: flex; align-items: center; gap: 10px; }
+.filter-adv-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 
-.surveys-toolbar #create-survey-btn,
-.surveys-toolbar .create-btn {
-  width: auto !important;
-  max-width: fit-content !important;
-  margin: 0 !important;
-  height: 40px !important;
-  padding: 0 18px !important;
-  font-size: 13.5px !important;
-  white-space: nowrap !important;
-  flex-shrink: 0 !important;
+.date-range { display: inline-flex; align-items: center; gap: 8px; }
+.date-range__label { font-size: 13px; font-weight: 600; color: var(--color-text-muted); }
+.date-pill {
+  height: 40px; padding: 0 12px; box-sizing: border-box;
+  border: 1.5px solid var(--color-border); border-radius: 999px;
+  background: var(--color-surface); color: var(--color-text-main);
+  font: inherit; font-size: 13.5px; outline: none;
 }
+.date-pill:focus { border-color: var(--color-primary); box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.14); }
 
-/* Search — đồng bộ giao diện AccountManagement */
-.survey-search-form {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-  min-width: 0;
-}
 
 .survey-search-bar {
   position: relative;
   display: flex;
   align-items: center;
   height: 40px;
-  flex: 1;
-  min-width: 200px;
+  flex: 1 1 260px;
+  min-width: 220px;
   background-color: var(--color-surface);
   border: 1.5px solid var(--color-border);
   border-radius: 999px;
@@ -568,6 +537,28 @@
   background-color: var(--color-primary);
 }
 
+.survey-select {
+  height: 40px;
+  padding: 0 14px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--color-border);
+  border-radius: 999px;
+  background-color: var(--color-surface);
+  color: var(--color-text-main);
+  font: inherit;
+  font-size: 13.5px;
+  cursor: pointer;
+  outline: none;
+  flex: 0 0 auto;
+  max-width: 220px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.survey-select:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.14);
+}
+
 .survey-search-submit {
   display: inline-flex;
   align-items: center;
@@ -583,6 +574,7 @@
   font-size: 13.5px;
   cursor: pointer;
   white-space: nowrap;
+  flex-shrink: 0;
   box-shadow: 0 2px 8px rgba(124, 58, 237, 0.25);
   transition: box-shadow 0.15s ease, transform 0.15s ease, filter 0.15s ease;
 }
@@ -597,17 +589,14 @@
 }
 
 @media (max-width: 760px) {
-  .surveys-toolbar {
+  .page-header {
     flex-wrap: wrap;
   }
 
-  .survey-search-form {
-    flex-basis: 100%;
-  }
+  .date-range { flex-wrap: wrap; }
 
-  .surveys-toolbar .create-btn {
-    width: 100% !important;
-    max-width: none !important;
-    justify-content: center;
+  .survey-select {
+    flex: 1 1 140px;
+    max-width: none;
   }
 }

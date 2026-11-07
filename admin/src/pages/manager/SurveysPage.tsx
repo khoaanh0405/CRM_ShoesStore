@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
@@ -17,7 +17,27 @@ type SurveyItem = Survey & { productId?: number | null; product?: ProductLite | 
 
 const SURVEYS_PER_PAGE = 6;
 
-type StatusFilter = 'ALL' | 'ACTIVE' | 'CLOSED';
+type SortKey = 'newest' | 'oldest' | 'responses' | 'title';
+
+interface SearchCriteria {
+  keyword: string;
+  status: '' | 'ACTIVE' | 'CLOSED';
+  product: '' | 'HAS' | 'NONE'; // Tất cả / Có gắn sản phẩm / Không gắn sản phẩm
+  dateFrom: string; // yyyy-MM-dd
+  dateTo: string;
+  sort: SortKey;
+}
+
+const EMPTY_CRITERIA: SearchCriteria = { keyword: '', status: '', product: '', dateFrom: '', dateTo: '', sort: 'newest' };
+
+/** Chữ thường + bỏ dấu tiếng Việt. */
+const normalizeText = (s: unknown): string =>
+  String(s ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd').replace(/Đ/g, 'd')
+    .toLowerCase()
+    .trim();
 
 const ProductBadge: React.FC<{ product?: ProductLite | null }> = ({ product }) =>
   product ? (
@@ -37,10 +57,9 @@ const SurveysPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [togglingId, setTogglingId] = useState<number | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchDraft, setSearchDraft] = useState('');
+  const [draft, setDraft] = useState<SearchCriteria>(EMPTY_CRITERIA);
+  const [applied, setApplied] = useState<SearchCriteria>(EMPTY_CRITERIA);
   const [currentPage, setCurrentPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
 
   const prevResponsesRef = useRef<number | null>(null);
 
@@ -48,7 +67,7 @@ const SurveysPage: React.FC = () => {
     if (!silent) setLoading(true);
     try {
       const data = (await getSurveys()) as SurveyItem[];
-      setSurveys(data.sort((a, b) => b.surveyId - a.surveyId));
+      setSurveys([...data].sort((a, b) => b.surveyId - a.surveyId));
 
       const total = data.reduce((s, x) => s + (x._count?.surveyResponses ?? 0), 0);
       if (prevResponsesRef.current !== null && total > prevResponsesRef.current) {
@@ -66,11 +85,27 @@ const SurveysPage: React.FC = () => {
 
   useAutoRefresh(() => loadSurveys(true), 5000);
 
-  const handleApplySearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSearchTerm(searchDraft);
+  /** Ô từ khóa: chỉ lưu nháp, áp dụng khi bấm "Tìm kiếm". */
+  const setKeyword = (value: string) => setDraft((prev) => ({ ...prev, keyword: value }));
+
+  /** Bộ lọc nâng cao: áp dụng ngay khi chọn. */
+  const setFilter = <K extends keyof SearchCriteria>(key: K, value: SearchCriteria[K]) => {
+    const next = { ...draft, [key]: value };
+    setDraft(next);
+    if (next.dateFrom && next.dateTo && next.dateFrom > next.dateTo) {
+      return void toast.error('Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.');
+    }
+    setApplied((prev) => ({ ...prev, [key]: value }));
   };
-  const handleClearSearch = () => { setSearchDraft(''); setSearchTerm(''); };
+
+  const handleSearch = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setApplied((prev) => ({ ...prev, keyword: draft.keyword }));
+  };
+  const handleClearKeyword = () => {
+    setDraft((prev) => ({ ...prev, keyword: '' }));
+    setApplied((prev) => ({ ...prev, keyword: '' }));
+  };
 
   const handleToggleActive = async (survey: SurveyItem, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -90,21 +125,37 @@ const SurveysPage: React.FC = () => {
     }
   };
 
-  const activeSurveys = surveys.filter((s) => s.isActive);
-  const inactiveSurveys = surveys.filter((s) => !s.isActive);
+  const filteredSurveys = useMemo(() => {
+    const kw = normalizeText(applied.keyword);
+    const list = surveys.filter((s) => {
+      if (kw) {
+        const hit =
+          normalizeText(`KS${String(s.surveyId).padStart(3, '0')}`).includes(kw) ||
+          String(s.surveyId) === kw ||
+          normalizeText(s.title).includes(kw) ||
+          normalizeText(s.description).includes(kw) ||
+          normalizeText(s.product?.productName).includes(kw) ||
+          normalizeText(fullNameOf(s.creator) || s.creator?.username).includes(kw);
+        if (!hit) return false;
+      }
+      if (applied.status === 'ACTIVE' && !s.isActive) return false;
+      if (applied.status === 'CLOSED' && s.isActive) return false;
+      if (applied.product === 'NONE' && s.product) return false;
+      if (applied.product === 'HAS' && !s.product) return false;
+      const created = new Date(s.createdAt).getTime();
+      if (applied.dateFrom && created < new Date(`${applied.dateFrom}T00:00:00`).getTime()) return false;
+      if (applied.dateTo && created > new Date(`${applied.dateTo}T23:59:59.999`).getTime()) return false;
+      return true;
+    });
+    switch (applied.sort) {
+      case 'oldest': return list.sort((a, b) => a.surveyId - b.surveyId);
+      case 'responses': return list.sort((a, b) => (b._count?.surveyResponses ?? 0) - (a._count?.surveyResponses ?? 0));
+      case 'title': return list.sort((a, b) => a.title.localeCompare(b.title, 'vi'));
+      default: return list.sort((a, b) => b.surveyId - a.surveyId);
+    }
+  }, [surveys, applied]);
 
-  const kw = searchTerm.toLowerCase();
-  const filteredSurveys = surveys.filter((s) => {
-    const matchSearch =
-      s.title.toLowerCase().includes(kw) ||
-      (s.description ?? '').toLowerCase().includes(kw) ||
-      (s.product?.productName ?? '').toLowerCase().includes(kw);
-    const matchStatus =
-      statusFilter === 'ALL' || (statusFilter === 'ACTIVE' ? s.isActive : !s.isActive);
-    return matchSearch && matchStatus;
-  });
-
-  useEffect(() => { setCurrentPage(1); }, [searchTerm, statusFilter]);
+  useEffect(() => { setCurrentPage(1); }, [applied]);
 
   const totalPages = Math.max(1, Math.ceil(filteredSurveys.length / SURVEYS_PER_PAGE));
   useEffect(() => {
@@ -123,21 +174,25 @@ const SurveysPage: React.FC = () => {
           <h1 className="page-title">Quản lý Khảo sát</h1>
           <p className="page-subtitle">Tạo, gửi và theo dõi kết quả khảo sát khách hàng theo thời gian thực</p>
         </div>
+        <button id="create-survey-btn" className="btn btn-primary create-btn" onClick={() => setShowCreateModal(true)}>
+          <Plus size={18} />
+          Tạo khảo sát mới
+        </button>
       </div>
 
-      <div className="surveys-toolbar">
-        <form className="survey-search-form" onSubmit={handleApplySearch}>
+      <div className="filter-block">
+        <form className="filter-search-row" onSubmit={handleSearch}>
           <label className="survey-search-bar">
             <Search size={16} className="survey-search-icon" />
             <input
               type="text"
               className="survey-search-input"
               placeholder="Tìm khảo sát theo tên, mô tả, sản phẩm..."
-              value={searchDraft}
-              onChange={(e) => setSearchDraft(e.target.value)}
+              value={draft.keyword}
+              onChange={(e) => setKeyword(e.target.value)}
             />
-            {searchDraft && (
-              <button type="button" className="survey-search-clear" onClick={handleClearSearch} title="Xóa từ khóa">
+            {draft.keyword && (
+              <button type="button" className="survey-search-clear" onClick={handleClearKeyword} title="Xóa từ khóa">
                 <X size={14} />
               </button>
             )}
@@ -148,25 +203,32 @@ const SurveysPage: React.FC = () => {
           </button>
         </form>
 
-        <button id="create-survey-btn" className="btn btn-primary create-btn" onClick={() => setShowCreateModal(true)}>
-          <Plus size={18} />
-          Tạo khảo sát mới
-        </button>
-      </div>
-
-      <div className="sv-filter">
-        <button type="button" className={`sv-filter-btn ${statusFilter === 'ALL' ? 'on' : ''}`}
-          onClick={() => setStatusFilter('ALL')}>
-          <FileText size={15} /> Tổng: <strong>{surveys.length}</strong>
-        </button>
-        <button type="button" className={`sv-filter-btn active ${statusFilter === 'ACTIVE' ? 'on' : ''}`}
-          onClick={() => setStatusFilter('ACTIVE')}>
-          <Power size={15} /> Đang hoạt động: <strong>{activeSurveys.length}</strong>
-        </button>
-        <button type="button" className={`sv-filter-btn closed ${statusFilter === 'CLOSED' ? 'on' : ''}`}
-          onClick={() => setStatusFilter('CLOSED')}>
-          <PowerOff size={15} /> Đã đóng: <strong>{inactiveSurveys.length}</strong>
-        </button>
+        <div className="filter-adv-row">
+          <select className="survey-select" value={draft.status} onChange={(e) => setFilter('status', e.target.value as SearchCriteria['status'])}>
+            <option value="">Tất cả trạng thái</option>
+            <option value="ACTIVE">Đang hoạt động</option>
+            <option value="CLOSED">Đã đóng</option>
+          </select>
+          <select className="survey-select" value={draft.product} onChange={(e) => setFilter('product', e.target.value as SearchCriteria['product'])}>
+            <option value="">Tất cả sản phẩm</option>
+            <option value="NONE">Không gắn sản phẩm</option>
+            <option value="HAS">Có gắn sản phẩm</option>
+          </select>
+          <select className="survey-select" value={draft.sort} onChange={(e) => setFilter('sort', e.target.value as SortKey)}>
+            <option value="newest">Mới tạo nhất</option>
+            <option value="oldest">Cũ nhất</option>
+            <option value="responses">Nhiều phản hồi nhất</option>
+            <option value="title">Tên A → Z</option>
+          </select>
+          <div className="date-range">
+            <span className="date-range__label">Từ ngày</span>
+            <input type="date" className="date-pill" value={draft.dateFrom} max={draft.dateTo || undefined}
+              onChange={(e) => setFilter('dateFrom', e.target.value)} />
+            <span className="date-range__label">đến</span>
+            <input type="date" className="date-pill" value={draft.dateTo} min={draft.dateFrom || undefined}
+              onChange={(e) => setFilter('dateTo', e.target.value)} />
+          </div>
+        </div>
       </div>
 
       {loading ? (
@@ -188,11 +250,7 @@ const SurveysPage: React.FC = () => {
             {filteredSurveys.length === 0 ? (
               <div className="empty-state">
                 <Search size={48} strokeWidth={1} />
-                <p>
-                  {searchTerm
-                    ? `Không tìm thấy khảo sát với từ khóa "${searchTerm}"`
-                    : 'Không có khảo sát nào ở mục này'}
-                </p>
+                <p>Không tìm thấy khảo sát phù hợp</p>
               </div>
             ) : (
               paginatedSurveys.map((survey) => (
@@ -205,7 +263,7 @@ const SurveysPage: React.FC = () => {
                   onKeyDown={(e) => e.key === 'Enter' && navigate(`/surveys/${survey.surveyId}`)}
                 >
                   <div className="survey-card-left">
-                    <div className="survey-card-icon"><FileText size={22} /></div>
+                    <div className="survey-card-code">KS{String(survey.surveyId).padStart(3, '0')}</div>
                     <div className="survey-card-info">
                       <div className="survey-card-title-row">
                         <h3 className="survey-card-title">{survey.title}</h3>

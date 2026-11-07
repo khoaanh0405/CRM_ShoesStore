@@ -20,8 +20,6 @@ function getTrail(pathname: string): Crumb[] {
   if (pathname === '/notifications') return [HOME, { label: 'Thông báo' }];
   if (pathname === '/auth/login') return [HOME, { label: 'Đăng nhập' }];
   if (pathname === '/auth/register') return [HOME, { label: 'Đăng ký' }];
-  if (pathname === '/auth/forgot-password') return [HOME, { label: 'Đăng nhập', to: '/auth/login' }, { label: 'Quên mật khẩu' }];
-  if (pathname === '/auth/reset-password') return [HOME, { label: 'Đăng nhập', to: '/auth/login' }, { label: 'Quên mật khẩu', to: '/auth/forgot-password' }, { label: 'Nhập mã OTP' }];
   return [];
 }
 

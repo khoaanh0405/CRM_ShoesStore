@@ -7,6 +7,7 @@ import RoleDashboard from '../pages/login/RoleDashboard';
 import { ROLE_NAMES } from '../config/constants';
 
 import AccountManagement from '../pages/admin/AccountManagement';
+import ArchiveManagement from '../pages/admin/ArchiveManagement'; // <-- 1. Import trang Lưu trữ mới
 import ProfilePage from '../pages/login/ProfilePage';
 import AuditLogsPage from '../pages/admin/AuditLogsPage';
 
@@ -23,13 +24,14 @@ const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       {
-        element: <App />, // layout có Header + Sidebar + <Outlet />
+        element: <App />, // Layout chứa Header + Sidebar + <Outlet />
         children: [
           { index: true, element: <RoleDashboard /> },
           { path: 'profile', element: <ProfilePage /> },
 
           // --- Admin ---
           { path: 'accounts', element: <RoleGuard allow={[ROLE_NAMES.ADMIN]}><AccountManagement /></RoleGuard> },
+          { path: 'archive', element: <RoleGuard allow={[ROLE_NAMES.ADMIN]}><ArchiveManagement /></RoleGuard> }, // <-- 2. Khai báo route lưu trữ
           { path: 'audit-logs', element: <RoleGuard allow={[ROLE_NAMES.ADMIN]}><AuditLogsPage /></RoleGuard> },
 
           // --- Manager ---
@@ -39,7 +41,7 @@ const router = createBrowserRouter([
           { path: 'surveys/:surveyId', element: <RoleGuard allow={[ROLE_NAMES.MANAGER]}><SurveyDetailPage /></RoleGuard> },
           { path: 'reports', element: <RoleGuard allow={[ROLE_NAMES.MANAGER]}><CustomerReport /></RoleGuard> },
 
-          // Đường dẫn không tồn tại -> về trang chủ (luôn để cuối)
+          // Đường dẫn không tồn tại -> về trang chủ
           { path: '*', element: <Navigate to="/" replace /> },
         ],
       },

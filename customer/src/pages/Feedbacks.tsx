@@ -159,8 +159,11 @@ function FeedbackCard({ feedback, productName, onOpenProduct, onEdit, onWithdraw
         <RatingStars value={feedback.rating} size={14} />
         <span style={{ color: AppColors.textSecondary, fontSize: 12 }}>{formatDate(feedback.createdAt)}</span>
       </div>
-      <span style={{ color: AppColors.textPrimary, fontSize: 16, fontWeight: 800 }}>{feedback.title}</span>
       <span style={{ color: AppColors.textSecondary, fontSize: 14, lineHeight: '20px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' as any }}>{feedback.content}</span>
+
+      {feedback.imageUrl ? (
+        <img src={feedback.imageUrl} alt="Ảnh đánh giá" style={{ width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: Radius.md, border: `1px solid ${AppColors.border}` }} />
+      ) : null}
 
       {replies.map((r) => (
         <div key={r.replyId} style={{ marginTop: 4, padding: '10px 12px', borderRadius: Radius.md, background: AppColors.background, borderLeft: `3px solid ${AppColors.accent}` }}>

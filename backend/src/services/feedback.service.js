@@ -1,12 +1,3 @@
-/**
- * Service cho Feedback. Validate rating (1-5 nguyên) TRƯỚC khi gọi Repository
- * — đúng khuyến nghị trong feedback.repository.js ("Service layer nên
- * validate rating ở input trước khi gọi xuống để tránh lỗi khó hiểu cho
- * người dùng" thay vì để Postgres throw lỗi CHECK constraint 23514).
- *
- * Không còn bước Manager duyệt: nội dung được kiểm duyệt TỰ ĐỘNG bởi contentModerationService.
- * Hợp lệ -> lưu với status 'Approved' (hiển thị ngay). Vi phạm -> ValidationError, KHÔNG ghi DB.
- */
 import { feedbackRepository, customerRepository, productRepository } from '../repositories/index.js';
 import { contentModerationService } from './contentModeration.service.js';
 import { NotFoundError, ValidationError } from '../errors/AppError.js';
@@ -42,9 +33,9 @@ export const feedbackService = {
    * Khách hàng gửi phản hồi về sản phẩm (mục 4.3.3).
    * Kiểm duyệt tự động -> hợp lệ thì lưu và hiển thị ngay (status = 'Approved').
    */
-  async create({ customerId, productId, title, content, rating, imageUrl }) {
+  async create({ customerId, productId, content, rating, imageUrl }) {
     const ratingNum = assertValidRating(rating);
-    const clean = contentModerationService.moderateFeedback({ title: title ?? '', content: content ?? '' });
+    const clean = contentModerationService.moderateFeedback({ content: content ?? '' });
     const customer = await customerRepository.findById(customerId);
     if (!customer) throw new NotFoundError(MESSAGES.NOT_FOUND.CUSTOMER);
     const product = await productRepository.findById(productId);
@@ -52,7 +43,6 @@ export const feedbackService = {
     return feedbackRepository.create({
       customerId,
       productId,
-      title: clean.title,
       content: clean.content,
       rating: ratingNum,
       imageUrl,
@@ -60,16 +50,26 @@ export const feedbackService = {
     });
   },
   /** Khách hàng sửa phản hồi của chính mình — nội dung mới cũng phải qua kiểm duyệt. */
-  async update(feedbackId, { title, content, rating, imageUrl }) {
+  async update(feedbackId, { content, rating, imageUrl }) {
     await this.getById(feedbackId);
-    const clean = contentModerationService.moderateFeedback({ title, content });
+    const clean = contentModerationService.moderateFeedback({ content });
     const ratingNum = rating !== undefined ? assertValidRating(rating) : undefined;
     return feedbackRepository.update(feedbackId, {
-      title: clean.title,
       content: clean.content,
       rating: ratingNum,
-      imageUrl,
+      imageUrl: imageUrl === '' ? null : imageUrl, // '' = khách xóa ảnh
     });
+  },
+  /**
+   * Manager ẩn / hiện lại một đánh giá đã đăng.
+   * Không đổi schema: ẩn = status 'Rejected' (không còn hiển thị công khai), hiện lại = 'Approved'.
+   * Idempotent: đã ở đúng trạng thái thì trả về luôn.
+   */
+  async setHidden(feedbackId, hidden) {
+    const feedback = await this.getById(feedbackId);
+    const target = hidden ? FEEDBACK_STATUS.REJECTED : FEEDBACK_STATUS.APPROVED;
+    if (feedback.status === target) return feedback;
+    return feedbackRepository.updateStatus(feedbackId, target);
   },
   async remove(feedbackId) {
     await this.getById(feedbackId);

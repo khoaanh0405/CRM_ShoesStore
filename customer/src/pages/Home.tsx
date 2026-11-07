@@ -2,7 +2,6 @@ import { AppButton } from '@/components/AppButton';
 import { BannerCarousel } from '@/components/BannerCarousel';
 import { ProductGrid } from '@/components/ProductGrid';
 import { SectionTitle } from '@/components/SectionTitle';
-import { CategoryIcon } from '@/components/ShoeIcons';
 import { ErrorView, LoadingView } from '@/components/StateViews';
 import { AppColors, Radius, SCREEN_PADDING } from '@/constants/appTheme';
 import { useAuth } from '@/context/AuthContext';
@@ -110,7 +109,6 @@ export default function HomePage() {
           <div className="cat-grid" style={pad}>
             {categories.map((c) => (
               <button key={c.name} className="cat-tile" onClick={() => openCategory(c.name)}>
-                <span className="cat-icon"><CategoryIcon name={c.name} size={28} /></span>
                 <span><b>{categoryLabel(c.name)}</b><small>{c.count} sản phẩm</small></span>
                 <ChevronRight size={18} color={AppColors.textSecondary} style={{ marginLeft: 'auto' }} />
               </button>

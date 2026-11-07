@@ -27,11 +27,11 @@ export const feedbackRepository = {
     return prisma.feedback.findMany({ where: { status, ...ALIVE }, orderBy: { feedbackId: 'desc' } });
   },
   /** status do Service quyết định (đánh giá hợp lệ được đăng ngay), Repository không tự áp đặt. */
-  create({ customerId, productId, title, content, rating, imageUrl, status }) {
-    return prisma.feedback.create({ data: { customerId, productId, title, content, rating, imageUrl, status } });
+  create({ customerId, productId, content, rating, imageUrl, status }) {
+    return prisma.feedback.create({ data: { customerId, productId, content, rating, imageUrl, status } });
   },
-  update(feedbackId, { title, content, rating, imageUrl }) {
-    return prisma.feedback.update({ where: { feedbackId }, data: { title, content, rating, imageUrl } });
+  update(feedbackId, { content, rating, imageUrl }) {
+    return prisma.feedback.update({ where: { feedbackId }, data: { content, rating, imageUrl } });
   },
   updateStatus(feedbackId, status) {
     return prisma.feedback.update({ where: { feedbackId }, data: { status } });

@@ -12,4 +12,3 @@ export { surveyTargetRepository } from './surveyTarget.repository.js';
 export { surveyResponseRepository } from './surveyResponse.repository.js';
 export { surveyAnswerRepository } from './surveyAnswer.repository.js';
 export { notificationRepository } from './notification.repository.js';
-export { passwordResetOtpRepository } from './passwordResetOtp.repository.js';

@@ -11,7 +11,6 @@ export const feedbackValidator = {
   create: validateBody({
     customerId: { required: true, type: 'int', min: 1 },
     productId: { required: true, type: 'int', min: 1 },
-    title: { required: true, type: 'string', maxLength: 150 },
     content: { required: true, type: 'string' },
     // Khớp đúng CHECK (rating BETWEEN 1 AND 5) ở tầng DB.
     rating: { required: true, type: 'int', min: FEEDBACK_RATING.MIN, max: FEEDBACK_RATING.MAX },
@@ -19,7 +18,6 @@ export const feedbackValidator = {
   }),
 
   update: validateBody({
-    title: { type: 'string', maxLength: 150 },
     content: { type: 'string' },
     rating: { type: 'int', min: FEEDBACK_RATING.MIN, max: FEEDBACK_RATING.MAX },
     imageUrl: { type: 'string', maxLength: 500 },

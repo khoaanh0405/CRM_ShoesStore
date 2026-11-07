@@ -17,6 +17,9 @@ router.post('/', authenticate, feedbackValidator.create, ownCustomerOnly, feedba
 
 router.put('/:id', authenticate, authorize(ROLE_NAMES.CUSTOMER), feedbackValidator.idParam, feedbackValidator.update, feedbackController.update);
 
+// Manager ẩn / hiện lại đánh giá đã đăng (body: { hidden: boolean })
+router.patch('/:id/visibility', managerOnly, feedbackValidator.idParam, feedbackController.setVisibility);
+
 router.get('/:id/replies', staffOnly, feedbackValidator.idParam, reviewReplyController.listByFeedback);
 router.post('/:id/replies', managerOnly, feedbackValidator.idParam, validateBody({ content: { required: true, type: 'string', maxLength: 2000 } }), reviewReplyController.create);
 

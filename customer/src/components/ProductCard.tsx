@@ -1,18 +1,21 @@
 import { AppColors, Radius } from '@/constants/appTheme';
 import type { Product } from '@/types/product';
 import { formatPrice } from '@/utils/format';
+import { resolveImageUrl } from '@/utils/imageUrl';
 import { ImageOff } from 'lucide-react';
+import { useState } from 'react';
 
 type Props = { product: Product; width: number | string; onClick: () => void; badge?: string; };
 
 export function ProductCard({ product, width, onClick, badge }: Props) {
+  const [imgError, setImgError] = useState(false);
   const soldOut = product.stockQuantity <= 0;
   const fixed = typeof width === 'number';
   return (
     <div className="product-card" onClick={onClick} style={{ width, borderRadius: Radius.lg, border: `1px solid ${AppColors.border}`, background: AppColors.surface, overflow: 'hidden', cursor: 'pointer', flexShrink: fixed ? 0 : undefined }}>
       <div style={{ position: 'relative', width: '100%', aspectRatio: '4 / 3', background: AppColors.background, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {product.imageUrl ? (
-          <img src={product.imageUrl} alt={product.productName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        {product.imageUrl && !imgError ? (
+          <img src={resolveImageUrl(product.imageUrl)} alt={product.productName} onError={() => setImgError(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
           <ImageOff size={32} color={AppColors.textSecondary} />
         )}

@@ -1,13 +1,3 @@
-/**
- * Repository cho model SurveyAnswer (bảng survey_answers).
- * response_id -> survey_responses (CASCADE)
- * question_id -> survey_questions (RESTRICT)
- * option_id   -> survey_question_options (SET NULL, nullable)
- *
- * Quy ước dữ liệu theo đúng seed.js: câu TEXT chỉ có answerValue (optionId
- * = null); câu SINGLE_CHOICE lưu cả answerValue (text lựa chọn, denormalized)
- * lẫn optionId (để group-by chính xác khi thống kê).
- */
 import prisma from '../config/database.js';
 
 export const surveyAnswerRepository = {

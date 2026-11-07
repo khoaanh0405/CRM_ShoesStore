@@ -8,13 +8,6 @@ const logLevels = config.nodeEnv === 'development'
   ? ['query', 'info', 'warn', 'error']
   : ['error'];
 
-/**
- * Dùng Prisma Driver Adapter (@prisma/adapter-pg) thay vì truyền
- * datasources.db.url trực tiếp — PHẢI đồng bộ với seed.js (seed.js đã tạo
- * pool + adapter theo đúng cách này). schema.prisma cũng không khai báo
- * `url = env("DATABASE_URL")` trong block datasource vì URL được cấp qua
- * adapter, không phải qua schema.
- */
 const pool = new pg.Pool({ connectionString: config.databaseUrl });
 const adapter = new PrismaPg(pool);
 
@@ -31,11 +24,6 @@ export const connectDB = async () => {
   }
 };
 
-/**
- * Đóng kết nối Prisma + pg Pool "sạch" khi server tắt (SIGINT/SIGTERM).
- * Quan trọng với Neon vì giới hạn số connection đồng thời khá thấp — nếu
- * không disconnect, pool cũ có thể bị treo và chiếm slot connection.
- */
 export const disconnectDB = async () => {
   await prisma.$disconnect();
   await pool.end();

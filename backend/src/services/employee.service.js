@@ -1,10 +1,3 @@
-/**
- * Service cho Employee (hồ sơ Admin/Manager).
- *  - getMe / updateMe: nhân sự xem & sửa thông tin của CHÍNH MÌNH (yêu cầu đồ án: "Xem, sửa thông tin của chính mình").
- *  - ensureForAccount: đảm bảo mọi tài khoản Admin/Manager đều có hồ sơ Employee
- *    (dùng khi đổi vai trò Customer -> Admin/Manager, hoặc tài khoản tạo từ trước khi có bảng employees).
- *  - list: Admin xem danh sách nhân sự.
- */
 import { employeeRepository, accountRepository, customerRepository } from '../repositories/index.js';
 import { NotFoundError, ValidationError, ConflictError } from '../errors/AppError.js';
 import { MESSAGES, ROLE_NAMES } from '../constants/index.js';

@@ -1,13 +1,3 @@
-/**
- * Kiểm duyệt nội dung đánh giá TỰ ĐỘNG ở Backend (thay cho bước Manager duyệt thủ công).
- *
- * Nguyên tắc:
- *  - Chỉ chặn khi nội dung THẬT SỰ có vấn đề (chửi tục, spam, vô nghĩa, rỗng, quá dài...).
- *    Đánh giá tiêu cực nhưng góp ý hợp lệ ("giày bong đế sau 1 tuần, rất thất vọng") luôn được qua.
- *  - Chuẩn hóa trước khi dò (bỏ dấu, gom ký tự lặp, bỏ ký tự chèn, giải leet-speak) để hạn chế né lọc.
- *  - Thuần hàm, không đụng DB, không ghi log nội dung người dùng. Vi phạm -> ném ValidationError (400)
- *    kèm lý do bằng tiếng Việt để Frontend hiển thị nguyên văn cho khách hàng.
- */
 import { ValidationError } from '../errors/AppError.js';
 import {
   FEEDBACK_CONTENT_LIMITS,
@@ -21,11 +11,6 @@ import {
 import { sanitizeText, stripDiacritics, collapseRepeats, buildSearchVariants } from '../utils/text.util.js';
 
 const FIELD_SPECS = {
-  title: {
-    label: 'Tiêu đề',
-    minLetters: FEEDBACK_CONTENT_LIMITS.TITLE_MIN_LETTERS,
-    maxLength: FEEDBACK_CONTENT_LIMITS.TITLE_MAX_LENGTH,
-  },
   content: {
     label: 'Nội dung',
     minLetters: FEEDBACK_CONTENT_LIMITS.CONTENT_MIN_LETTERS,
@@ -165,15 +150,15 @@ function inspectText(text, spec) {
 
 export const contentModerationService = {
   /**
-   * Kiểm tra tiêu đề + nội dung đánh giá. Trường nào `undefined` thì bỏ qua (dùng cho cập nhật từng phần).
+   * Kiểm tra nội dung đánh giá. Trường nào `undefined` thì bỏ qua (dùng cho cập nhật từng phần).
    * Hợp lệ -> trả về bản ĐÃ LÀM SẠCH (trim, gom khoảng trắng, bỏ ký tự vô hình) để lưu DB.
-   * Vi phạm -> ném ValidationError, gộp lý do của cả tiêu đề và nội dung (nếu cùng sai).
+   * Vi phạm -> ném ValidationError, trả về lý do vi phạm.
    */
-  moderateFeedback({ title, content } = {}) {
+  moderateFeedback({ content } = {}) {
     const clean = {};
     const messages = [];
 
-    for (const [field, value] of [['title', title], ['content', content]]) {
+    for (const [field, value] of [['content', content]]) {
       if (value === undefined) continue;
       const spec = FIELD_SPECS[field];
       if (typeof value !== 'string') {

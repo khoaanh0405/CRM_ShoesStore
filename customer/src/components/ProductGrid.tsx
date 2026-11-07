@@ -5,10 +5,6 @@ import { ProductCard } from './ProductCard';
 
 export type GridCta = { title: string; text: string; label: string; onClick: () => void };
 
-/**
- * Lưới sản phẩm cố định số cột. Khi có ít sản phẩm, thẻ CTA (nếu truyền) sẽ
- * chiếm hết phần trống cuối hàng để bố cục không bị hụt.
- */
 export function ProductGrid({ products, onOpen, cta, cols3 = false, highlightIds, highlightLabel = 'Gợi ý cho bạn' }: { products: Product[]; onOpen: (p: Product) => void; cta?: GridCta; cols3?: boolean; highlightIds?: Set<number>; highlightLabel?: string }) {
   return (
     <div className={`product-grid${cols3 ? ' cols-3' : ''}`}>

@@ -1,11 +1,3 @@
-/**
- * Repository cho model CustomerPreference (bảng customer_preferences).
- * Sở thích của khách hàng CHỈ được chọn từ danh mục có sẵn nên bảng lưu categoryId (FK -> categories),
- * không còn lưu tên danh mục dạng chuỗi.
- *  - customer_id -> customers (CASCADE), category_id -> categories (CASCADE)
- *  - UNIQUE (customer_id, category_id): một khách hàng không chọn trùng một danh mục.
- * Không có bảng con nào tham chiếu tới preference_id nên remove() luôn an toàn.
- */
 import prisma from '../config/database.js';
 
 const WITH_CATEGORY = {

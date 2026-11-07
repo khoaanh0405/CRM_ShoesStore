@@ -563,6 +563,12 @@
 }
 
 /* Stats */
+.stats-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
 .stats-overview {
   display: flex;
   gap: 12px;

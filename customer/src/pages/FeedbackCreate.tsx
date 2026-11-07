@@ -12,12 +12,26 @@ import { feedbackService } from '@/services/feedback.service';
 import { productService } from '@/services/product.service';
 import type { Product } from '@/types/product';
 import { formatPrice } from '@/utils/format';
-import { ChevronDown, ImageOff, Lock, Save, Search, Send, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { ChevronDown, ImageOff, ImagePlus, Lock, Save, Search, Send, X } from 'lucide-react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
-const TITLE_MAX = 150;
 const CONTENT_MAX = 2000;
+const IMAGE_MAX_MB = 5;
+const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME as string | undefined;
+const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET as string | undefined;
+
+/** Upload ảnh lên Cloudinary (unsigned preset), trả về URL https. */
+async function uploadImage(file: File): Promise<string> {
+  if (!CLOUD_NAME || !UPLOAD_PRESET) throw new Error('Chưa cấu hình Cloudinary.');
+  const body = new FormData();
+  body.append('file', file);
+  body.append('upload_preset', UPLOAD_PRESET);
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { method: 'POST', body });
+  const json = await res.json().catch(() => null);
+  if (!res.ok || !json?.secure_url) throw new Error(json?.error?.message ?? 'Tải ảnh lên thất bại.');
+  return json.secure_url as string;
+}
 const normalize = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
 
 /**
@@ -34,9 +48,11 @@ export default function FeedbackCreatePage() {
 
   const [selectedId, setSelectedId] = useState<number | null>(initialProductId ? Number(initialProductId) : null);
   const [rating, setRating] = useState(0);
-  const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [errors, setErrors] = useState<{ product?: string; rating?: string; title?: string; content?: string }>({});
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<{ product?: string; rating?: string; content?: string }>({});
   const [pickerOpen, setPickerOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const lockRef = useRef(false);
@@ -55,20 +71,36 @@ export default function FeedbackCreatePage() {
       hydrated.current = true;
       setSelectedId(existing.productId);
       setRating(existing.rating);
-      setTitle(existing.title);
       setContent(existing.content);
+      setImageUrl(existing.imageUrl ?? null);
     }
   }, [isEdit, existing]);
 
   const goBack = () => navigate(-1);
+
+  const handlePickImage = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setImageError(null);
+    if (!file.type.startsWith('image/')) return setImageError('Vui lòng chọn file ảnh.');
+    if (file.size > IMAGE_MAX_MB * 1024 * 1024) return setImageError(`Ảnh tối đa ${IMAGE_MAX_MB}MB.`);
+    setUploading(true);
+    try {
+      setImageUrl(await uploadImage(file));
+    } catch (err) {
+      setImageError(err instanceof Error ? err.message : 'Tải ảnh lên thất bại.');
+    } finally {
+      setUploading(false);
+    }
+  };
   const selected = products?.find((p) => p.productId === selectedId) ?? null;
 
   const handleSubmit = async () => {
-    if (lockRef.current) return;
+    if (lockRef.current || uploading) return;
     const next = {
       product: selectedId == null ? 'Vui lòng chọn sản phẩm.' : undefined,
       rating: rating < 1 ? 'Vui lòng chọn số sao.' : undefined,
-      title: !title.trim() ? 'Vui lòng nhập tiêu đề.' : title.trim().length > TITLE_MAX ? `Tối đa ${TITLE_MAX} ký tự.` : undefined,
       content: !content.trim() ? 'Vui lòng nhập nội dung đánh giá.' : content.trim().length > CONTENT_MAX ? `Tối đa ${CONTENT_MAX} ký tự.` : undefined,
     };
     setErrors(next);
@@ -86,10 +118,10 @@ export default function FeedbackCreatePage() {
       }
 
       if (isEdit) {
-        await feedbackService.update(editId!, { title: title.trim(), content: content.trim(), rating });
+        await feedbackService.update(editId!, { content: content.trim(), rating, imageUrl: imageUrl ?? '' });
         alert('Đã cập nhật đánh giá. Đánh giá vẫn đang chờ cửa hàng duyệt.');
       } else {
-        await feedbackService.create({ customerId, productId: selectedId, title: title.trim(), content: content.trim(), rating });
+        await feedbackService.create({ customerId, productId: selectedId, content: content.trim(), rating, imageUrl: imageUrl ?? undefined });
         alert('Đã gửi đánh giá. Phản hồi của bạn đang chờ cửa hàng duyệt. Cảm ơn bạn!');
       }
       goBack();
@@ -155,12 +187,31 @@ export default function FeedbackCreatePage() {
             {errors.rating ? <span style={{ color: AppColors.danger, fontSize: 12 }}>{errors.rating}</span> : null}
           </div>
 
-          <AppTextField label="Tiêu đề" placeholder="Tóm tắt cảm nhận của bạn" value={title} onChangeText={setTitle} maxLength={TITLE_MAX} error={errors.title} />
           <AppTextField label="Nội dung" placeholder="Chất liệu, độ vừa chân, chất lượng sau khi sử dụng..." multiline value={content} onChangeText={(v) => { setContent(v); setErrors((p) => ({ ...p, content: undefined })); }} maxLength={CONTENT_MAX} error={errors.content} />
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <span style={{ color: AppColors.textPrimary, fontSize: 13, fontWeight: 600 }}>Hình ảnh thực tế (không bắt buộc)</span>
+            {imageUrl ? (
+              <div style={{ position: 'relative', width: 140, height: 140 }}>
+                <img src={imageUrl} alt="Ảnh đánh giá" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: Radius.md, border: `1px solid ${AppColors.border}` }} />
+                <button type="button" onClick={() => setImageUrl(null)} aria-label="Xóa ảnh"
+                  style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: 13, border: 'none', background: 'rgba(0,0,0,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                  <X size={16} color="#fff" />
+                </button>
+              </div>
+            ) : (
+              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: 140, height: 140, borderRadius: Radius.md, border: `1.5px dashed ${AppColors.border}`, background: AppColors.surface, color: AppColors.textSecondary, fontSize: 13, cursor: uploading ? 'default' : 'pointer', flexDirection: 'column' }}>
+                <ImagePlus size={26} />
+                {uploading ? 'Đang tải ảnh...' : 'Thêm ảnh'}
+                <input type="file" accept="image/*" onChange={handlePickImage} disabled={uploading} style={{ display: 'none' }} />
+              </label>
+            )}
+            {imageError ? <span style={{ color: AppColors.danger, fontSize: 12 }}>{imageError}</span> : null}
+          </div>
 
           {formError ? <span style={{ color: AppColors.danger, fontSize: 13 }}>{formError}</span> : null}
 
-          <AppButton label={isEdit ? 'Lưu thay đổi' : 'Gửi đánh giá'} icon={isEdit ? Save : Send} onClick={handleSubmit} loading={submitting} />
+          <AppButton label={isEdit ? 'Lưu thay đổi' : 'Gửi đánh giá'} icon={isEdit ? Save : Send} onClick={handleSubmit} loading={submitting || uploading} />
         </div>
       )}
 
