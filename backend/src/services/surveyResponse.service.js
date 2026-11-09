@@ -1,9 +1,3 @@
-/**
- * Service cho SurveyResponse — nghiệp vụ quan trọng nhất: khách hàng nộp
- * khảo sát (mục 4.3.4). submit() phải chạy trong 1 prisma.$transaction để
- * tránh trạng thái nửa vời: có SurveyResponse nhưng thiếu SurveyAnswer, hoặc
- * SurveyTarget không được đánh dấu isCompleted.
- */
 import prisma from '../config/database.js';
 import {
   surveyResponseRepository,

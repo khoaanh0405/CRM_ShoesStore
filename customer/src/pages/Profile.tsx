@@ -1,5 +1,7 @@
 import { AppButton } from '@/components/AppButton';
 import { AppTextField } from '@/components/AppTextField';
+import { AddressFields } from '@/components/AddressFields';
+import { composeAddress, parseAddress, validateAddressParts } from '@/constants/vnAddress';
 import { Chip } from '@/components/Chip';
 import { RatingStars } from '@/components/RatingStars';
 import { ErrorView, LoadingView } from '@/components/StateViews';
@@ -23,14 +25,14 @@ import type { SurveyTarget } from '@/types/survey';
 import { formatDate, formatDateOnly, formatPrice, toDateInput } from '@/utils/format';
 import { fullNameOf, NAME_PART_MAX, validateNamePart } from '@/utils/name';
 import { recommendProducts } from '@/utils/recommend';
-import { normalizeEmail, normalizePhone, normalizeSpaces, validateAddress, validateDateOfBirth, PASSWORD_RULES, validateEmail, validateNewPassword, validatePhone } from '@/utils/validation';
+import { normalizeEmail, normalizePhone, normalizeSpaces, validateDateOfBirth, PASSWORD_RULES, validateEmail, validateNewPassword, validatePhone } from '@/utils/validation';
 import { Check, ClipboardList, Edit3, Grid, Heart, History, ImageOff, Key, LogOut, MessageCircle, Phone, ShieldCheck, User, type LucideIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { showConfirm } from '@/lib/dialog';
 
 type Section = 'info' | 'prefs' | 'history' | 'password';
-type ProfileForm = { lastName: string; firstName: string; dateOfBirth: string; gender: string; phone: string; email: string; address: string };
+type ProfileForm = { lastName: string; firstName: string; dateOfBirth: string; gender: string; phone: string; email: string; street: string; province: string; ward: string };
 type FormErrors = Partial<Record<keyof ProfileForm, string | null>>;
 const EMPTY_PASSWORD = { oldPassword: '', newPassword: '', confirm: '' };
 
@@ -77,7 +79,7 @@ export default function ProfilePage() {
   const [section, setSection] = useState<Section>(MENU.some((m) => m.key === initialTab) ? (initialTab as Section) : 'info');
 
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState<ProfileForm>({ lastName: '', firstName: '', dateOfBirth: '', gender: '', phone: '', email: '', address: '' });
+  const [form, setForm] = useState<ProfileForm>({ lastName: '', firstName: '', dateOfBirth: '', gender: '', phone: '', email: '', street: '', province: '', ward: '' });
   const [errors, setErrors] = useState<FormErrors>({});
   const [saving, setSaving] = useState(false);
   const [savingCategoryId, setSavingCategoryId] = useState<number | null>(null);
@@ -112,7 +114,7 @@ export default function ProfilePage() {
   const pwLabel = pw.newPassword ? ['Yếu', 'Yếu', 'Trung bình', 'Khá', 'Mạnh'][pwScore] : '—';
 
   const startEditing = (p: CustomerProfile) => {
-    setForm({ lastName: p.lastName ?? '', firstName: p.firstName ?? '', dateOfBirth: toDateInput(p.dateOfBirth), gender: p.gender ?? '', phone: p.phone ?? '', email: p.email ?? '', address: p.address ?? '' });
+    setForm({ lastName: p.lastName ?? '', firstName: p.firstName ?? '', dateOfBirth: toDateInput(p.dateOfBirth), gender: p.gender ?? '', phone: p.phone ?? '', email: p.email ?? '', ...parseAddress(p.address) });
     setErrors({});
     setEditing(true);
   };
@@ -123,12 +125,12 @@ export default function ProfilePage() {
 
   const saveProfile = async () => {
     if (customerId == null || saving) return;
-    const next: FormErrors = { lastName: validateNamePart('Họ', form.lastName), firstName: validateNamePart('Tên', form.firstName), dateOfBirth: validateDateOfBirth(form.dateOfBirth), phone: validatePhone(form.phone), email: validateEmail(form.email), address: validateAddress(form.address) };
+    const next: FormErrors = { lastName: validateNamePart('Họ', form.lastName), firstName: validateNamePart('Tên', form.firstName), dateOfBirth: validateDateOfBirth(form.dateOfBirth), phone: validatePhone(form.phone), email: validateEmail(form.email), ...validateAddressParts(form) };
     setErrors(next);
     if (Object.values(next).some(Boolean)) return;
     setSaving(true);
     try {
-      await customerService.updateProfile(customerId, { lastName: normalizeSpaces(form.lastName), firstName: normalizeSpaces(form.firstName), dateOfBirth: form.dateOfBirth.trim(), gender: form.gender || undefined, phone: normalizePhone(form.phone), email: normalizeEmail(form.email), address: normalizeSpaces(form.address) });
+      await customerService.updateProfile(customerId, { lastName: normalizeSpaces(form.lastName), firstName: normalizeSpaces(form.firstName), dateOfBirth: form.dateOfBirth.trim(), gender: form.gender || undefined, phone: normalizePhone(form.phone), email: normalizeEmail(form.email), address: composeAddress(form) });
       setEditing(false);
       await reload();
       alert('Đã lưu. Thông tin cá nhân của bạn đã được cập nhật.');
@@ -220,7 +222,15 @@ export default function ProfilePage() {
                   <AppTextField label="Số điện thoại" inputMode="tel" maxLength={15} placeholder="vd: 0912345678" value={form.phone} onChangeText={setField('phone')} error={errors.phone} />
                   <AppTextField label="Email" type="email" inputMode="email" maxLength={100} placeholder="ten@gmail.com" value={form.email} onChangeText={setField('email')} error={errors.email} />
                   <div className="full">
-                    <AppTextField label="Địa chỉ" maxLength={255} value={form.address} onChangeText={setField('address')} error={errors.address} />
+                    <AddressFields
+                      variant="app"
+                      value={{ street: form.street, province: form.province, ward: form.ward }}
+                      onChange={(a) => {
+                        setForm((prev) => ({ ...prev, ...a }));
+                        setErrors((prev) => ({ ...prev, street: null, province: null, ward: null }));
+                      }}
+                      errors={{ street: errors.street, province: errors.province, ward: errors.ward }}
+                    />
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 12, marginTop: 20, maxWidth: 360 }}>

@@ -8,9 +8,9 @@ export type ReviewReply = {
 };
 
 export type Feedback = {
-  feedbackId: number; customerId: number; productId: number; title: string; content: string;
+  feedbackId: number; customerId: number; productId: number; content: string;
   rating: number; imageUrl: string | null; status: FeedbackStatus; createdAt: string; replies?: ReviewReply[];
 };
 
-export type CreateFeedbackPayload = { customerId: number; productId: number; title: string; content: string; rating: number; imageUrl?: string };
-export type UpdateFeedbackPayload = { title: string; content: string; rating: number; imageUrl?: string };
+export type CreateFeedbackPayload = { customerId: number; productId: number; content: string; rating: number; imageUrl?: string | null };
+export type UpdateFeedbackPayload = { content: string; rating: number; imageUrl?: string };

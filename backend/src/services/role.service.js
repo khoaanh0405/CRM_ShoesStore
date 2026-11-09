@@ -1,8 +1,3 @@
-/**
- * Service cho Role — nghiệp vụ mỏng, chủ yếu validate trùng tên vai trò và
- * chuyển lỗi FK (P2003) khi xóa Role còn Account tham chiếu thành lỗi nghiệp
- * vụ dễ hiểu (xem ghi chú role.repository.js).
- */
 import { roleRepository } from '../repositories/index.js';
 import { NotFoundError, ValidationError, ConflictError } from '../errors/AppError.js';
 import { MESSAGES } from '../constants/index.js';

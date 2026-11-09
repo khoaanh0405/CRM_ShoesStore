@@ -1,7 +1,3 @@
-/**
- * Service cho Survey. Khảo sát có thể gắn (tùy chọn) với 1 sản phẩm qua productId và
- * ghi nhận nhân viên tạo (createdBy = employee_id). KHÔNG có hard delete — dùng setActive().
- */
 import { createHash } from 'node:crypto';
 import prisma from '../config/database.js';
 import { surveyRepository, surveyTargetRepository, customerRepository, productRepository } from '../repositories/index.js';

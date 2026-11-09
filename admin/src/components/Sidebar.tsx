@@ -8,6 +8,7 @@ import {
   UserRound,
   History,
   BarChart3,
+  Archive,
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { ROLE_NAMES } from '../config/constants';
@@ -22,6 +23,7 @@ interface SidebarProps {
 const adminMenu = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/accounts', label: 'Quản lý tài khoản', icon: Users },
+  { to: '/archive', label: 'Lưu trữ', icon: Archive },
   { to: '/audit-logs', label: 'Nhật ký hoạt động', icon: History },
 ];
 
@@ -80,7 +82,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
         </ul>
       </nav>
 
-      {/* Khối hồ sơ cá nhân ở cuối sidebar (giống ảnh 2) */}
       <div className="sidebar-footer">
         <NavLink to="/profile" className={({ isActive }) => `sidebar-user-card ${isActive ? 'active' : ''}`}>
           <div className="user-avatar">

@@ -1,8 +1,3 @@
-/**
- * Repository cho model SurveyTarget (bảng survey_targets).
- * PK composite (survey_id, customer_id) -> where dùng surveyId_customerId.
- * sentSignature: "chữ ký" nội dung khảo sát tại thời điểm gửi, dùng để chặn gửi trùng.
- */
 import prisma from '../config/database.js';
 
 const PRODUCT_SELECT = {

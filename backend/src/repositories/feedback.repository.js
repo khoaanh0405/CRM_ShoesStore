@@ -16,17 +16,22 @@ export const feedbackRepository = {
   findByCustomer(customerId) {
     return prisma.feedback.findMany({ where: { customerId, ...ALIVE }, orderBy: { feedbackId: 'desc' }, include: { replies: REPLIES } });
   },
-  findByProduct(productId) {
-    return prisma.feedback.findMany({ where: { productId, ...ALIVE }, orderBy: { feedbackId: 'desc' }, include: { replies: REPLIES } });
+  /** status (tùy chọn): lọc theo trạng thái, vd chỉ lấy các đánh giá đang hiển thị công khai. */
+  findByProduct(productId, status) {
+    return prisma.feedback.findMany({
+      where: { productId, ...(status && { status }), ...ALIVE },
+      orderBy: { feedbackId: 'desc' }, include: { replies: REPLIES },
+    });
   },
   findByStatus(status) {
     return prisma.feedback.findMany({ where: { status, ...ALIVE }, orderBy: { feedbackId: 'desc' } });
   },
-  create({ customerId, productId, title, content, rating, imageUrl }) {
-    return prisma.feedback.create({ data: { customerId, productId, title, content, rating, imageUrl, status: 'Pending' } });
+  /** status do Service quyết định (đánh giá hợp lệ được đăng ngay), Repository không tự áp đặt. */
+  create({ customerId, productId, content, rating, imageUrl, status }) {
+    return prisma.feedback.create({ data: { customerId, productId, content, rating, imageUrl, status } });
   },
-  update(feedbackId, { title, content, rating, imageUrl }) {
-    return prisma.feedback.update({ where: { feedbackId }, data: { title, content, rating, imageUrl } });
+  update(feedbackId, { content, rating, imageUrl }) {
+    return prisma.feedback.update({ where: { feedbackId }, data: { content, rating, imageUrl } });
   },
   updateStatus(feedbackId, status) {
     return prisma.feedback.update({ where: { feedbackId }, data: { status } });

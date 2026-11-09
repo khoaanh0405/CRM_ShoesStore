@@ -33,13 +33,7 @@ const daysAgo = (n, hour = 10) => {
   return d > now ? now : d;
 };
 
-const randAcc = mulberry32(7);
-const randomPast = (minDays, maxDays) => {
-  const d = new Date();
-  d.setDate(d.getDate() - (minDays + Math.floor(randAcc() * (maxDays - minDays + 1))));
-  d.setHours(Math.floor(randAcc() * 24), Math.floor(randAcc() * 60), Math.floor(randAcc() * 60), 0);
-  return d;
-};
+const randReply = mulberry32(11); // tách riêng để không làm đổi dữ liệu ngẫu nhiên của khảo sát
 
 const EMAIL_OVERRIDES = {
   nguyenvana: 'nguyenhuudai104@gmail.com',
@@ -71,60 +65,74 @@ const PRODUCTS = [
   { productName: 'Giày Thể Thao Training Pro', category: 'Giày Thể Thao', brand: 'Reebok', size: '39/40/41/42', color: 'Đen/Xám', material: 'Vải lưới thoáng khí', price: 1390000, stockQuantity: 55 },
 ];
 
+// Địa chỉ theo cấu trúc mới: "Số nhà, tên đường, Phường/Xã, Tỉnh/TP" (khớp danh mục trong vnAddress.ts)
 const CUSTOMERS = [
-  ['nguyenvana', 'Nguyễn Văn', 'An', '2008-04-12', 'Nam', '0901000001', 'Q.1, TP.HCM', ['Giày Sneaker'], false, false],
-  ['tranthib', 'Trần Thị', 'Bích', '2007-09-30', 'Nữ', '0901000002', 'Q.3, TP.HCM', ['Giày Sneaker', 'Giày Sandal'], false, false],
-  ['levanc', 'Lê Văn', 'Cường', '2002-01-15', 'Nam', '0901000003', 'Q.5, TP.HCM', ['Giày Chạy Bộ'], false, false],
-  ['phamthid', 'Phạm Thị', 'Dung', '2001-03-25', 'Nữ', '0901000004', 'Q.10, TP.HCM', ['Giày Cao Gót'], false, false],
-  ['hoangvane', 'Hoàng Văn', 'Em', '2003-11-08', 'Nam', '0901000005', 'Q.Tân Bình, TP.HCM', ['Giày Bóng Rổ', 'Giày Thể Thao'], false, false],
-  ['vothif', 'Võ Thị', 'Phương', '2000-06-19', 'Nữ', '0901000006', 'Q.7, TP.HCM', ['Giày Sandal'], false, false],
-  ['dangvang', 'Đặng Văn', 'Giang', '1998-07-22', 'Nam', '0901000007', 'Q.Bình Thạnh, TP.HCM', ['Giày Bóng Rổ'], false, false],
-  ['buithih', 'Bùi Thị', 'Hoa', '1999-02-18', 'Nữ', '0901000008', 'Q.Gò Vấp, TP.HCM', ['Giày Sneaker', 'Giày Thể Thao'], false, false],
-  ['ngophii', 'Ngô Phi', 'Hùng', '1996-11-05', 'Nam', '0901000009', 'Q.4, TP.HCM', [], false, false],
-  ['lythik', 'Lý Thị', 'Kim', '1997-09-09', 'Nữ', '0901000010', 'Q.2, TP.HCM', ['Giày Chạy Bộ', 'Giày Thể Thao'], false, false],
-  ['truongvanl', 'Trương Văn', 'Lâm', '1994-04-30', 'Nam', '0901000011', 'Q.11, TP.HCM', ['Giày Thể Thao', 'Giày Chạy Bộ'], false, false],
-  ['dothim', 'Đỗ Thị', 'Mai', '1993-06-14', 'Nữ', '0901000012', 'Q.Phú Nhuận, TP.HCM', ['Giày Cao Gót', 'Giày Sandal'], false, false],
-  ['nguyenvann', 'Nguyễn Văn', 'Nam', '1990-12-01', 'Nam', '0901000013', 'Q.12, TP.HCM', ['Giày Sneaker'], false, false],
-  ['tranthio', 'Trần Thị', 'Oanh', '1989-05-27', 'Nữ', '0901000014', 'Q.Thủ Đức, TP.HCM', ['Giày Cao Gót'], false, false],
-  ['phamvanp', 'Phạm Văn', 'Phúc', '1987-08-16', 'Nam', '0901000015', 'Q.6, TP.HCM', [], false, false],
-  ['lethiq', 'Lê Thị', 'Quyên', '1985-10-03', 'Nữ', '0901000016', 'Q.8, TP.HCM', ['Giày Sandal', 'Giày Cao Gót'], false, false],
-  ['vovanr', 'Võ Văn', 'Rạng', '1982-01-21', 'Nam', '0901000017', 'Q.9, TP.HCM', ['Giày Chạy Bộ'], false, false],
-  ['hothis', 'Hồ Thị', 'Sương', '1979-03-11', 'Nữ', '0901000018', 'Q.Tân Phú, TP.HCM', ['Giày Sandal'], false, false],
-  ['dinhvant', 'Đinh Văn', 'Tài', '1975-12-24', 'Nam', '0901000019', 'Huyện Bình Chánh, TP.HCM', [], false, false],
-  ['maithiu', 'Mai Thị', 'Uyên', '1970-07-07', 'Nữ', '0901000020', 'Q.Bình Tân, TP.HCM', ['Giày Sandal'], false, false],
-  ['caovanv', 'Cao Văn', 'Vinh', '2004-05-05', 'Khác', '0901000021', 'Q.1, TP.HCM', ['Giày Sneaker', 'Giày Bóng Rổ'], false, false],
-  ['luuthix', 'Lưu Thị', 'Xuân', '1995-02-02', 'Nữ', '0901000022', 'Q.5, TP.HCM', ['Giày Cao Gót'], true, false],
-  ['tavany', 'Tạ Văn', 'Yên', '1992-09-19', 'Nam', '0901000023', 'Q.Tân Bình, TP.HCM', ['Giày Thể Thao'], true, false],
-  ['phanvann', 'Phan Văn', 'Nghĩa', '1992-03-03', 'Nam', '0901000024', 'Q.6, TP.HCM', [], false, true],
-  ['huynhthio', 'Huỳnh Thị', 'Ơn', '1997-08-28', 'Nữ', '0901000025', 'Q.8, TP.HCM', ['Giày Cao Gót'], false, true],
-  ['vuvanp', 'Vũ Văn', 'Quân', '1991-12-19', 'Nam', '0901000026', 'Q.9, TP.HCM', ['Giày Bóng Rổ'], false, true],
+  ['nguyenvana', 'Nguyễn Văn', 'An', '2008-04-12', 'Nam', '0901000001', '12 Lê Lợi, Phường Bến Nghé, TP. Hồ Chí Minh', ['Giày Sneaker'], false, false],
+  ['tranthib', 'Trần Thị', 'Bích', '2007-09-30', 'Nữ', '0901000002', '45 Võ Văn Tần, Phường Võ Thị Sáu, TP. Hồ Chí Minh', ['Giày Sneaker', 'Giày Sandal'], false, false],
+  ['levanc', 'Lê Văn', 'Cường', '2002-01-15', 'Nam', '0901000003', '88 Nguyễn Trãi, Phường Bến Thành, TP. Hồ Chí Minh', ['Giày Chạy Bộ'], false, false],
+  ['phamthid', 'Phạm Thị', 'Dung', '2001-03-25', 'Nữ', '0901000004', '23 Cách Mạng Tháng 8, Phường Võ Thị Sáu, TP. Hồ Chí Minh', ['Giày Cao Gót'], false, false],
+  ['hoangvane', 'Hoàng Văn', 'Em', '2003-11-08', 'Nam', '0901000005', '101 Hoàng Văn Thụ, Phường Tân Sơn Nhì, TP. Hồ Chí Minh', ['Giày Bóng Rổ', 'Giày Thể Thao'], false, false],
+  ['vothif', 'Võ Thị', 'Phương', '2000-06-19', 'Nữ', '0901000006', '9 Nguyễn Đình Chiểu, Phường Đa Kao, TP. Hồ Chí Minh', ['Giày Sandal'], false, false],
+  ['dangvang', 'Đặng Văn', 'Giang', '1998-07-22', 'Nam', '0901000007', '77 Xô Viết Nghệ Tĩnh, Phường Bình Thọ, TP. Hồ Chí Minh', ['Giày Bóng Rổ'], false, false],
+  ['buithih', 'Bùi Thị', 'Hoa', '1999-02-18', 'Nữ', '0901000008', '15 Quang Trung, Phường 5 (Gò Vấp), TP. Hồ Chí Minh', ['Giày Sneaker', 'Giày Thể Thao'], false, false],
+  ['ngophii', 'Ngô Phi', 'Hùng', '1996-11-05', 'Nam', '0901000009', '30 Khánh Hội, Phường Tân Định, TP. Hồ Chí Minh', [], false, false],
+  ['lythik', 'Lý Thị', 'Kim', '1997-09-09', 'Nữ', '0901000010', '64 Võ Nguyên Giáp, Phường Linh Trung, TP. Hồ Chí Minh', ['Giày Chạy Bộ', 'Giày Thể Thao'], false, false],
+  ['truongvanl', 'Trương Văn', 'Lâm', '1994-04-30', 'Nam', '0901000011', '5 Lý Thường Kiệt, Phường Bến Thành, TP. Hồ Chí Minh', ['Giày Thể Thao', 'Giày Chạy Bộ'], false, false],
+  ['dothim', 'Đỗ Thị', 'Mai', '1993-06-14', 'Nữ', '0901000012', '120 Phan Đăng Lưu, Phường Đa Kao, TP. Hồ Chí Minh', ['Giày Cao Gót', 'Giày Sandal'], false, false],
+  ['nguyenvann', 'Nguyễn Văn', 'Nam', '1990-12-01', 'Nam', '0901000013', '18 Hàng Bạc, Phường Hàng Bạc, Hà Nội', ['Giày Sneaker'], false, false],
+  ['tranthio', 'Trần Thị', 'Oanh', '1989-05-27', 'Nữ', '0901000014', '27 Dịch Vọng Hậu, Phường Dịch Vọng, Hà Nội', ['Giày Cao Gót'], false, false],
+  ['phamvanp', 'Phạm Văn', 'Phúc', '1987-08-16', 'Nam', '0901000015', '60 Nguyễn Văn Linh, Phường Hải Châu 1, Đà Nẵng', [], false, false],
+  ['lethiq', 'Lê Thị', 'Quyên', '1985-10-03', 'Nữ', '0901000016', '8 Trần Phú, Phường Thạch Thang, Đà Nẵng', ['Giày Sandal', 'Giày Cao Gót'], false, false],
+  ['vovanr', 'Võ Văn', 'Rạng', '1982-01-21', 'Nam', '0901000017', '33 Hòa Bình, Phường Xuân Khánh, Cần Thơ', ['Giày Chạy Bộ'], false, false],
+  ['hothis', 'Hồ Thị', 'Sương', '1979-03-11', 'Nữ', '0901000018', '14 Lạch Tray, Phường Lạch Tray, Hải Phòng', ['Giày Sandal'], false, false],
+  ['dinhvant', 'Đinh Văn', 'Tài', '1975-12-24', 'Nam', '0901000019', '250 Quốc lộ 1A, Xã Bình Chánh, TP. Hồ Chí Minh', [], false, false],
+  ['maithiu', 'Mai Thị', 'Uyên', '1970-07-07', 'Nữ', '0901000020', '72 Tân Kỳ Tân Quý, Phường Linh Trung, TP. Hồ Chí Minh', ['Giày Sandal'], false, false],
+  ['caovanv', 'Cao Văn', 'Vinh', '2004-05-05', 'Khác', '0901000021', '3 Đồng Khởi, Phường Bến Nghé, TP. Hồ Chí Minh', ['Giày Sneaker', 'Giày Bóng Rổ'], false, false],
+  ['luuthix', 'Lưu Thị', 'Xuân', '1995-02-02', 'Nữ', '0901000022', '41 An Dương Vương, Phường An Bình, Cần Thơ', ['Giày Cao Gót'], true, false],
+  ['tavany', 'Tạ Văn', 'Yên', '1992-09-19', 'Nam', '0901000023', '19 Cộng Hòa, Phường Tân Sơn Nhì, TP. Hồ Chí Minh', ['Giày Thể Thao'], true, false],
+  ['phanvann', 'Phan Văn', 'Nghĩa', '1992-03-03', 'Nam', '0901000024', '55 Kim Mã, Phường Láng Hạ, Hà Nội', [], false, true],
+  ['huynhthio', 'Huỳnh Thị', 'Ơn', '1997-08-28', 'Nữ', '0901000025', '6 Ngô Quyền, Phường Mỹ An, Đà Nẵng', ['Giày Cao Gót'], false, true],
+  ['vuvanp', 'Vũ Văn', 'Quân', '1991-12-19', 'Nam', '0901000026', '90 Điện Biên Phủ, Phường Đa Kao, TP. Hồ Chí Minh', ['Giày Bóng Rổ'], false, true],
 ];
 
+// [chỉ số khách, chỉ số sản phẩm, nội dung, rating, số ngày trước]
+// Không còn bước duyệt: mọi đánh giá hợp lệ đều được đăng ngay (status 'Approved').
+// Các đánh giá vi phạm (spam, link quảng cáo, ký tự lặp vô nghĩa) đã bị loại khỏi seed vì Backend
+// sẽ từ chối ngay khi gửi, nên không bao giờ nằm trong DB.
 const FEEDBACKS = [
-  [0, 0, 'Đôi giày rất đẹp', 'Form giày gọn, phối đồ đi học rất hợp. Đi cả ngày vẫn êm chân.', 5, 'Approved', 40],
-  [1, 0, 'Chất lượng tốt so với giá', 'Da mềm, đường may chắc chắn. Sẽ giới thiệu cho bạn bè.', 4, 'Approved', 38],
-  [2, 3, 'Chạy 10km rất êm', 'Đế phản hồi tốt, thoáng chân, chạy buổi sáng không bị nóng.', 5, 'Approved', 36],
-  [3, 8, 'Đi rất vừa chân', 'Form chuẩn, gót không bị cấn, đi cả ngày ở văn phòng vẫn thoải mái.', 5, 'Approved', 35],
-  [4, 6, 'Bám sân tốt', 'Chơi bóng rổ trong nhà thấy độ bám rất ổn, cổ giày ôm chắc.', 4, 'Approved', 33],
-  [5, 10, 'Sandal nhẹ và mát', 'Đi mùa hè rất dễ chịu, quai mềm không bị cấn.', 4, 'Approved', 30],
-  [6, 7, 'Đế hơi cứng lúc mới mang', 'Chất lượng ổn nhưng phải mang vài buổi mới quen. Mong cải thiện độ êm.', 3, 'Approved', 28],
-  [7, 1, 'Màu đẹp ngoài đời', 'Màu xám thanh lịch, vải canvas dày dặn. Hơi chật một chút ở mũi giày.', 4, 'Approved', 26],
-  [9, 4, 'Nhẹ như không', 'Ôm chân tốt, chạy đường dài không bị phồng rộp.', 5, 'Approved', 24],
-  [10, 5, 'Giá hợp lý', 'Fresh Foam rất êm, dùng tập gym lẫn chạy bộ đều ổn.', 4, 'Approved', 22],
-  [11, 9, 'Màu đỏ đô sang trọng', 'Gót vừa phải, đi tiệc không mỏi chân. Rất hài lòng.', 5, 'Approved', 20],
-  [19, 11, 'Bền, chống trượt tốt', 'Mình dùng đi biển, chống trượt khá tốt, nhanh khô.', 4, 'Approved', 18],
-  [23, 0, 'Từng dùng khá ổn', 'Trước khi ngừng sử dụng dịch vụ, sản phẩm này khá ổn.', 4, 'Approved', 55],
-  [12, 0, 'Giao hàng hơi chậm', 'Chất lượng giày tốt nhưng đơn vị vận chuyển giao hơi lâu.', 4, 'Pending', 3],
-  [13, 8, 'Mũi giày hơi hẹp', 'Đi 1 tiếng đầu thấy chật ngón cái, mong có thêm size rộng.', 3, 'Pending', 2],
-  [14, 6, 'Đế hơi trơn trên sân xi măng', 'Trong nhà thì tốt, ngoài trời hơi trơn. Mong cải thiện độ bám.', 2, 'Pending', 2],
-  [15, 10, 'Màu ngoài đời nhạt hơn ảnh', 'Chất lượng ok nhưng màu trắng hơi ngả xám so với hình.', 3, 'Pending', 1],
-  [16, 3, 'Chạy trail hơi trơn', 'Dùng chạy đường phố rất tốt, đường đất ẩm thì đế hơi trơn.', 4, 'Pending', 1],
-  [20, 2, 'Rất mong ngày ra mắt', 'Thấy mẫu Aero Lite 2027 giới thiệu rất đẹp, mong sớm có size 40.', 5, 'Pending', 1],
-  [17, 11, 'Quai hơi cứng', 'Quai chưa đủ mềm, mang lâu bị hằn chân.', 3, 'Pending', 0],
-  [8, 1, 'Phối đồ công sở được', 'Thiết kế trẻ trung nhưng vẫn lịch sự, hợp đi làm.', 4, 'Pending', 0],
-  [18, 4, 'quảng cáo linkkkk', 'Xem sản phẩm giá rẻ tại website abc.xyz, ưu đãi lớn.', 1, 'Rejected', 15],
-  [21, 8, 'aaaaaaaa', 'Nội dung không liên quan, lặp ký tự vô nghĩa.', 1, 'Rejected', 12],
-  [15, 5, 'Bình luận không đúng sản phẩm', 'Nội dung nói về dịch vụ khác, không phải sản phẩm này.', 2, 'Rejected', 10],
+  [0, 0, 'Form giày gọn, phối đồ đi học rất hợp. Đi cả ngày vẫn êm chân.', 5, 40],
+  [1, 0, 'Da mềm, đường may chắc chắn. Sẽ giới thiệu cho bạn bè.', 4, 38],
+  [2, 3, 'Đế phản hồi tốt, thoáng chân, chạy buổi sáng không bị nóng.', 5, 36],
+  [3, 8, 'Form chuẩn, gót không bị cấn, đi cả ngày ở văn phòng vẫn thoải mái.', 5, 35],
+  [4, 6, 'Chơi bóng rổ trong nhà thấy độ bám rất ổn, cổ giày ôm chắc.', 4, 33],
+  [5, 10, 'Đi mùa hè rất dễ chịu, quai mềm không bị cấn.', 4, 30],
+  [6, 7, 'Chất lượng ổn nhưng phải mang vài buổi mới quen. Mong cải thiện độ êm.', 3, 28],
+  [7, 1, 'Màu xám thanh lịch, vải canvas dày dặn. Hơi chật một chút ở mũi giày.', 4, 26],
+  [9, 4, 'Ôm chân tốt, chạy đường dài không bị phồng rộp.', 5, 24],
+  [10, 5, 'Fresh Foam rất êm, dùng tập gym lẫn chạy bộ đều ổn.', 4, 22],
+  [11, 9, 'Gót vừa phải, đi tiệc không mỏi chân. Rất hài lòng.', 5, 20],
+  [19, 11, 'Mình dùng đi biển, chống trượt khá tốt, nhanh khô.', 4, 18],
+  [23, 0, 'Trước khi ngừng sử dụng dịch vụ, sản phẩm này khá ổn.', 4, 55],
+  [12, 0, 'Chất lượng giày tốt nhưng đơn vị vận chuyển giao hơi lâu.', 4, 3],
+  [13, 8, 'Đi 1 tiếng đầu thấy chật ngón cái, mong có thêm size rộng.', 3, 2],
+  [14, 6, 'Trong nhà thì tốt, ngoài trời hơi trơn. Mong cải thiện độ bám.', 2, 2],
+  [15, 10, 'Chất lượng ok nhưng màu trắng hơi ngả xám so với hình.', 3, 1],
+  [16, 3, 'Dùng chạy đường phố rất tốt, đường đất ẩm thì đế hơi trơn.', 4, 1],
+  [20, 2, 'Thấy mẫu Aero Lite 2027 giới thiệu rất đẹp, mong sớm có size 40.', 5, 1],
+  [17, 11, 'Quai chưa đủ mềm, mang lâu bị hằn chân.', 3, 0],
+  [8, 1, 'Thiết kế trẻ trung nhưng vẫn lịch sự, hợp đi làm.', 4, 0],
+];
+
+// Phản hồi mẫu của cửa hàng: [chỉ số trong FEEDBACKS, nội dung].
+// Cố ý để các đánh giá mới nhất (chỉ số 14-20) CHƯA có phản hồi để demo thao tác "Gửi phản hồi" của Manager.
+const REPLIES = [
+  [0, 'Cảm ơn bạn đã chia sẻ! Ouran rất vui vì bạn hài lòng với đôi giày.'],
+  [1, 'Cảm ơn bạn đã tin tưởng Ouran. Chúc bạn luôn thoải mái khi sử dụng sản phẩm!'],
+  [2, 'Rất vui vì Pegasus Pro đồng hành tốt cùng bạn trong các buổi chạy. Chúc bạn đạt nhiều cột mốc mới!'],
+  [4, 'Cảm ơn bạn đã đánh giá. Ouran sẽ tiếp tục chọn lọc các mẫu có độ bám tốt cho dân bóng rổ.'],
+  [6, 'Ouran ghi nhận góp ý của bạn. Phần đế thường cần vài buổi để thích nghi, nếu vẫn chưa êm bạn có thể liên hệ cửa hàng để được hỗ trợ đổi size hoặc tư vấn thêm.'],
+  [7, 'Cảm ơn bạn! Với mũi giày hơi chật, bạn có thể thử tăng nửa size hoặc liên hệ Ouran để được tư vấn size phù hợp.'],
+  [8, 'Cảm ơn bạn đã chia sẻ trải nghiệm. Ouran rất vui vì sản phẩm phù hợp với bạn!'],
 ];
 
 const SURVEYS = [
@@ -208,7 +216,7 @@ async function main() {
 
   // 0. Xóa sạch dữ liệu cũ
   await prisma.$executeRawUnsafe(`
-    TRUNCATE TABLE "audit_logs", "review_replies", "password_reset_otps", "notifications", "survey_answers", "survey_responses", "survey_targets",
+    TRUNCATE TABLE "audit_logs", "review_replies", "notifications", "survey_answers", "survey_responses", "survey_targets",
       "survey_question_options", "survey_questions", "surveys", "feedbacks",
       "customer_preferences", "customers", "employees", "products", "categories", "accounts", "roles"
     RESTART IDENTITY CASCADE
@@ -220,13 +228,25 @@ async function main() {
     prisma.role.create({ data: { roleName: 'Manager', description: 'Quản lý CRM (khách hàng, phản hồi, khảo sát)' } }),
     prisma.role.create({ data: { roleName: 'Customer', description: 'Khách hàng' } }),
   ]);
-  const passwordHash = await bcrypt.hash('123456', 10);
+  // Mật khẩu seed đều thỏa ràng buộc (>= 8 ký tự, có hoa, thường, số, ký tự đặc biệt, không chứa username)
+  const [adminHash, managerHash, customerHash] = await Promise.all([
+    bcrypt.hash('Admin@12345', 10),
+    bcrypt.hash('Manager@12345', 10),
+    bcrypt.hash('Khach@12345', 10),
+  ]);
 
-  // Tài khoản Admin
+  // Thiết lập thời gian khởi tạo tài khoản tăng dần theo thứ tự tự nâng id
+  let accountCreatedTime = new Date('2024-01-01T08:00:00Z');
+  const getNextAccountCreatedTime = () => {
+    accountCreatedTime = new Date(accountCreatedTime.getTime() + 2 * 86400 * 1000 + 3600 * 1000); // Tăng 2 ngày 1 giờ cho mỗi tài khoản tiếp theo
+    return new Date(accountCreatedTime);
+  };
+
+  // Tài khoản Admin (accountId = 1)
   const adminAccount = await prisma.account.create({
     data: {
-      username: 'admin', email: 'admin@ouran.com', passwordHash,
-      roleId: adminRole.roleId, createdAt: randomPast(300, 420),
+      username: 'admin', email: 'admin@ouran.com', passwordHash: adminHash,
+      roleId: adminRole.roleId, createdAt: getNextAccountCreatedTime(),
     },
   });
   await prisma.employee.create({
@@ -238,18 +258,18 @@ async function main() {
       gender: 'Nam',
       phone: '0909000001',
       email: 'admin@ouran.com',
-      address: 'Q.1, TP.HCM',
+      address: '1 Công xã Paris, Phường Bến Nghé, TP. Hồ Chí Minh',
       position: 'Quản trị viên hệ thống',
       hireDate: new Date('2024-01-02'),
       updatedAt: new Date(),
     },
   });
 
-  // Tài khoản Manager
+  // Tài khoản Manager (accountId = 2)
   const managerAccount = await prisma.account.create({
     data: {
-      username: 'manager', email: 'manager@ouran.com', passwordHash,
-      roleId: managerRole.roleId, createdAt: randomPast(200, 299),
+      username: 'manager', email: 'manager@ouran.com', passwordHash: managerHash,
+      roleId: managerRole.roleId, createdAt: getNextAccountCreatedTime(),
     },
   });
   await prisma.employee.create({
@@ -261,7 +281,7 @@ async function main() {
       gender: 'Nữ',
       phone: '0909000002',
       email: 'manager@ouran.com',
-      address: 'Q.3, TP.HCM',
+      address: '25 Võ Văn Tần, Phường Võ Thị Sáu, TP. Hồ Chí Minh',
       position: 'Quản lý CRM',
       hireDate: new Date('2024-03-01'),
       updatedAt: new Date(),
@@ -275,28 +295,50 @@ async function main() {
     categoryMap[categoryName] = c.categoryId;
   }
 
-  const products = [];
-  for (let i = 0; i < PRODUCTS.length; i++) {
-    const { category, ...rest } = PRODUCTS[i];
-    products.push(await prisma.product.create({
-      data: {
-        categoryId: categoryMap[category], isActive: true, ...rest,
-        imageUrl: `https://picsum.photos/seed/shoe-crm-${i + 1}/600/600`,
-      },
-    }));
-  }
+const PRODUCT_IMAGE_MAP = {
+  'Giày Sneaker Air Classic': '/images/Adidas_Runner_prO_shoes.png',
+  'Giày Sneaker Urban Street': '/images/Adidas_Ultra_Boost_2026_Running_Shoes.png',
+  'Giày Sneaker Aero Lite 2027': '/images/Nike_AirZoom_shoes.png',
+  'Giày Chạy Bộ Pegasus Pro': '/images/Nike_classic_sneaker.jpg',
+  'Giày Chạy Bộ Ultraboost Light': '/images/Nike_Pro_Running_Shoes.png',
+  'Giày Chạy Bộ Fresh Foam Road': '/images/sneaker_classic_v2_shoes.png',
+  'Giày Bóng Rổ Air Zoom Court': '/images/bongro1.jpg',
+  'Giày Bóng Rổ Curry Elite': '/images/bongro2.webp',
+  'Giày Cao Gót Elegance Nude': '/images/Juno_Elegance_High_Heels.png',
+  'Giày Cao Gót Royal Đỏ': '/images/caoGotDo.jpg',
+  'Sandal Quai Mùa Hè': '/images/Bitis_summer_sandal.png',
+  'Sandal Thể Thao Đi Biển': '/images/thethao1.webp',
+  'Giày Thể Thao Training Pro': '/images/thethao2.webp',
+};
 
+const products = [];
+for (let i = 0; i < PRODUCTS.length; i++) {
+  const { category, productName, ...rest } = PRODUCTS[i];
+  
+  // Lấy tên file ảnh từ map, nếu không có sẽ lấy ảnh mặc định
+  const imageUrl = PRODUCT_IMAGE_MAP[productName] || `/images/default.jpg`;
+
+  products.push(await prisma.product.create({
+    data: {
+      categoryId: categoryMap[category], 
+      isActive: true, 
+      productName,
+      ...rest,
+      imageUrl: imageUrl,
+    },
+  }));
+}
   // 3. Khách hàng (Tách biệt tạo Account rồi đến Customer để tránh lỗi P2011)
   const customers = [];
   for (const [username, lastName, firstName, dob, gender, phone, address, prefs, isLocked, isDeleted] of CUSTOMERS) {
     const acc = await prisma.account.create({
       data: {
         username,
-        passwordHash,
+        passwordHash: customerHash,
         roleId: customerRole.roleId,
         isLocked,
         email: emailOf(username),
-        createdAt: randomPast(5, 280),
+        createdAt: getNextAccountCreatedTime(),
       },
     });
 
@@ -324,17 +366,29 @@ async function main() {
 
   // 4. Phản hồi sản phẩm
   await prisma.feedback.createMany({
-    data: FEEDBACKS.map(([ci, pi, title, content, rating, status, ago]) => ({
+    data: FEEDBACKS.map(([ci, pi, content, rating, ago]) => ({
       customerId: customers[ci].id, productId: products[pi].productId,
-      title, content, rating, status, createdAt: daysAgo(ago),
+      // Đặt status tường minh vì schema vẫn để default 'Pending'
+      content, rating, status: 'Approved', createdAt: daysAgo(ago),
     })),
   });
 
-  const approved = await prisma.feedback.findMany({ where: { status: 'Approved' }, take: 3, orderBy: { feedbackId: 'asc' } });
-  for (const f of approved) {
+  // Phản hồi của Manager (feedback seed theo thứ tự FEEDBACKS vì createMany + RESTART IDENTITY cho id tăng dần)
+  const savedFeedbacks = await prisma.feedback.findMany({ orderBy: { feedbackId: 'asc' } });
+  const replyNotifications = [];
+  for (const [idx, content] of REPLIES) {
+    const fb = savedFeedbacks[idx];
+    const repliedAt = new Date(Math.min(Date.now(), fb.createdAt.getTime() + (2 + Math.floor(randReply() * 20)) * 3600 * 1000));
     await prisma.reviewReply.create({
-      data: { feedbackId: f.feedbackId, accountId: managerAccount.accountId, content: 'Cảm ơn bạn đã chia sẻ! Ouran rất vui vì bạn hài lòng với sản phẩm.' },
+      data: { feedbackId: fb.feedbackId, accountId: managerAccount.accountId, content, createdAt: repliedAt },
     });
+    if (!customers.find((c) => c.id === fb.customerId)?.isDeleted) {
+      replyNotifications.push({
+        customerId: fb.customerId, type: 'FEEDBACK_REPLIED', title: 'Cửa hàng đã phản hồi đánh giá của bạn',
+        message: `Đánh giá của bạn vừa nhận được phản hồi từ cửa hàng.`,
+        refType: 'FEEDBACK', refId: fb.feedbackId, isRead: randReply() < 0.5, createdAt: repliedAt,
+      });
+    }
   }
 
   // 5. Khảo sát + đối tượng + bài làm + thông báo
@@ -415,27 +469,16 @@ async function main() {
     }
   }
 
-  // 6. Thông báo kết quả duyệt phản hồi cho khách
-  const feedbacks = await prisma.feedback.findMany({ where: { status: { in: ['Approved', 'Rejected'] } } });
-  feedbacks.filter((f) => !customers.find((c) => c.id === f.customerId)?.isDeleted).forEach((f, i) => {
-    const ok = f.status === 'Approved';
-    notifications.push({
-      customerId: f.customerId, type: ok ? 'FEEDBACK_APPROVED' : 'FEEDBACK_REJECTED',
-      title: ok ? 'Phản hồi của bạn đã được duyệt' : 'Phản hồi của bạn bị từ chối',
-      message: ok
-        ? `Phản hồi "${f.title}" của bạn đã được duyệt và hiển thị công khai.`
-        : `Phản hồi "${f.title}" của bạn đã bị từ chối. Vui lòng kiểm tra lại nội dung.`,
-      refType: 'FEEDBACK', refId: f.feedbackId, isRead: i % 3 !== 0, createdAt: daysAgo(1, 8),
-    });
-  });
+  // 6. Thông báo cho khách: khảo sát mới (ở trên) + cửa hàng đã phản hồi đánh giá
+  notifications.push(...replyNotifications);
   await prisma.notification.createMany({ data: notifications });
 
   console.log('Seed xong!');
   console.log(`- ${customers.length} khách hàng (${activeCustomers.length} hoạt động, 2 bị khóa, 3 đã xóa mềm), mỗi người 1 email riêng`);
-  console.log(`- ${CATEGORIES.length} danh mục, ${PRODUCTS.length} sản phẩm, ${FEEDBACKS.length} phản hồi, ${SURVEYS.length} khảo sát`);
+  console.log(`- ${CATEGORIES.length} danh mục, ${PRODUCTS.length} sản phẩm, ${FEEDBACKS.length} đánh giá (đều đã đăng, ${REPLIES.length} đã được cửa hàng phản hồi), ${SURVEYS.length} khảo sát`);
+  console.log('- Đánh giá chưa có phản hồi (để demo trả lời khách): ' + (FEEDBACKS.length - REPLIES.length));
   console.log('- 2 nhân sự (bảng employees): admin (Admin) và manager (Manager)');
-  console.log('- Tài khoản test (mật khẩu 123456): admin (admin@ouran.com) | manager (manager@ouran.com) | nguyenvana | tranthib ...');
-  console.log(`- Test quên mật khẩu: tài khoản nguyenvana, email ${emailOf('nguyenvana')}`);
+  console.log('- Tài khoản test: admin / Admin@12345 | manager / Manager@12345 | khách hàng (nguyenvana, tranthib, ...) / Khach@12345');
 }
 
 main()

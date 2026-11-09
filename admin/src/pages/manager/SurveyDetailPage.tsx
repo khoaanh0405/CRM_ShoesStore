@@ -3,8 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   ArrowLeft, Plus, Trash2, Edit2, Check, X, Users, BarChart2, Lock, Send,
-  FileText, ChevronDown, ChevronUp, Power, PowerOff
+  FileText, ChevronDown, ChevronUp, Power, PowerOff, Download
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell
 } from 'recharts';
@@ -426,10 +427,75 @@ const TargetsTab: React.FC<{ survey: Survey }> = ({ survey }) => {
 // ====================================================
 // TAB 3: Thống kê
 // ====================================================
-const StatsTab: React.FC<{ surveyId: number }> = ({ surveyId }) => {
+const surveyCode = (id: number) => `KS${String(id).padStart(3, '0')}`;
+
+const StatsTab: React.FC<{ surveyId: number; surveyTitle: string }> = ({ surveyId, surveyTitle }) => {
   const [stats, setStats] = useState<SurveyStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedTexts, setExpandedTexts] = useState<Set<number>>(new Set());
+
+  const handleExportExcel = () => {
+    if (!stats) return;
+    try {
+      const code = surveyCode(surveyId);
+      const pct = stats.totalAssigned > 0
+        ? Math.round((stats.totalResponses / stats.totalAssigned) * 100)
+        : 0;
+
+      // Sheet 1: Tổng quan
+      const overview: (string | number)[][] = [
+        ['BÁO CÁO THỐNG KÊ KHẢO SÁT'],
+        [],
+        ['Mã khảo sát', code],
+        ['Tên khảo sát', surveyTitle],
+        ['Ngày xuất báo cáo', new Date().toLocaleString('vi-VN')],
+        [],
+        ['Tổng đối tượng', stats.totalAssigned],
+        ['Đã phản hồi', stats.totalResponses],
+        ['Tỷ lệ hoàn thành (%)', pct],
+      ];
+      const wsOverview = XLSX.utils.aoa_to_sheet(overview);
+      wsOverview['!cols'] = [{ wch: 24 }, { wch: 60 }];
+
+      // Sheet 2: Kết quả câu hỏi trắc nghiệm
+      const choiceRows: (string | number)[][] = [['Câu', 'Nội dung câu hỏi', 'Lựa chọn', 'Số phiếu', 'Tỷ lệ (%)']];
+      // Sheet 3: Câu trả lời tự do
+      const textRows: (string | number)[][] = [['Câu', 'Nội dung câu hỏi', 'STT', 'Câu trả lời']];
+
+      stats.questions.forEach((q, idx) => {
+        if (q.questionType === 'TEXT') {
+          const answers = q.textAnswers ?? [];
+          if (answers.length === 0) {
+            textRows.push([`Câu ${idx + 1}`, q.questionContent, '', '(chưa có câu trả lời)']);
+          } else {
+            answers.forEach((ans, i) => textRows.push([`Câu ${idx + 1}`, q.questionContent, i + 1, ans]));
+          }
+        } else if (q.breakdown.length === 0) {
+          choiceRows.push([`Câu ${idx + 1}`, q.questionContent, '(chưa có lựa chọn)', 0, 0]);
+        } else {
+          q.breakdown.forEach((row) =>
+            choiceRows.push([`Câu ${idx + 1}`, q.questionContent, row.optionText, row.count, Number(row.percentage)]),
+          );
+        }
+      });
+
+      const wsChoice = XLSX.utils.aoa_to_sheet(choiceRows);
+      wsChoice['!cols'] = [{ wch: 8 }, { wch: 50 }, { wch: 35 }, { wch: 12 }, { wch: 12 }];
+      const wsText = XLSX.utils.aoa_to_sheet(textRows);
+      wsText['!cols'] = [{ wch: 8 }, { wch: 50 }, { wch: 6 }, { wch: 70 }];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, wsOverview, 'Tổng quan');
+      XLSX.utils.book_append_sheet(wb, wsChoice, 'Trắc nghiệm');
+      XLSX.utils.book_append_sheet(wb, wsText, 'Trả lời tự do');
+
+      const date = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `BaoCao_${code}_${date}.xlsx`);
+      toast.success('Đã xuất báo cáo Excel');
+    } catch {
+      toast.error('Xuất báo cáo thất bại');
+    }
+  };
 
   useEffect(() => {
     getSurveyStats(surveyId)
@@ -447,6 +513,12 @@ const StatsTab: React.FC<{ surveyId: number }> = ({ surveyId }) => {
 
   return (
     <div className="tab-content">
+      <div className="stats-toolbar">
+        <button id="export-excel-btn" className="btn btn-primary btn-sm" onClick={handleExportExcel}>
+          <Download size={15} /> Xuất báo cáo Excel
+        </button>
+      </div>
+
       <div className="stats-overview">
         <div className="stat-box">
           <div className="stat-box-value">{stats.totalAssigned}</div>
@@ -627,6 +699,8 @@ const SurveyDetailPage: React.FC = () => {
           </div>
           {survey.description && <p className="sdh-desc">{survey.description}</p>}
           <div className="sdh-meta">
+            <span>Mã KS: <b>{surveyCode(survey.surveyId)}</b></span>
+            <span>•</span>
             <span>Tạo ngày {new Date(survey.createdAt).toLocaleDateString('vi-VN')}</span>
             <span>•</span>
             <span>Tạo bởi <b>{fullNameOf((survey as any).creator) || (survey as any).creator?.username || 'Không rõ'}</b></span>
@@ -662,7 +736,7 @@ const SurveyDetailPage: React.FC = () => {
       <div className="detail-tab-content">
         {activeTab === 'questions' && <QuestionsTab survey={survey} onReload={loadSurvey} locked={locked} />}
         {activeTab === 'targets' && <TargetsTab survey={survey} />}
-        {activeTab === 'stats' && <StatsTab surveyId={survey.surveyId} />}
+        {activeTab === 'stats' && <StatsTab surveyId={survey.surveyId} surveyTitle={survey.title} />}
       </div>
     </div>
   );

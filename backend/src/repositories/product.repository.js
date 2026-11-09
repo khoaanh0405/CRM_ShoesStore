@@ -1,8 +1,3 @@
-/**
- * Repository cho Product. Category là bảng riêng (categoryId FK).
- * Kết quả trả ra được "làm phẳng": giữ `categoryId` và `category` = TÊN danh mục (string)
- * để frontend cũ (lọc, hiển thị, gợi ý) vẫn chạy.
- */
 import prisma from '../config/database.js';
 
 const INCLUDE = { category: true };

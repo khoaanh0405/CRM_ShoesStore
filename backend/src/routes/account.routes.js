@@ -1,21 +1,18 @@
 /**
- * /api/accounts — đăng ký, đăng nhập, quên mật khẩu (OTP), khóa/mở khóa, phân quyền, hồ sơ nhân viên.
+ * /api/accounts — đăng ký, đăng nhập, khóa/mở khóa, phân quyền, hồ sơ nhân viên.
  * Path chữ (/register, /login, /me...) khai TRƯỚC /:id.
  */
 import { Router } from 'express';
 import { accountController, employeeController } from '../controllers/index.js';
 import { accountValidator } from '../validators/index.js';
 import { validateBody } from '../validators/common.validator.js';
-import { authenticate, adminOnly, staffOnly, rateLimit } from '../middleware/index.js';
+import { authenticate, adminOnly, staffOnly } from '../middleware/index.js';
 
 const router = Router();
 
 // --- Public ---
 router.post('/register', accountValidator.register, accountController.register);
 router.post('/login', accountValidator.login, accountController.login);
-router.post('/forgot-password', rateLimit({ windowMs: 15 * 60 * 1000, max: 5, message: 'Bạn yêu cầu mã OTP quá nhiều lần.' }), accountValidator.forgotPassword, accountController.forgotPassword);
-router.post('/verify-otp', rateLimit({ windowMs: 15 * 60 * 1000, max: 15, message: 'Bạn nhập mã OTP quá nhiều lần.' }), accountValidator.verifyOtp, accountController.verifyOtp);
-router.post('/reset-password', rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: 'Bạn thử đặt lại mật khẩu quá nhiều lần.' }), accountValidator.resetPassword, accountController.resetPassword);
 
 // --- Cần đăng nhập ---
 router.get('/me', authenticate, accountController.me);

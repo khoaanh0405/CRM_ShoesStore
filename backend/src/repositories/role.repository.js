@@ -1,10 +1,3 @@
-/**
- * Repository cho model Role (bảng roles).
- * roles.role_id là PK, role_name UNIQUE.
- * accounts.role_id -> roles.role_id (ON DELETE RESTRICT): không thể xóa Role
- * nếu còn Account đang tham chiếu tới nó -> remove() để Prisma tự throw lỗi FK
- * (P2003), Service layer bắt lỗi và báo nghiệp vụ phù hợp.
- */
 import prisma from '../config/database.js';
 
 export const roleRepository = {

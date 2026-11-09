@@ -1,5 +1,5 @@
 -- Nhóm tài khoản & hồ sơ người dùng:
--- roles, accounts, password_reset_otps, customers (khách hàng), employees (nhân sự).
+-- roles, accounts, customers (khách hàng), employees (nhân sự).
 -- customers.customer_id và employees.employee_id đều là PK đồng thời là FK tới accounts.account_id.
 
 -- CreateTable
@@ -22,19 +22,6 @@ CREATE TABLE "accounts" (
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "accounts_pkey" PRIMARY KEY ("account_id")
-);
-
--- CreateTable
-CREATE TABLE "password_reset_otps" (
-    "otp_id" SERIAL NOT NULL,
-    "account_id" INTEGER NOT NULL,
-    "otp_hash" VARCHAR(64) NOT NULL,
-    "expires_at" TIMESTAMP(3) NOT NULL,
-    "attempts" INTEGER NOT NULL DEFAULT 0,
-    "used_at" TIMESTAMP(3),
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "password_reset_otps_pkey" PRIMARY KEY ("otp_id")
 );
 
 -- CreateTable
@@ -81,9 +68,6 @@ CREATE UNIQUE INDEX "accounts_username_key" ON "accounts"("username");
 CREATE UNIQUE INDEX "accounts_email_key" ON "accounts"("email");
 
 -- CreateIndex
-CREATE INDEX "password_reset_otps_account_id_created_at_idx" ON "password_reset_otps"("account_id", "created_at");
-
--- CreateIndex
 CREATE UNIQUE INDEX "customers_email_key" ON "customers"("email");
 
 -- CreateIndex
@@ -94,9 +78,6 @@ CREATE UNIQUE INDEX "employees_email_key" ON "employees"("email");
 
 -- AddForeignKey
 ALTER TABLE "accounts" ADD CONSTRAINT "accounts_role_id_fkey" FOREIGN KEY ("role_id") REFERENCES "roles"("role_id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "password_reset_otps" ADD CONSTRAINT "password_reset_otps_account_id_fkey" FOREIGN KEY ("account_id") REFERENCES "accounts"("account_id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "customers" ADD CONSTRAINT "customers_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "accounts"("account_id") ON DELETE CASCADE ON UPDATE CASCADE;

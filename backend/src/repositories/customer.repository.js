@@ -1,14 +1,3 @@
-/**
- * Repository cho model Customer (bảng customers).
- *
- * customers.customer_id KHÔNG tự tăng — nó CHÍNH LÀ accounts.account_id
- * (quan hệ 1-1 dùng chung PK, onDelete Cascade từ phía Account -> Customer).
- *
- * "Xóa khách hàng" (4.1.2) = SOFT DELETE (is_deleted/deleted_at) — KHÔNG có hàm hard delete.
- *
- * Mọi danh sách khách hàng CHỈ gồm tài khoản có vai trò Customer (ONLY_CUSTOMER_ROLE),
- * kể cả khi một tài khoản từng là khách hàng rồi được đổi sang Admin/Manager.
- */
 import prisma from '../config/database.js';
 import { ROLE_NAMES } from '../constants/index.js';
 

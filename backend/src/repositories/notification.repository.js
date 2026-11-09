@@ -1,9 +1,3 @@
-/**
- * Repository cho model Notification (bảng notifications).
- * notifications.customer_id -> customers (CASCADE).
- * Dùng cho chuông thông báo phía khách hàng: Admin duyệt/từ chối phản hồi,
- * hoặc gửi khảo sát tới khách hàng sẽ tạo 1 bản ghi ở đây.
- */
 import prisma from '../config/database.js';
 export const notificationRepository = {
   findByCustomer(customerId) {

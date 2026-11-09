@@ -1,8 +1,3 @@
-/**
- * Service cho Customer. Điểm quan trọng nhất: mọi thao tác "xóa" khách hàng
- * (mục 4.1.2) đều là soft delete — Service này KHÔNG bao giờ gọi hard delete
- * (đúng thiết kế trong customer.repository.js).
- */
 import { customerRepository, customerPreferenceRepository } from '../repositories/index.js';
 import { NotFoundError, ValidationError, ForbiddenError, ConflictError } from '../errors/AppError.js';
 import { AGE_BUCKETS, MESSAGES } from '../constants/index.js';

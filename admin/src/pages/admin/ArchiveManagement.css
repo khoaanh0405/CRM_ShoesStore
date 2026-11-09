@@ -1,0 +1,225 @@
+.archive-management {
+  padding: 32px 40px;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Page Header */
+.archive-management .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.archive-management .page-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text-main);
+  margin: 0 0 4px;
+  line-height: 1.3;
+}
+
+.archive-management .page-subtitle {
+  color: var(--color-text-muted);
+  font-size: 13.5px;
+  margin: 0;
+}
+
+/* Table Card & Toolbar */
+.archive-management .table-card {
+  background-color: var(--color-surface);
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(124, 58, 237, 0.04);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+
+.archive-management .table-toolbar {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.archive-filter-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.archive-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.archive-toolbar__search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 40px;
+  flex: 1 1 auto;
+  background-color: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0 14px 0 38px;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.archive-toolbar__search:focus-within {
+  border-color: var(--color-primary);
+  background-color: #FCFAFF;
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.14);
+}
+
+.archive-toolbar__search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.archive-toolbar__search-input {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--color-text-main);
+}
+
+.archive-toolbar__search-reset {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  margin-left: 6px;
+  color: #fff;
+  background-color: #C4B5FD;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.archive-toolbar__search-reset:hover {
+  background-color: var(--color-primary);
+}
+
+.archive-toolbar__submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  color: #fff;
+  font-weight: 700;
+  font-size: 13.5px;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.25);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.archive-toolbar__submit:hover {
+  box-shadow: 0 6px 16px rgba(124, 58, 237, 0.32);
+}
+
+/* Data Table Layout */
+.archive-management .table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.archive-management .data-table {
+  width: 100%;
+  min-width: 1000px;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.archive-management .data-table th,
+.archive-management .data-table td {
+  padding: 14px 16px;
+  vertical-align: middle;
+  font-size: 14px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.archive-management .data-table .archive-col-id      { width: 64px; }
+.archive-management .data-table .archive-col-name    { width: 170px; }
+.archive-management .data-table .archive-col-phone   { width: 130px; white-space: nowrap; }
+.archive-management .data-table .archive-col-email   { width: 220px; }
+.archive-management .data-table .archive-col-address { width: auto; }
+.archive-management .data-table .archive-col-date    { width: 120px; white-space: nowrap; }
+.archive-management .data-table .archive-col-actions { width: 130px; text-align: center; }
+
+.archive-cell-name,
+.archive-cell-email {
+  display: block;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.archive-cell-address {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.35;
+  overflow-wrap: break-word;
+}
+
+/* Actions Column & Restore Button */
+.archive-management .actions-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.archive-management .action-btn-text.restore-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  background-color: #DCFCE7;
+  color: #15803D;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.archive-management .action-btn-text.restore-btn:hover:not(:disabled) {
+  background-color: #BBF7D0;
+  color: #166534;
+}
+
+.archive-management .action-btn-text.restore-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .archive-management {
+    padding: 20px;
+  }
+}

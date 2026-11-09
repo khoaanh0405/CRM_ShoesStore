@@ -1,9 +1,3 @@
-/**
- * Họ tên theo quy ước Việt Nam:
- *   lastName  = Họ (kèm tên đệm), ví dụ "Nguyễn Văn"
- *   firstName = Tên,              ví dụ "An"
- *   Hiển thị  = "<lastName> <firstName>" -> "Nguyễn Văn An"
- */
 export type PersonName = {
   firstName?: string | null;
   lastName?: string | null;

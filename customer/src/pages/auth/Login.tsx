@@ -50,10 +50,26 @@ export default function LoginPage() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <AuthTextField label="Tên đăng nhập" autoCapitalize="none" autoCorrect="off" value={username} onChangeText={setUsername} error={errors.username} />
-          <AuthTextField
-            label="Mật khẩu" type="password" secureToggle value={password} onChangeText={setPassword} error={errors.password}
-            rightAction={{ label: 'Quên mật khẩu?', onClick: () => navigate('/auth/forgot-password') }}
-          />
+          <AuthTextField label="Mật khẩu" type="password" secureToggle value={password} onChangeText={setPassword} error={errors.password} />
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: -8 }}>
+          <button
+            type="button"
+            onClick={() => {}}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              color: '#000',
+              fontSize: 13.5,
+              fontWeight: 600,
+              cursor: 'pointer',
+              textDecoration: 'none'
+            }}
+          >
+            Quên mật khẩu?
+          </button>
         </div>
 
         {formError ? <div style={{ color: AuthColors.danger, fontSize: 13 }}>{formError}</div> : null}

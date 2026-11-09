@@ -29,7 +29,7 @@ export const reviewReplyService = {
     const text = cleanContent(content);
     const fb = await feedbackRepository.findById(feedbackId);
     if (!fb) throw new NotFoundError(MESSAGES.NOT_FOUND.FEEDBACK);
-    if (fb.status !== FEEDBACK_STATUS.APPROVED) throw new ConflictError('Chỉ được trả lời những đánh giá đã được duyệt.');
+    if (fb.status !== FEEDBACK_STATUS.APPROVED) throw new ConflictError('Chỉ được trả lời những đánh giá đang hiển thị công khai.');
     const reply = await reviewReplyRepository.create({ feedbackId, accountId, content: text });
     try {
       await notificationService.create({

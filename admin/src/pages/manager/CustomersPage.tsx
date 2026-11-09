@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Plus, Search, X } from 'lucide-react';
+import { Plus, Search, X, Phone, Mail, Cake, MapPin, Lock, Unlock, Trash2, UserRound } from 'lucide-react';
 import api from '../../utils/api';
+import { getFeedbacks } from '../../services/api';
+import type { Feedback } from '../../types/feedback';
 import Pagination from '../../components/Pagination';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { showConfirm } from '../../lib/dialog';
 import { normalizeEmail, validateEmail, validateNewPassword, PASSWORD_HINT } from '../../utils/validation';
 import { compareByName, fullNameOf } from '../../utils/name';
 import { getAge } from '../../utils/customerStats';
+import { PROVINCES, EMPTY_ADDRESS, composeAddress, validateAddressParts, type AddressParts } from '../../constants/vnAddress';
 import './CustomersPage.css';
 
 interface Customer {
@@ -21,6 +24,10 @@ interface Customer {
   gender?: string | null;
   address?: string | null;
   isLocked: boolean;
+  // API có thể trả về số lượng khảo sát hoặc danh sách phản hồi khảo sát.
+  surveyCount?: number;
+  surveyResponseCount?: number;
+  surveyResponses?: unknown[];
   preferences?: { categoryId: number; categoryName: string }[];
 }
 
@@ -36,30 +43,36 @@ const EMPTY_FORM = { username: '', email: '', password: '', lastName: '', firstN
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const MIN_DOB = '1900-01-01';
 
-const NotUpdated = () => <span className="text-muted">Chưa cập nhật</span>;
+const NotUpdated = () => <span className="text-muted not-updated">Chưa cập nhật</span>;
 const fmtDate = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : null;
 
 const CustomersPage = () => {
   const [all, setAll] = useState<Customer[]>([]);
+  const [allFeedbacks, setAllFeedbacks] = useState<Feedback[]>([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
-  const [detail, setDetail] = useState<Customer | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [addr, setAddr] = useState<AddressParts>({ ...EMPTY_ADDRESS });
+  const wardOptions = useMemo(() => PROVINCES.find((p) => p.name === addr.province)?.wards ?? [], [addr.province]);
+  const closeAdd = () => { setShowAdd(false); setAddr({ ...EMPTY_ADDRESS }); };
 
   const [searchDraft, setSearchDraft] = useState('');
-  const [statusDraft, setStatusDraft] = useState<StatusFilter>('ALL');
-  const [genderDraft, setGenderDraft] = useState<GenderFilter>('ALL');
-  const [prefDraft, setPrefDraft] = useState('ALL');
   const [filters, setFilters] = useState({ search: '', status: 'ALL' as StatusFilter, gender: 'ALL' as GenderFilter, pref: 'ALL' });
   const [sortBy, setSortBy] = useState<SortBy>('NEWEST');
 
+  /** Từ khóa: chỉ áp dụng khi bấm "Tìm kiếm" / Enter. Các ô lọc bên dưới áp dụng ngay. */
   const handleApplySearch = (e: React.FormEvent) => {
     e.preventDefault();
-    setFilters({ search: searchDraft, status: statusDraft, gender: genderDraft, pref: prefDraft });
+    setFilters((f) => ({ ...f, search: searchDraft }));
+    setPage(1);
+  };
+  const setFilter = <K extends keyof typeof filters>(key: K, value: (typeof filters)[K]) => {
+    setFilters((f) => ({ ...f, [key]: value }));
     setPage(1);
   };
 
@@ -80,6 +93,11 @@ const CustomersPage = () => {
     } finally {
       if (!silent) setLoading(false);
     }
+    // Đánh giá của khách hàng (hiển thị ở form phụ) — lỗi thì bỏ qua
+    try {
+      const fbs = await getFeedbacks();
+      setAllFeedbacks(fbs ?? []);
+    } catch { /* bỏ qua */ }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -126,6 +144,24 @@ const CustomersPage = () => {
 
   useEffect(() => { if (page > totalPages) setPage(totalPages); }, [totalPages, page]);
 
+  // Form phụ luôn có một khách hàng được chọn (mặc định: dòng đầu tiên của kết quả lọc)
+  useEffect(() => {
+    if (loading) return;
+    if (!filtered.some((c) => c.customerId === selectedId)) {
+      setSelectedId(filtered[0]?.customerId ?? null);
+    }
+  }, [filtered, selectedId, loading]);
+
+  const selected = useMemo(() => all.find((c) => c.customerId === selectedId) ?? null, [all, selectedId]);
+
+  const selectedFeedbacks = useMemo(
+    () => (selected ? allFeedbacks.filter((f) => f.customerId === selected.customerId) : []),
+    [allFeedbacks, selected],
+  );
+  const avgRating = selectedFeedbacks.length
+    ? selectedFeedbacks.reduce((s, f) => s + f.rating, 0) / selectedFeedbacks.length
+    : 0;
+
   const handleAdd = async () => {
     if (!form.username.trim() || !form.lastName.trim() || !form.firstName.trim() || !form.dateOfBirth) {
       toast.error('Vui lòng nhập đầy đủ Username, họ, tên và ngày sinh.');
@@ -140,6 +176,13 @@ const CustomersPage = () => {
     const pwErr = validateNewPassword(form.password, form.username);
     if (pwErr) return void toast.error(pwErr);
 
+    const hasAnyAddr = !!(addr.street.trim() || addr.province || addr.ward);
+    if (hasAnyAddr) {
+      const errs = validateAddressParts(addr);
+      const firstErr = errs.street || errs.province || errs.ward;
+      if (firstErr) return void toast.error(firstErr);
+    }
+
     setSaving(true);
     try {
       await api.post('/admin/customers', {
@@ -149,10 +192,10 @@ const CustomersPage = () => {
         firstName: form.firstName.trim().replace(/\s+/g, ' '),
         email: normalizeEmail(form.email),
         phone: form.phone.trim(),
-        address: form.address.trim(),
+        address: hasAnyAddr ? composeAddress(addr) : '',
       });
       toast.success('✅ Đã thêm khách hàng');
-      setShowAdd(false);
+      closeAdd();
       setForm(EMPTY_FORM);
       load();
     } catch (e: any) {
@@ -194,185 +237,212 @@ const CustomersPage = () => {
   const setF = (field: keyof typeof EMPTY_FORM) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm({ ...form, [field]: e.target.value });
 
+  /** ===== Form phụ: chi tiết khách hàng ===== */
+  const renderDetail = () => {
+    if (!selected) {
+      return (
+        <div className="cm-detail-empty">
+          <UserRound size={44} strokeWidth={1} />
+          <p>Chọn một khách hàng để xem chi tiết</p>
+        </div>
+      );
+    }
+    const c = selected;
+    const name = fullNameOf(c)?.trim() || c.username || 'Khách hàng';
+    const age = getAge(c.dateOfBirth);
+    const prefs = c.preferences ?? [];
+    const sub = [c.gender?.trim() || null, age !== null && age >= 0 ? `${age} tuổi` : null].filter(Boolean).join(' · ');
+
+    return (
+      <>
+        <div className="cm-detail-head">
+          <div className="cm-detail-avatar">{name.charAt(0).toUpperCase()}</div>
+          <div className="cm-detail-head__info">
+            <div className="cm-detail-name">{name}</div>
+            <div className="cm-detail-sub">
+              {sub && <span>{sub}</span>}
+              <span className={`status-badge ${c.isLocked ? 'badge-rejected' : 'badge-approved'}`}>
+                {c.isLocked ? 'Đã khóa' : 'Hoạt động'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="cm-detail-body">
+          <ul className="cm-contact">
+            <li className="cm-customer-code"><UserRound size={15} /><span>Mã khách hàng: {c.customerId}</span></li>
+            <li><Phone size={15} /><span>{c.phone?.trim() || <NotUpdated />}</span></li>
+            <li><Mail size={15} /><span>{c.email || <NotUpdated />}</span></li>
+            <li><Cake size={15} /><span>{fmtDate(c.dateOfBirth) ?? <NotUpdated />}</span></li>
+            <li><MapPin size={15} /><span>{c.address?.trim() || <NotUpdated />}</span></li>
+          </ul>
+
+          <div className="cm-stats">
+            <div className="cm-stat">
+              <b>{c.surveyCount ?? c.surveyResponseCount ?? c.surveyResponses?.length ?? 0}</b>
+              <span>Số khảo sát</span>
+            </div>
+            <div className="cm-stat">
+              <b>{selectedFeedbacks.length}</b>
+              <span>Lượt đánh giá</span>
+            </div>
+            <div className="cm-stat">
+              <b>{selectedFeedbacks.length ? avgRating.toFixed(1) : '—'}</b>
+              <span>Điểm trung bình</span>
+            </div>
+          </div>
+
+          <section className="cm-preferences-card">
+            <h4 className="cm-section-title"><UserRound size={15} /> Sở thích khách hàng</h4>
+            <div className="pref-badges cm-prefs">
+              {prefs.length === 0
+                ? <span className="text-muted" style={{ fontSize: 12.5 }}>Chưa có sở thích</span>
+                : prefs.map((p, idx) => (
+                  <span key={`${c.customerId}-${p.categoryId}-${idx}`} className="pref-badge">{p.categoryName}</span>
+                ))}
+            </div>
+          </section>
+        </div>
+
+        <div className="cm-detail-footer">
+          <button className="btn btn-secondary" onClick={() => handleLock(c)} disabled={actionLoadingId === c.customerId}>
+            {c.isLocked ? <><Unlock size={15} /> Mở khóa</> : <><Lock size={15} /> Khóa</>}
+          </button>
+          <button className="btn btn-danger-soft" onClick={() => handleDelete(c)}>
+            <Trash2 size={15} /> Xóa
+          </button>
+        </div>
+      </>
+    );
+  };
+
   return (
     <div className="customers-page">
       <div className="page-header">
         <div>
           <h1 className="page-title">Quản lý khách hàng</h1>
-          <p className="page-subtitle">Thêm, khóa/mở khóa và xóa khách hàng</p>
+          <p className="page-subtitle">Chọn khách hàng ở danh sách để xem chi tiết, khóa/mở khóa hoặc xóa</p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
           <Plus size={16} /> Thêm khách hàng
         </button>
       </div>
 
-      <form className="customer-search-toolbar" style={{ flexWrap: 'wrap' }} onSubmit={handleApplySearch}>
-        <label className="customer-search">
-          <Search size={16} className="customer-search__icon" />
-          <input
-            type="text"
-            className="customer-search__input"
-            placeholder="Tìm kiếm tên, email hoặc SĐT..."
-            value={searchDraft}
-            onChange={(e) => setSearchDraft(e.target.value)}
-          />
-          {searchDraft && (
-            <button type="button" className="customer-search__reset" onClick={handleClearSearch} title="Xóa từ khóa">
-              <X size={13} />
-            </button>
-          )}
-        </label>
+      <div className="customer-filter-block">
+        <form className="customer-search-toolbar" onSubmit={handleApplySearch}>
+          <label className="customer-search">
+            <Search size={16} className="customer-search__icon" />
+            <input
+              type="text"
+              className="customer-search__input"
+              placeholder="Tìm kiếm tên, email hoặc SĐT..."
+              value={searchDraft}
+              onChange={(e) => setSearchDraft(e.target.value)}
+            />
+            {searchDraft && (
+              <button type="button" className="customer-search__reset" onClick={handleClearSearch} title="Xóa từ khóa">
+                <X size={13} />
+              </button>
+            )}
+          </label>
+          <button type="submit" className="customer-search__submit">
+            <Search size={16} /> Tìm kiếm
+          </button>
+        </form>
 
-        <select className="customer-select" value={statusDraft} onChange={(e) => setStatusDraft(e.target.value as StatusFilter)}>
-          <option value="ALL">Tất cả trạng thái</option>
-          <option value="ACTIVE">Đang hoạt động</option>
-          <option value="LOCKED">Đã khóa</option>
-        </select>
-
-        <select className="customer-select" value={genderDraft} onChange={(e) => setGenderDraft(e.target.value as GenderFilter)}>
-          <option value="ALL">Tất cả giới tính</option>
-          <option value="Nam">Nam</option>
-          <option value="Nữ">Nữ</option>
-          <option value="Khác">Khác</option>
-        </select>
-
-        <select className="customer-select" value={prefDraft} onChange={(e) => setPrefDraft(e.target.value)}>
-          <option value="ALL">Tất cả sở thích</option>
-          {categoryOptions.map((p) => <option key={p} value={p}>{p}</option>)}
-        </select>
-
-        <select className="customer-select" value={sortBy} onChange={(e) => { setSortBy(e.target.value as SortBy); setPage(1); }}>
-          <option value="NEWEST">Mới đăng ký nhất</option>
-          <option value="OLDEST">Cũ nhất</option>
-          <option value="NAME_ASC">Tên A → Z</option>
-          <option value="NAME_DESC">Tên Z → A</option>
-        </select>
-
-        <button type="submit" className="customer-search__submit">
-          <Search size={16} /> Tìm kiếm
-        </button>
-      </form>
+        <div className="customer-adv-row">
+          <select className="customer-select" value={filters.status} onChange={(e) => setFilter('status', e.target.value as StatusFilter)}>
+            <option value="ALL">Tất cả trạng thái</option>
+            <option value="ACTIVE">Đang hoạt động</option>
+            <option value="LOCKED">Đã khóa</option>
+          </select>
+          <select className="customer-select" value={filters.gender} onChange={(e) => setFilter('gender', e.target.value as GenderFilter)}>
+            <option value="ALL">Tất cả giới tính</option>
+            <option value="Nam">Nam</option>
+            <option value="Nữ">Nữ</option>
+            <option value="Khác">Khác</option>
+          </select>
+          <select className="customer-select" value={filters.pref} onChange={(e) => setFilter('pref', e.target.value)}>
+            <option value="ALL">Tất cả sở thích</option>
+            {categoryOptions.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+          <select className="customer-select" value={sortBy} onChange={(e) => { setSortBy(e.target.value as SortBy); setPage(1); }}>
+            <option value="NEWEST">Mới đăng ký nhất</option>
+            <option value="OLDEST">Cũ nhất</option>
+            <option value="NAME_ASC">Tên A → Z</option>
+            <option value="NAME_DESC">Tên Z → A</option>
+          </select>
+        </div>
+      </div>
 
       {loading ? (
         <div className="loading-state"><div className="spinner" /><p>Đang tải...</p></div>
       ) : customers.length === 0 ? (
         <div className="empty-state"><p>Không có khách hàng nào</p></div>
       ) : (
-        <div className="table-wrapper">
-          <table className="custom-table">
-            <thead>
-              <tr>
-                <th>Mã KH</th>
-                <th>Họ</th>
-                <th>Tên</th>
-                <th>Ngày sinh</th>
-                <th>Giới tính</th>
-                <th>SĐT</th>
-                <th>Email</th>
-                <th>Địa chỉ</th>
-                <th>Sở thích</th>
-                <th>Trạng thái</th>
-                <th className="col-actions">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {customers.map((c) => {
-                const prefs = c.preferences ?? [];
-                const age = getAge(c.dateOfBirth);
-                return (
-                  <tr key={c.customerId}>
-                    <td className="text-muted">{c.customerId}</td>
-                    <td className="font-medium">{c.lastName || <span className="text-muted">—</span>}</td>
-                    <td className="font-medium">{c.firstName || <span className="text-muted">—</span>}</td>
-                    <td>
-                      {c.dateOfBirth ? (
-                        <>
-                          <div>{fmtDate(c.dateOfBirth)}</div>
-                          {age !== null && age >= 0 && <div className="text-muted customer-age">{age} tuổi</div>}
-                        </>
-                      ) : <NotUpdated />}
-                    </td>
-                    <td>{c.gender || '—'}</td>
-                    <td>{c.phone?.trim() ? c.phone : <NotUpdated />}</td>
-                    <td>{c.email || <span className="text-muted">—</span>}</td>
-                    <td style={{ maxWidth: 220 }}>
-                      {c.address?.trim()
-                        ? <span title={c.address} style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.address}</span>
-                        : <NotUpdated />}
-                    </td>
-                    <td>
-                      {prefs.length === 0 ? <NotUpdated /> : (
-                        <div className="pref-badges">
-                          {prefs.slice(0, 2).map((p, idx) => (
-                            <span key={`${c.customerId}-${p.categoryId}-${idx}`} className="pref-badge">{p.categoryName}</span>
-                          ))}
-                          {prefs.length > 2 && <span className="pref-badge more">+{prefs.length - 2}</span>}
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      <span className={`status-badge ${c.isLocked ? 'badge-rejected' : 'badge-approved'}`}>
-                        {c.isLocked ? 'Đã khóa' : 'Hoạt động'}
-                      </span>
-                    </td>
-                    <td className="col-actions">
-                      <div className="action-group">
-                        <button className="action-btn customer-view-btn" onClick={() => setDetail(c)}>Chi tiết</button>
-                        <button className="action-btn toggle-off-btn" onClick={() => handleLock(c)} disabled={actionLoadingId === c.customerId}>
-                          {c.isLocked ? 'Mở khóa' : 'Khóa'}
-                        </button>
-                        <button className="action-btn delete-btn" onClick={() => handleDelete(c)}>Xóa</button>
-                      </div>
-                    </td>
+        <div className="cm-layout">
+          {/* ===== MAIN: danh sách ===== */}
+          <section className="cm-main">
+            <div className="cm-main__title">Danh sách khách hàng <span className="text-muted">({total})</span></div>
+            <div className="table-wrapper">
+              <table className="custom-table">
+                <thead>
+                  <tr>
+                    <th className="col-id">Mã KH</th>
+                    <th className="col-name">Họ và tên</th>
+                    <th className="col-email">Email</th>
+                    <th className="col-phone">SĐT</th>
+                    <th className="col-gender">Giới tính</th>
+                    <th className="col-status">Trạng thái</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+                </thead>
+                <tbody>
+                  {customers.map((c) => {
+                    const fullName = fullNameOf(c);
+                    return (
+                      <tr
+                        key={c.customerId}
+                        className={`cm-row-click ${c.customerId === selectedId ? 'is-selected' : ''}`}
+                        onClick={() => setSelectedId(c.customerId)}
+                      >
+                        <td className="col-id text-muted">{c.customerId}</td>
+                        <td className="col-name">
+                          <div className="customer-fullname">{fullName?.trim() || '—'}</div>
+                        </td>
+                        <td className="col-email">
+                          {c.email
+                            ? <span className="customer-email" title={c.email}>{c.email}</span>
+                            : <span className="text-muted">—</span>}
+                        </td>
+                        <td className="col-phone">{c.phone?.trim() ? c.phone : <NotUpdated />}</td>
+                        <td className="col-gender">
+                          {c.gender?.trim() || <span className="text-muted">—</span>}
+                        </td>
+                        <td className="col-status">
+                          <span className={`status-badge ${c.isLocked ? 'badge-rejected' : 'badge-approved'}`}>
+                            {c.isLocked ? 'Đã khóa' : 'Hoạt động'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <Pagination currentPage={page} totalPages={totalPages} totalItems={total} itemsPerPage={ITEMS_PER_PAGE} itemLabel="khách hàng" onPageChange={setPage} />
+          </section>
 
-      <Pagination currentPage={page} totalPages={totalPages} totalItems={total} itemsPerPage={ITEMS_PER_PAGE} itemLabel="khách hàng" onPageChange={setPage} />
-
-      {detail && (
-        <div className="modal-overlay" onClick={() => setDetail(null)}>
-          <div className="modal-card customer-detail-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Chi tiết khách hàng</h3>
-              <button className="modal-close-btn" onClick={() => setDetail(null)}><X size={20} /></button>
-            </div>
-            <div className="modal-body modal-grid-2">
-              {([
-                ['Mã khách hàng', String(detail.customerId)],
-                ['Tên đăng nhập', detail.username],
-                ['Họ tên', fullNameOf(detail)],
-                ['Email', detail.email],
-                ['Ngày sinh', fmtDate(detail.dateOfBirth)],
-                ['Giới tính', detail.gender],
-                ['Số điện thoại', detail.phone],
-                ['Địa chỉ', detail.address],
-                ['Trạng thái', detail.isLocked ? 'Đã khóa' : 'Đang hoạt động'],
-                ['Sở thích', (detail.preferences ?? []).map((p) => p.categoryName).join(', ') || null],
-              ] as [string, string | null | undefined][]).map(([label, value]) => (
-                <div className="form-group" key={label}>
-                  <span className="form-label">{label}</span>
-                  <span className="customer-detail-value">{value?.trim() || 'Chưa cập nhật'}</span>
-                </div>
-              ))}
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setDetail(null)}>Đóng</button>
-            </div>
-          </div>
+          {/* ===== SUB: chi tiết ===== */}
+          <aside className="cm-sub">{renderDetail()}</aside>
         </div>
       )}
 
       {showAdd && (
-        <div className="modal-overlay" onClick={() => setShowAdd(false)}>
+        <div className="modal-overlay" onClick={closeAdd}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Thêm khách hàng mới</h3>
-              <button className="modal-close-btn" onClick={() => setShowAdd(false)}><X size={20} /></button>
+              <button className="modal-close-btn" onClick={closeAdd}><X size={20} /></button>
             </div>
 
             <div className="modal-body modal-grid-2">
@@ -415,13 +485,30 @@ const CustomersPage = () => {
                 <input className="form-input" value={form.phone} onChange={setF('phone')} />
               </div>
               <div className="form-group">
-                <label className="form-label">Địa chỉ</label>
-                <input className="form-input" value={form.address} onChange={setF('address')} />
+                <label className="form-label">Tỉnh/Thành phố</label>
+                <select className="form-input" value={addr.province}
+                  onChange={(e) => setAddr({ ...addr, province: e.target.value, ward: '' })}>
+                  <option value="">-- Chọn Tỉnh/Thành --</option>
+                  {PROVINCES.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Phường/Xã</label>
+                <select className="form-input" value={addr.ward} disabled={!addr.province}
+                  onChange={(e) => setAddr({ ...addr, ward: e.target.value })}>
+                  <option value="">-- Chọn Phường/Xã --</option>
+                  {wardOptions.map((w) => <option key={w} value={w}>{w}</option>)}
+                </select>
+              </div>
+              <div className="form-group full-width">
+                <label className="form-label">Số nhà, tên đường</label>
+                <input className="form-input" maxLength={150} placeholder="VD: 12 Lê Lợi" value={addr.street}
+                  onChange={(e) => setAddr({ ...addr, street: e.target.value })} />
               </div>
             </div>
 
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setShowAdd(false)}>Hủy</button>
+              <button className="btn btn-secondary" onClick={closeAdd}>Hủy</button>
               <button className="btn btn-primary" onClick={handleAdd} disabled={saving}>
                 {saving ? 'Đang lưu...' : 'Lưu'}
               </button>

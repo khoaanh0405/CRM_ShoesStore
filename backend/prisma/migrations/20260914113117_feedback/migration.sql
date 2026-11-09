@@ -5,7 +5,6 @@ CREATE TABLE "feedbacks" (
     "feedback_id" SERIAL NOT NULL,
     "customer_id" INTEGER NOT NULL,
     "product_id" INTEGER NOT NULL,
-    "title" VARCHAR(150) NOT NULL,
     "content" TEXT NOT NULL,
     "rating" INTEGER NOT NULL,
     "image_url" VARCHAR(500),

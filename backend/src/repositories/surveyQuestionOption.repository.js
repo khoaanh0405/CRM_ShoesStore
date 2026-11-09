@@ -1,11 +1,3 @@
-/**
- * Repository cho model SurveyQuestionOption (bảng survey_question_options).
- * question_id -> survey_questions (CASCADE).
- * survey_answers.option_id -> survey_question_options (SET NULL): xóa 1 lựa
- * chọn không bị FK chặn (answer cũ chỉ mất liên kết optionId, answerValue
- * dạng text vẫn giữ nguyên) — remove() luôn an toàn.
- * Chỉ áp dụng cho câu hỏi SINGLE_CHOICE / MULTIPLE_CHOICE (câu TEXT không có option).
- */
 import prisma from '../config/database.js';
 
 export const surveyQuestionOptionRepository = {

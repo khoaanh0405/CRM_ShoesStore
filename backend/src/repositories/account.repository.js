@@ -1,9 +1,3 @@
-/**
- * Repository cho model Account (bảng accounts).
- * roles.role_id -> accounts (RESTRICT), customers.customer_id / employees.employee_id -> accounts (CASCADE, 1-1).
- * Repository KHÔNG chịu trách nhiệm hash mật khẩu — việc đó thuộc account.service.js.
- * accounts.email (unique, nullable, luôn chữ thường) — dùng cho Admin/Manager và đồng bộ với email khách hàng.
- */
 import prisma from '../config/database.js';
 
 export const accountRepository = {

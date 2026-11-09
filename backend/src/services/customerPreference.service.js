@@ -1,9 +1,3 @@
-/**
- * Sở thích mua sắm của khách hàng = danh sách DANH MỤC (categories) khách chọn.
- * Không còn lưu chuỗi tên danh mục: chỉ nhận categoryId hợp lệ (danh mục có thật, chưa bị xóa)
- * và không cho chọn trùng (đã có UNIQUE (customer_id, category_id) ở CSDL, kiểm tra thêm ở đây
- * để trả thông báo dễ hiểu).
- */
 import { MESSAGES } from '../constants/index.js';
 import { customerPreferenceRepository, customerRepository } from '../repositories/index.js';
 import { categoryRepository } from '../repositories/category.repository.js';

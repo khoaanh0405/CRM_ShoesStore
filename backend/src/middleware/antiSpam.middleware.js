@@ -1,6 +1,7 @@
 import prisma from '../config/database.js';
 import { TooManyRequestsError, ForbiddenError, ConflictError } from '../errors/AppError.js';
-import { FEEDBACK_STATUS, ROLE_NAMES } from '../constants/index.js';
+import { ROLE_NAMES } from '../constants/index.js';
+import { sanitizeText } from '../utils/text.util.js';
 
 /** Rate limit in-memory theo accountId (fallback IP). */
 export function rateLimit({ windowMs, max, message }) {
@@ -41,24 +42,30 @@ const WINDOW_LIMIT = 5;           // tối đa 5 đánh giá / 30 phút / khách
 
 /**
  * Chống spam đánh giá: tối đa 5 đánh giá trong 30 phút (tính cả đánh giá đã thu hồi để không lách luật),
- * và không gửi trùng khi còn một đánh giá Pending cho cùng sản phẩm.
+ * và không gửi lại đúng nội dung đã đăng cho cùng một sản phẩm.
+ * (Không còn trạng thái "Pending" vì đánh giá hợp lệ được đăng ngay.)
+ * Kiểm tra nội dung (chửi tục, vô nghĩa...) KHÔNG nằm ở đây mà ở feedbackService.create.
  */
 export async function feedbackSpamGuard(req, res, next) {
   try {
     const customerId = Number(req.body.customerId);
     const productId = Number(req.body.productId);
     const since = new Date(Date.now() - WINDOW_MS);
+    // Nội dung lưu trong DB đã được sanitizeText nên phải so sánh trên cùng dạng đó.
+    const content = typeof req.body.content === 'string' ? sanitizeText(req.body.content) : '';
 
-    const [recent, pendingSame] = await Promise.all([
+    const [recent, duplicate] = await Promise.all([
       prisma.feedback.findMany({
         where: { customerId, createdAt: { gte: since } },
         orderBy: { createdAt: 'asc' },
         select: { createdAt: true },
       }),
-      prisma.feedback.findFirst({
-        where: { customerId, productId, status: FEEDBACK_STATUS.PENDING, isDeleted: false },
-        select: { feedbackId: true },
-      }),
+      content
+        ? prisma.feedback.findFirst({
+            where: { customerId, productId, content, isDeleted: false },
+            select: { feedbackId: true },
+          })
+        : null,
     ]);
 
     if (recent.length >= WINDOW_LIMIT) {
@@ -69,7 +76,7 @@ export async function feedbackSpamGuard(req, res, next) {
         `Bạn chỉ được gửi tối đa ${WINDOW_LIMIT} đánh giá trong 30 phút. Vui lòng thử lại sau ${Math.ceil(waitSec / 60)} phút.`
       );
     }
-    if (pendingSame) throw new ConflictError('Bạn đã có một đánh giá đang chờ duyệt cho sản phẩm này.');
+    if (duplicate) throw new ConflictError('Bạn đã gửi đánh giá có nội dung giống hệt cho sản phẩm này.');
     next();
   } catch (err) {
     next(err);
