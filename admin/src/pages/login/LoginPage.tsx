@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { login } from '../../services/auth';
+import { ACCOUNT_BLOCKED_MESSAGE, isAccountBlockedError } from '../../utils/accountStatus';
 import { LogIn, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import './LoginPage.css';
 
@@ -23,6 +24,10 @@ const LoginPage: React.FC = () => {
       toast.success('Đăng nhập thành công!');
       navigate('/');
     } catch (err: any) {
+      if (isAccountBlockedError(err)) {
+        window.alert(ACCOUNT_BLOCKED_MESSAGE);
+        return;
+      }
       const msg = err?.response?.data?.message || err.message || 'Sai tên đăng nhập hoặc mật khẩu';
       toast.error(msg);
     } finally {

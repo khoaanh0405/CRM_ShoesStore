@@ -12,6 +12,7 @@ import { feedbackService } from '@/services/feedback.service';
 import { productService } from '@/services/product.service';
 import type { Product } from '@/types/product';
 import { formatPrice } from '@/utils/format';
+import { resolveImageUrl } from '@/utils/imageUrl';
 import { ChevronDown, ImageOff, ImagePlus, Lock, Save, Search, Send, X } from 'lucide-react';
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -193,7 +194,7 @@ export default function FeedbackCreatePage() {
             <span style={{ color: AppColors.textPrimary, fontSize: 13, fontWeight: 600 }}>Hình ảnh thực tế (không bắt buộc)</span>
             {imageUrl ? (
               <div style={{ position: 'relative', width: 140, height: 140 }}>
-                <img src={imageUrl} alt="Ảnh đánh giá" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: Radius.md, border: `1px solid ${AppColors.border}` }} />
+                <img src={resolveImageUrl(imageUrl)} alt="Ảnh đánh giá" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: Radius.md, border: `1px solid ${AppColors.border}` }} />
                 <button type="button" onClick={() => setImageUrl(null)} aria-label="Xóa ảnh"
                   style={{ position: 'absolute', top: 6, right: 6, width: 26, height: 26, borderRadius: 13, border: 'none', background: 'rgba(0,0,0,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                   <X size={16} color="#fff" />
@@ -224,9 +225,10 @@ export default function FeedbackCreatePage() {
 }
 
 function ProductThumb({ product }: { product: Product }) {
+  const [imgError, setImgError] = useState(false);
   return (
     <div style={{ width: 44, height: 44, borderRadius: Radius.sm, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: AppColors.background, flexShrink: 0 }}>
-      {product.imageUrl ? <img src={product.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ImageOff size={18} color={AppColors.textSecondary} />}
+      {product.imageUrl && !imgError ? <img src={resolveImageUrl(product.imageUrl)} alt="" onError={() => setImgError(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ImageOff size={18} color={AppColors.textSecondary} />}
     </div>
   );
 }

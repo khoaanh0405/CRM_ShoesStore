@@ -8,7 +8,9 @@ import { FEEDBACK_STATUS } from '@/constants/domain';
 import { useApi } from '@/hooks/useApi';
 import { productService } from '@/services/product.service';
 import { formatDate, formatPrice } from '@/utils/format';
+import { resolveImageUrl } from '@/utils/imageUrl';
 import { ChevronLeft, Edit3, ImageOff } from 'lucide-react';
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 /** Chi tiết sản phẩm + đánh giá đã được duyệt (kèm phản hồi của cửa hàng) + nút "Viết đánh giá". */
@@ -25,6 +27,7 @@ export default function ProductDetailPage() {
     return { product, feedbacks };
   }, [productId]);
 
+  const [imgError, setImgError] = useState(false);
   const goBack = () => navigate(-1);
 
   if (loading && !data) return <LoadingView />;
@@ -48,7 +51,11 @@ export default function ProductDetailPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
       <div className="pd-grid">
         <div style={{ position: 'relative', aspectRatio: '1 / 1', borderRadius: Radius.lg, overflow: 'hidden', background: AppColors.surface, border: `1px solid ${AppColors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {product.imageUrl ? <img src={product.imageUrl} alt={product.productName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ImageOff size={48} color={AppColors.textSecondary} />}
+          {product.imageUrl && !imgError ? (
+            <img src={resolveImageUrl(product.imageUrl)} alt={product.productName} onError={() => setImgError(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            <ImageOff size={48} color={AppColors.textSecondary} />
+          )}
           <button onClick={goBack} aria-label="Quay lại" style={{ position: 'absolute', left: 12, top: 12, width: 40, height: 40, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', background: AppColors.overlay, border: `1px solid ${AppColors.border}` }}>
             <ChevronLeft size={22} color={AppColors.textPrimary} />
           </button>
@@ -87,6 +94,10 @@ export default function ProductDetailPage() {
                 </div>
                 <span style={{ color: AppColors.textPrimary, fontSize: 15, fontWeight: 700 }}>{f.title}</span>
                 <span style={{ color: AppColors.textSecondary, fontSize: 14, lineHeight: '20px' }}>{f.content}</span>
+                {f.imageUrl ? (
+                  <img src={resolveImageUrl(f.imageUrl)} alt="Ảnh đánh giá" onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                    style={{ width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: Radius.md, border: `1px solid ${AppColors.border}`, marginTop: 4 }} />
+                ) : null}
                 {f.replies?.map((r) => (
                   <div key={r.replyId} style={{ marginTop: 6, padding: '10px 12px', borderRadius: Radius.md, background: AppColors.background, borderLeft: `3px solid ${AppColors.accent}` }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: AppColors.textPrimary }}>

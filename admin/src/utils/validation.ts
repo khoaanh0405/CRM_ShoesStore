@@ -29,3 +29,43 @@ export function validateNewPassword(value: string, username?: string): string | 
 }
 
 export const PASSWORD_HINT = 'Tối thiểu 6 ký tự, gồm chữ hoa, chữ số và ký tự đặc biệt.';
+
+/** Gộp nhiều khoảng trắng liên tiếp thành 1 và bỏ khoảng trắng đầu cuối. */
+export const normalizeSpaces = (v: string) => v.trim().replace(/\s+/g, ' ');
+
+/** SĐT gửi lên server: bỏ khoảng trắng, dấu chấm, gạch ngang. */
+export const normalizePhone = (v: string) => v.replace(/[\s.-]/g, '');
+
+const PHONE_RE = /^(?:0|\+?84)\d{9}$/;
+
+/** SĐT không bắt buộc; nếu có thì phải là số di động/cố định Việt Nam hợp lệ (vd: 0912345678, +84912345678). */
+export function validatePhone(value: string): string | null {
+  const v = normalizePhone(value);
+  if (!v) return null;
+  if (!PHONE_RE.test(v)) return 'Số điện thoại không hợp lệ (vd: 0912345678).';
+  return null;
+}
+
+const USERNAME_RE = /^[A-Za-z0-9._]+$/;
+
+/** Tên đăng nhập mới: 4–50 ký tự, chỉ gồm chữ không dấu, số, dấu chấm và gạch dưới. */
+export function validateNewUsername(value: string): string | null {
+  const v = value.trim();
+  if (!v) return 'Vui lòng nhập tên đăng nhập.';
+  if (v.length < 4) return 'Tên đăng nhập tối thiểu 4 ký tự.';
+  if (v.length > 50) return 'Tên đăng nhập tối đa 50 ký tự.';
+  if (!USERNAME_RE.test(v)) return 'Tên đăng nhập chỉ gồm chữ cái không dấu, số, dấu chấm và gạch dưới.';
+  return null;
+}
+
+/** Ngày sinh (yyyy-mm-dd): bắt buộc, đúng định dạng, từ 1900-01-01 đến hết hôm nay. */
+export function validateDateOfBirth(value: string): string | null {
+  const v = value.trim();
+  if (!v) return 'Vui lòng nhập ngày sinh.';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || Number.isNaN(new Date(`${v}T00:00:00`).getTime())) return 'Ngày sinh không hợp lệ.';
+  if (v < '1900-01-01') return 'Ngày sinh không hợp lệ (từ năm 1900 trở đi).';
+  const t = new Date();
+  const today = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+  if (v > today) return 'Ngày sinh không được ở tương lai.';
+  return null;
+}

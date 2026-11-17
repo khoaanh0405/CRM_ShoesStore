@@ -35,7 +35,7 @@ export const reviewReplyService = {
       await notificationService.create({
         customerId: fb.customerId, type: NOTIFICATION_TYPE.FEEDBACK_REPLIED,
         title: 'Cửa hàng đã phản hồi đánh giá của bạn',
-        message: `Đánh giá "${fb.title}" của bạn vừa nhận được phản hồi từ cửa hàng.`,
+        message: `Đánh giá của bạn vừa nhận được phản hồi từ cửa hàng.`,
         refType: NOTIFICATION_REF_TYPE.FEEDBACK, refId: feedbackId,
       });
     } catch (e) { console.error('[REPLY] Không tạo được thông báo:', e.message); }

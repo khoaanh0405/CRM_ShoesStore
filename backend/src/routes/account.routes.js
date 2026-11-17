@@ -43,6 +43,7 @@ router.get('/', adminOnly, accountController.list);
 router.get('/:id', adminOnly, accountValidator.idParam, accountController.getById);
 router.patch('/:id/lock', staffOnly, accountValidator.idParam, accountController.lock);
 router.patch('/:id/unlock', staffOnly, accountValidator.idParam, accountController.unlock);
+router.patch('/:id/restore', adminOnly, accountValidator.idParam, accountController.restore);
 router.patch('/:id/role', adminOnly, accountValidator.idParam, accountValidator.updateRole, accountController.updateRole);
 
 export default router;

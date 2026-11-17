@@ -16,6 +16,9 @@ router.post(
 // Thêm tài khoản nội bộ (Admin/Manager): chỉ Admin.
 router.post('/staff', adminOnly, accountValidator.createStaff, accountController.createStaff);
 
+// Xóa (mềm) tài khoản nhân sự Manager: chỉ Admin.
+router.delete('/staff/:id', adminOnly, accountValidator.idParam, accountController.removeStaff);
+
 // staffOnly = authorize(ADMIN, MANAGER): cho phép CẢ Admin lẫn Manager.
 router.get('/stats', staffOnly, adminController.getDashboardStats);
 router.get('/online-count', staffOnly, adminController.getOnlineCount);

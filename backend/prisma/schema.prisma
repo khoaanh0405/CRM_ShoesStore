@@ -103,6 +103,8 @@ model Employee {
   hireDate    DateTime  @default(now()) @map("hire_date") @db.Date
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
   account     Account   @relation(fields: [employeeId], references: [accountId], onDelete: Cascade)
 
   @@map("employees")

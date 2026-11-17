@@ -1,6 +1,6 @@
 export const MIN_PASSWORD_LENGTH = 6;
 export const MAX_PASSWORD_LENGTH = 50;
-const MIN_AGE = 10;
+const MIN_AGE = 0;
 const MAX_AGE = 120;
 
 function isBlank(value?: string | null): boolean {

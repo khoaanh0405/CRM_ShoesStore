@@ -102,8 +102,8 @@ export default function RegisterPage() {
         </div>
 
         <div className="auth-grid">
-          <AuthTextField label="Họ" placeholder="VD: Nguyễn Văn" maxLength={NAME_PART_MAX} value={form.lastName} onChangeText={setField('lastName')} onBlur={blur('lastName')} error={errors.lastName} />
-          <AuthTextField label="Tên" placeholder="VD: An" maxLength={NAME_PART_MAX} value={form.firstName} onChangeText={setField('firstName')} onBlur={blur('firstName')} error={errors.firstName} />
+          <AuthTextField label="Họ" maxLength={NAME_PART_MAX} value={form.lastName} onChangeText={setField('lastName')} onBlur={blur('lastName')} error={errors.lastName} />
+          <AuthTextField label="Tên" maxLength={NAME_PART_MAX} value={form.firstName} onChangeText={setField('firstName')} onBlur={blur('firstName')} error={errors.firstName} />
 
           <AuthTextField label="Ngày sinh" type="date" min="1900-01-01" max={new Date().toISOString().slice(0, 10)} value={form.dateOfBirth} onChangeText={setField('dateOfBirth')} onBlur={blur('dateOfBirth')} error={errors.dateOfBirth} />
           <AuthTextField label="Số điện thoại" placeholder="Không bắt buộc" inputMode="tel" maxLength={15} value={form.phone} onChangeText={setField('phone')} onBlur={blur('phone')} error={errors.phone} />

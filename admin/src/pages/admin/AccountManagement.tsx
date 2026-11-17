@@ -6,8 +6,11 @@ import api, { getAccounts } from '../../services/api';
 import Pagination from '../../components/Pagination';
 import { useAuthStore } from '../../store/useAuthStore';
 import { showConfirm } from '../../lib/dialog';
-import { normalizeEmail, validateEmail, validateNewPassword, PASSWORD_HINT } from '../../utils/validation';
-import { fullNameOf } from '../../utils/name';
+import {
+  normalizeEmail, normalizePhone, normalizeSpaces, validateDateOfBirth, validateEmail,
+  validateNewPassword, validateNewUsername, validatePhone, PASSWORD_HINT,
+} from '../../utils/validation';
+import { fullNameOf, NAME_PART_MAX, validateNamePart } from '../../utils/name';
 import { PROVINCES, EMPTY_ADDRESS, composeAddress, validateAddressParts, type AddressParts } from '../../constants/vnAddress';
 import './AccountManagement.css';
 
@@ -68,13 +71,29 @@ const ageOf = (iso?: string | null) => {
 
 const EMPTY_FORM = {
   roleName: 'Manager' as CreateRole,
-  username: '', lastName: '', firstName: '', email: '', phone: '', password: '',
+  username: '', lastName: '', firstName: '', email: '', phone: '', password: '', confirmPassword: '',
   dateOfBirth: '', gender: '', address: '',
   hireDate: '',
 };
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const MIN_DOB = '1900-01-01';
+
+/** Nhân sự phải đủ tuổi lao động khi tạo tài khoản và khi vào làm. */
+const MIN_STAFF_AGE = 18;
+const addYearsISO = (iso: string, years: number) => {
+  const [y, m, d] = iso.split('-');
+  return `${String(Number(y) + years).padStart(4, '0')}-${m}-${d}`;
+};
+
+type FormKey = 'username' | 'email' | 'password' | 'confirmPassword' | 'lastName' | 'firstName' | 'dateOfBirth' | 'phone' | 'hireDate' | 'street' | 'province' | 'ward';
+type FormErrors = Partial<Record<FormKey, string | null>>;
+const FORM_KEYS: FormKey[] = ['username', 'email', 'password', 'confirmPassword', 'lastName', 'firstName', 'dateOfBirth', 'phone', 'hireDate', 'street', 'province', 'ward'];
+
+const ERROR_COLOR = '#DC2626';
+const FieldError = ({ msg }: { msg?: string | null }) =>
+  msg ? <span role="alert" style={{ color: ERROR_COLOR, fontSize: 12 }}>{msg}</span> : null;
+const invalid = (msg?: string | null): React.CSSProperties => (msg ? { borderColor: ERROR_COLOR } : {});
 
 const SELECT_ARROW =
   "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>\")";
@@ -107,6 +126,7 @@ const AccountManagement: React.FC = () => {
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
 
   const [addr, setAddr] = useState<AddressParts>({ ...EMPTY_ADDRESS });
   const wardOptions = useMemo(() => PROVINCES.find((p) => p.name === addr.province)?.wards ?? [], [addr.province]);
@@ -270,7 +290,13 @@ const AccountManagement: React.FC = () => {
     if (!ok) return;
     setBusyId(a.accountId);
     try {
-      await api.delete(`/accounts/${a.accountId}`);
+      // Backend KHÔNG có DELETE /accounts/:id (không hard-delete Account) → gọi đúng endpoint soft-delete theo loại tài khoản:
+      //  - Khách hàng : DELETE /customers/:id   (admin, soft-delete)
+      //  - Nhân sự    : DELETE /admin/staff/:id (admin, soft-delete Manager)
+      const endpoint = isCustomerAccount(a)
+        ? `/customers/${a.accountId}`
+        : `/admin/staff/${a.accountId}`;
+      await api.delete(endpoint);
       toast.success('Đã chuyển tài khoản vào mục Lưu trữ');
       setSelectedId(null);
       await load();
@@ -283,6 +309,10 @@ const AccountManagement: React.FC = () => {
 
   const confirmRoleChange = async () => {
     if (!roleChange) return;
+    if (!STAFF_ROLES.includes(roleChange.roleName)) {
+      toast.error('Không thể đổi vai trò nhân sự thành Khách hàng');
+      return;
+    }
     const role = roleOptions.find((r) => r.roleName === roleChange.roleName);
     if (!role) { toast.error('Không tìm thấy vai trò'); return; }
     setRoleSaving(true);
@@ -300,42 +330,98 @@ const AccountManagement: React.FC = () => {
 
   const isCustomerForm = form.roleName === 'Customer';
   const openAdd = () => {
-    setForm({ ...EMPTY_FORM, roleName: tab === 'CUSTOMER' ? 'Customer' : 'Manager' });
+    setForm({ ...EMPTY_FORM, roleName: tab === 'CUSTOMER' ? 'Customer' : 'Manager' }); // tab Nhân sự không có Customer
     resetAddr();
+    setErrors({});
     setShowAdd(true);
   };
-  const closeAdd = () => { if (!saving) { setShowAdd(false); setForm(EMPTY_FORM); resetAddr(); } };
+  const closeAdd = () => { if (!saving) { setShowAdd(false); setForm(EMPTY_FORM); resetAddr(); setErrors({}); } };
+
+  /**
+   * Kiểm tra 1 ô — dùng chung bộ validator với trang Đăng ký / Hồ sơ, cộng thêm:
+   *  - kiểm tra trùng username / email / SĐT với danh sách đã tải
+   *  - nhân sự: đủ 18 tuổi, ngày vào làm hợp lệ so với ngày sinh
+   *  - địa chỉ: bắt buộc với khách hàng, với nhân sự thì nếu nhập thì phải đầy đủ
+   */
+  const validateField = (k: FormKey): string | null => {
+    const hasAnyAddr = !!(addr.street.trim() || addr.province || addr.ward);
+    switch (k) {
+      case 'lastName': return validateNamePart('Họ', form.lastName);
+      case 'firstName': return validateNamePart('Tên', form.firstName);
+      case 'username': {
+        const err = validateNewUsername(form.username);
+        if (err) return err;
+        const u = form.username.trim().toLowerCase();
+        return accounts.some((a) => a.username.toLowerCase() === u) ? 'Tên đăng nhập đã tồn tại.' : null;
+      }
+      case 'email': {
+        const err = validateEmail(form.email);
+        if (err) return err;
+        const e = normalizeEmail(form.email);
+        return accounts.some((a) => normalizeEmail(emailOf(a)) === e) ? 'Email này đã được sử dụng.' : null;
+      }
+      case 'password': return validateNewPassword(form.password, form.username.trim());
+      case 'confirmPassword':
+        if (!form.confirmPassword) return 'Vui lòng nhập lại mật khẩu.';
+        return form.confirmPassword !== form.password ? 'Mật khẩu nhập lại không khớp.' : null;
+      case 'phone': {
+        const err = validatePhone(form.phone);
+        if (err) return err;
+        const p = normalizePhone(form.phone);
+        return p && accounts.some((a) => normalizePhone(profileOf(a)?.phone ?? '') === p) ? 'Số điện thoại này đã được sử dụng.' : null;
+      }
+      case 'dateOfBirth': {
+        if (!form.dateOfBirth) return isCustomerForm ? 'Vui lòng nhập ngày sinh.' : null;
+        const err = validateDateOfBirth(form.dateOfBirth);
+        if (err) return err;
+        if (!isCustomerForm && form.dateOfBirth > addYearsISO(todayISO(), -MIN_STAFF_AGE)) {
+          return `Nhân sự phải từ ${MIN_STAFF_AGE} tuổi trở lên.`;
+        }
+        return null;
+      }
+      case 'hireDate': {
+        if (isCustomerForm || !form.hireDate) return null;
+        if (form.hireDate < MIN_DOB || form.hireDate > todayISO()) return 'Ngày vào làm không hợp lệ (không được ở tương lai).';
+        if (form.dateOfBirth && form.hireDate < addYearsISO(form.dateOfBirth, MIN_STAFF_AGE)) {
+          return `Ngày vào làm phải sau khi nhân sự đủ ${MIN_STAFF_AGE} tuổi.`;
+        }
+        return null;
+      }
+      case 'street': case 'province': case 'ward':
+        return isCustomerForm || hasAnyAddr ? (validateAddressParts(addr)[k] ?? null) : null;
+      default: return null;
+    }
+  };
+
+  const setField = (field: keyof typeof EMPTY_FORM, value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    setErrors((prev) => ({ ...prev, [field]: null, ...(field === 'password' ? { confirmPassword: null } : {}) }));
+  };
+  const setAddrPart = (patch: Partial<AddressParts>) => {
+    setAddr((prev) => ({ ...prev, ...patch }));
+    setErrors((prev) => ({ ...prev, street: null, province: null, ward: null }));
+  };
+  const blurField = (k: FormKey) => () => setErrors((prev) => ({ ...prev, [k]: validateField(k) }));
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    const username = form.username.trim();
-    const personLabel = isCustomerForm ? 'khách hàng' : 'nhân sự';
-    if (username.length < 4) return void toast.error('Tên đăng nhập tối thiểu 4 ký tự.');
-    if (!/^[A-Za-z0-9._]+$/.test(username)) return void toast.error('Tên đăng nhập chỉ gồm chữ cái không dấu, số, dấu chấm và gạch dưới.');
-    if (!form.lastName.trim()) return void toast.error(`Vui lòng nhập họ của ${personLabel}.`);
-    if (!form.firstName.trim()) return void toast.error(`Vui lòng nhập tên của ${personLabel}.`);
-    if (isCustomerForm && !form.dateOfBirth) return void toast.error('Vui lòng nhập ngày sinh của khách hàng.');
-    if (form.dateOfBirth && (form.dateOfBirth > todayISO() || form.dateOfBirth < MIN_DOB))
-      return void toast.error('Ngày sinh không hợp lệ (không được ở tương lai).');
-    if (!isCustomerForm && form.hireDate && form.hireDate > todayISO())
-      return void toast.error('Ngày vào làm không được ở tương lai.');
-    const emailErr = validateEmail(form.email);
-    if (emailErr) return void toast.error(emailErr);
-    const pwErr = validateNewPassword(form.password, username);
-    if (pwErr) return void toast.error(pwErr);
+    if (saving) return;
+
+    const nextErrors = FORM_KEYS.reduce<FormErrors>((acc, k) => { acc[k] = validateField(k); return acc; }, {});
+    setErrors(nextErrors);
+    if (FORM_KEYS.some((k) => nextErrors[k])) {
+      toast.error('Vui lòng kiểm tra lại các trường được đánh dấu.');
+      return;
+    }
 
     const hasAnyAddr = !!(addr.street.trim() || addr.province || addr.ward);
-    if (isCustomerForm || hasAnyAddr) {
-      const errs = validateAddressParts(addr);
-      const firstErr = errs.street || errs.province || errs.ward;
-      if (firstErr) return void toast.error(firstErr);
-    }
     const fullAddress = hasAnyAddr ? composeAddress(addr) : '';
+    const phone = normalizePhone(form.phone);
 
     const common = {
-      username,
-      lastName: form.lastName.trim().replace(/\s+/g, ' '),
-      firstName: form.firstName.trim().replace(/\s+/g, ' '),
+      username: form.username.trim(),
+      lastName: normalizeSpaces(form.lastName),
+      firstName: normalizeSpaces(form.firstName),
       email: normalizeEmail(form.email),
       password: form.password,
     };
@@ -347,13 +433,13 @@ const AccountManagement: React.FC = () => {
           ...common,
           dateOfBirth: form.dateOfBirth,
           gender: form.gender,
-          phone: form.phone.trim(),
+          phone,
           address: fullAddress,
         });
       } else {
         await api.post('/admin/staff', {
           ...common,
-          phone: form.phone.trim() || undefined,
+          phone: phone || undefined,
           roleName: form.roleName,
           dateOfBirth: form.dateOfBirth || undefined,
           gender: form.gender || undefined,
@@ -367,6 +453,7 @@ const AccountManagement: React.FC = () => {
       setShowAdd(false);
       setForm(EMPTY_FORM);
       resetAddr();
+      setErrors({});
       await load();
     } catch (err) {
       toast.error(errMsg(err, 'Tạo tài khoản thất bại'));
@@ -487,7 +574,8 @@ const AccountManagement: React.FC = () => {
                 setRoleChange({ account: a, roleName: e.target.value });
               }}
             >
-              {(roleOptions.length ? roleOptions.map((r) => r.roleName) : [roleName]).map((r) => (
+              {/* Chỉ cho đổi giữa các vai trò nhân sự (Admin/Manager), không có Khách hàng */}
+              {STAFF_ROLES.map((r) => (
                 <option key={r} value={r}>{ROLE_LABELS[r] ?? r}</option>
               ))}
             </select>
@@ -675,17 +763,18 @@ const AccountManagement: React.FC = () => {
               <h2>Thêm tài khoản mới</h2>
               <button className="close-btn" onClick={closeAdd}><X size={18} /></button>
             </div>
-            <form onSubmit={handleAdd}>
+            <form onSubmit={handleAdd} noValidate>
               <div className="modal-body">
                 <div className="form-group" style={fieldStyle}>
                   <label style={labelStyle}>Vai trò *</label>
                   <select
                     value={form.roleName}
-                    disabled={saving}
-                    onChange={(e) => setForm({ ...form, roleName: e.target.value as CreateRole })}
+                    disabled={saving || tab === 'CUSTOMER'}
+                    onChange={(e) => { setForm({ ...form, roleName: e.target.value as CreateRole }); setErrors({}); }}
                     style={{ ...SELECT_STYLE, fontWeight: 600 }}
                   >
-                    {CREATE_ROLES.map((r) => (
+                    {/* Tab Nhân sự: chỉ Admin/Manager. Khách hàng được thêm ở tab Khách hàng */}
+                    {(tab === 'CUSTOMER' ? (['Customer'] as const) : (STAFF_ROLES as CreateRole[])).map((r) => (
                       <option key={r} value={r}>{ROLE_LABELS[r]}</option>
                     ))}
                   </select>
@@ -693,42 +782,49 @@ const AccountManagement: React.FC = () => {
 
                 <div className="form-group" style={fieldStyle}>
                   <label style={labelStyle}>Tên đăng nhập *</label>
-                  <input value={form.username} maxLength={50} autoFocus autoComplete="off"
-                    onChange={(e) => setForm({ ...form, username: e.target.value })} />
+                  <input value={form.username} maxLength={50} autoFocus autoComplete="off" style={invalid(errors.username)}
+                    onChange={(e) => setField('username', e.target.value)} onBlur={blurField('username')} />
+                  <FieldError msg={errors.username} />
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div className="form-group" style={fieldStyle}>
                     <label style={labelStyle}>Họ *</label>
-                    <input value={form.lastName} maxLength={50} autoComplete="off" placeholder="VD: Nguyễn Văn"
-                      onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
+                    <input value={form.lastName} maxLength={NAME_PART_MAX} autoComplete="off" style={invalid(errors.lastName)}
+                      onChange={(e) => setField('lastName', e.target.value)} onBlur={blurField('lastName')} />
+                    <FieldError msg={errors.lastName} />
                   </div>
                   <div className="form-group" style={fieldStyle}>
                     <label style={labelStyle}>Tên *</label>
-                    <input value={form.firstName} maxLength={50} autoComplete="off" placeholder="VD: An"
-                      onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
+                    <input value={form.firstName} maxLength={NAME_PART_MAX} autoComplete="off" style={invalid(errors.firstName)}
+                      onChange={(e) => setField('firstName', e.target.value)} onBlur={blurField('firstName')} />
+                    <FieldError msg={errors.firstName} />
                   </div>
                 </div>
                 <div className="form-group" style={fieldStyle}>
                   <label style={labelStyle}>Email *</label>
-                  <input type="email" value={form.email} maxLength={100} autoComplete="off" placeholder="ten@gmail.com"
-                    onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                  <input type="email" value={form.email} maxLength={100} autoComplete="off" placeholder="ten@gmail.com" style={invalid(errors.email)}
+                    onChange={(e) => setField('email', e.target.value)} onBlur={blurField('email')} />
+                  <FieldError msg={errors.email} />
                 </div>
                 <div className="form-group" style={fieldStyle}>
                   <label style={labelStyle}>Số điện thoại</label>
-                  <input value={form.phone} maxLength={20} autoComplete="off" inputMode="tel"
-                    onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/[^\d+\s.-]/g, '') })} />
+                  <input value={form.phone} maxLength={15} autoComplete="off" inputMode="tel" placeholder="Không bắt buộc" style={invalid(errors.phone)}
+                    onChange={(e) => setField('phone', e.target.value.replace(/[^\d+\s.-]/g, ''))} onBlur={blurField('phone')} />
+                  <FieldError msg={errors.phone} />
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div className="form-group" style={fieldStyle}>
                     <label style={labelStyle}>Ngày sinh{isCustomerForm ? ' *' : ''}</label>
-                    <input type="date" value={form.dateOfBirth} min={MIN_DOB} max={todayISO()}
-                      onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })} />
+                    <input type="date" value={form.dateOfBirth} min={MIN_DOB}
+                      max={isCustomerForm ? todayISO() : addYearsISO(todayISO(), -MIN_STAFF_AGE)} style={invalid(errors.dateOfBirth)}
+                      onChange={(e) => setField('dateOfBirth', e.target.value)} onBlur={blurField('dateOfBirth')} />
+                    <FieldError msg={errors.dateOfBirth} />
                   </div>
                   <div className="form-group" style={fieldStyle}>
                     <label style={labelStyle}>Giới tính</label>
                     <select value={form.gender} style={SELECT_STYLE}
-                      onChange={(e) => setForm({ ...form, gender: e.target.value })}>
+                      onChange={(e) => setField('gender', e.target.value)}>
                       <option value="">-- Chọn --</option>
                       <option value="Nam">Nam</option>
                       <option value="Nữ">Nữ</option>
@@ -739,40 +835,52 @@ const AccountManagement: React.FC = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div className="form-group" style={fieldStyle}>
                     <label style={labelStyle}>Tỉnh/Thành phố{isCustomerForm ? ' *' : ''}</label>
-                    <select value={addr.province} style={SELECT_STYLE} disabled={saving}
-                      onChange={(e) => setAddr({ ...addr, province: e.target.value, ward: '' })}>
+                    <select value={addr.province} style={{ ...SELECT_STYLE, ...invalid(errors.province) }} disabled={saving}
+                      onChange={(e) => setAddrPart({ province: e.target.value, ward: '' })}>
                       <option value="">-- Chọn Tỉnh/Thành --</option>
                       {PROVINCES.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
                     </select>
+                    <FieldError msg={errors.province} />
                   </div>
                   <div className="form-group" style={fieldStyle}>
                     <label style={labelStyle}>Phường/Xã{isCustomerForm ? ' *' : ''}</label>
-                    <select value={addr.ward} style={SELECT_STYLE} disabled={saving || !addr.province}
-                      onChange={(e) => setAddr({ ...addr, ward: e.target.value })}>
+                    <select value={addr.ward} style={{ ...SELECT_STYLE, ...invalid(errors.ward) }} disabled={saving || !addr.province}
+                      onChange={(e) => setAddrPart({ ward: e.target.value })}>
                       <option value="">-- Chọn Phường/Xã --</option>
                       {wardOptions.map((w) => <option key={w} value={w}>{w}</option>)}
                     </select>
+                    <FieldError msg={errors.ward} />
                   </div>
                 </div>
                 <div className="form-group" style={fieldStyle}>
                   <label style={labelStyle}>Số nhà, tên đường{isCustomerForm ? ' *' : ''}</label>
-                  <input value={addr.street} maxLength={150} autoComplete="off" placeholder="VD: 12 Lê Lợi"
-                    onChange={(e) => setAddr({ ...addr, street: e.target.value })} />
+                  <input value={addr.street} maxLength={150} autoComplete="off" placeholder="VD: 12 Lê Lợi" style={invalid(errors.street)}
+                    onChange={(e) => setAddrPart({ street: e.target.value })} onBlur={blurField('street')} />
+                  <FieldError msg={errors.street} />
                 </div>
 
                 {!isCustomerForm && (
                   <div className="form-group" style={fieldStyle}>
                     <label style={labelStyle}>Ngày vào làm</label>
                     <input type="date" value={form.hireDate} max={todayISO()}
-                      onChange={(e) => setForm({ ...form, hireDate: e.target.value })} />
+                      min={form.dateOfBirth ? addYearsISO(form.dateOfBirth, MIN_STAFF_AGE) : MIN_DOB} style={invalid(errors.hireDate)}
+                      onChange={(e) => setField('hireDate', e.target.value)} onBlur={blurField('hireDate')} />
+                    <FieldError msg={errors.hireDate} />
                   </div>
                 )}
 
-                <div className="form-group" style={{ ...fieldStyle, marginBottom: 0 }}>
+                <div className="form-group" style={fieldStyle}>
                   <label style={labelStyle}>Mật khẩu khởi tạo *</label>
-                  <input type="password" value={form.password} maxLength={50} autoComplete="new-password"
-                    onChange={(e) => setForm({ ...form, password: e.target.value })} />
-                  <span className="text-muted" style={{ fontSize: 12 }}>{PASSWORD_HINT}</span>
+                  <input type="password" value={form.password} maxLength={50} autoComplete="new-password" style={invalid(errors.password)}
+                    onChange={(e) => setField('password', e.target.value)} onBlur={blurField('password')} />
+                  {errors.password ? <FieldError msg={errors.password} /> : <span className="text-muted" style={{ fontSize: 12 }}>{PASSWORD_HINT}</span>}
+                </div>
+
+                <div className="form-group" style={{ ...fieldStyle, marginBottom: 0 }}>
+                  <label style={labelStyle}>Nhập lại mật khẩu *</label>
+                  <input type="password" value={form.confirmPassword} maxLength={50} autoComplete="new-password" style={invalid(errors.confirmPassword)}
+                    onChange={(e) => setField('confirmPassword', e.target.value)} onBlur={blurField('confirmPassword')} />
+                  <FieldError msg={errors.confirmPassword} />
                 </div>
               </div>
               <div className="modal-footer">

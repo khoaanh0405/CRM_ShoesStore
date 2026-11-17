@@ -4,7 +4,7 @@ const WITH_ACCOUNT = { account: { select: { accountId: true, username: true, isL
 
 export const employeeRepository = {
   findAll() {
-    return prisma.employee.findMany({ orderBy: { employeeId: 'asc' }, include: WITH_ACCOUNT });
+    return prisma.employee.findMany({ where: { isDeleted: false }, orderBy: { employeeId: 'asc' }, include: WITH_ACCOUNT });
   },
 
   findById(employeeId) {
@@ -29,6 +29,22 @@ export const employeeRepository = {
     return prisma.employee.update({
       where: { employeeId },
       data: { firstName, lastName, dateOfBirth, gender, phone, email, address, position },
+    });
+  },
+
+  /** Soft delete nhân sự — giữ lại hồ sơ để không mất lịch sử (AuditLog...). */
+  softDelete(employeeId) {
+    return prisma.employee.update({
+      where: { employeeId },
+      data: { isDeleted: true, deletedAt: new Date() },
+    });
+  },
+
+  /** Khôi phục nhân sự đã xóa mềm. */
+  restore(employeeId) {
+    return prisma.employee.update({
+      where: { employeeId },
+      data: { isDeleted: false, deletedAt: null },
     });
   },
 };

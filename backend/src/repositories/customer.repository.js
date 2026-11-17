@@ -100,6 +100,14 @@ export const customerRepository = {
     });
   },
 
+  /** Khôi phục khách hàng đã xóa mềm. */
+  restore(customerId) {
+    return prisma.customer.update({
+      where: { customerId },
+      data: { isDeleted: false, deletedAt: null },
+    });
+  },
+
   /** Thống kê tỷ lệ giới tính (mục 4.1.5) — chỉ tính khách hàng. */
   countByGender({ includeDeleted = false } = {}) {
     return prisma.customer.groupBy({

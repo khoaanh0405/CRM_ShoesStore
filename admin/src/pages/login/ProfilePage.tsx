@@ -7,6 +7,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { showConfirm } from '../../lib/dialog';
 import { normalizeEmail, validateEmail } from '../../utils/validation';
 import { fullNameOf } from '../../utils/name';
+import { useSessionWatcher } from '../../hooks/useSessionWatcher';
 import './ProfilePage.css';
 
 interface EmployeeProfile {
@@ -46,6 +47,7 @@ const toForm = (p: EmployeeProfile): ProfileForm => ({
 
 const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
+  useSessionWatcher(); // khóa/xóa tài khoản hoặc đổi vai trò -> alert + đăng xuất
   const clearAuth = useAuthStore((s) => s.clear);
   const [activeTab, setActiveTab] = useState<'profile' | 'edit' | 'password'>('profile');
   const [profile, setProfile] = useState<EmployeeProfile | null>(null);
@@ -299,11 +301,11 @@ const ProfilePage: React.FC = () => {
                 <div className="form-row-grid">
                   <div className="form-group">
                     <label>Họ *</label>
-                    <input className="profile-input" value={form.lastName} maxLength={50} placeholder="VD: Nguyễn Văn" onChange={set('lastName')} />
+                    <input className="profile-input" value={form.lastName} maxLength={50} onChange={set('lastName')} />
                   </div>
                   <div className="form-group">
                     <label>Tên *</label>
-                    <input className="profile-input" value={form.firstName} maxLength={50} placeholder="VD: An" onChange={set('firstName')} />
+                    <input className="profile-input" value={form.firstName} maxLength={50} onChange={set('firstName')} />
                   </div>
                 </div>
                 <div className="form-row-grid">

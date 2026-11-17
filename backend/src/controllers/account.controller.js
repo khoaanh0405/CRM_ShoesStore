@@ -107,6 +107,34 @@ export const accountController = {
     res.json(account);
   },
 
+  /** DELETE /api/admin/staff/:id — Admin xóa mềm tài khoản Manager. */
+  async removeStaff(req, res) {
+    const accountId = parseId(req.params.id, 'accountId');
+    const removed = await accountService.removeStaff(accountId, req.user.accountId);
+    await auditLogService.record(req, {
+      action: AUDIT_ACTION.DELETE_STAFF, entityType: AUDIT_ENTITY.ACCOUNT, entityId: accountId,
+      description: `Xóa tài khoản nhân sự "${removed.username}" (${buildFullName(removed)}) (xóa mềm)`,
+    });
+    res.status(204).send();
+  },
+
+  /** PATCH /api/accounts/:id/restore — Admin khôi phục tài khoản đã xóa mềm. */
+  async restore(req, res) {
+    const accountId = parseId(req.params.id, 'accountId');
+    const account = await accountService.restore(accountId);
+    try {
+      await auditLogService.record(req, {
+        action: AUDIT_ACTION.RESTORE_ACCOUNT ?? 'RESTORE_ACCOUNT',
+        entityType: AUDIT_ENTITY.ACCOUNT, entityId: accountId,
+        description: `Khôi phục tài khoản "${account.username}"`,
+      });
+    } catch (err) {
+      // Ghi log lỗi không được làm hỏng thao tác khôi phục đã thành công.
+      console.error('[restore] Không ghi được AuditLog:', err?.message);
+    }
+    res.json(account);
+  },
+
   async updateRole(req, res) {
     const accountId = parseId(req.params.id, 'accountId');
     const { roleName } = req.body;

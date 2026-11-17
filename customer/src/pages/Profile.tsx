@@ -23,6 +23,7 @@ import type { Feedback, FeedbackStatus } from '@/types/feedback';
 import type { Product } from '@/types/product';
 import type { SurveyTarget } from '@/types/survey';
 import { formatDate, formatDateOnly, formatPrice, toDateInput } from '@/utils/format';
+import { resolveImageUrl } from '@/utils/imageUrl';
 import { fullNameOf, NAME_PART_MAX, validateNamePart } from '@/utils/name';
 import { recommendProducts } from '@/utils/recommend';
 import { normalizeEmail, normalizePhone, normalizeSpaces, validateDateOfBirth, PASSWORD_RULES, validateEmail, validateNewPassword, validatePhone } from '@/utils/validation';
@@ -210,8 +211,8 @@ export default function ProfilePage() {
             {editing ? (
               <>
                 <div className="form-grid">
-                  <AppTextField label="Họ" placeholder="VD: Nguyễn Văn" maxLength={NAME_PART_MAX} value={form.lastName} onChangeText={setField('lastName')} error={errors.lastName} />
-                  <AppTextField label="Tên" placeholder="VD: An" maxLength={NAME_PART_MAX} value={form.firstName} onChangeText={setField('firstName')} error={errors.firstName} />
+                  <AppTextField label="Họ" maxLength={NAME_PART_MAX} value={form.lastName} onChangeText={setField('lastName')} error={errors.lastName} />
+                  <AppTextField label="Tên" maxLength={NAME_PART_MAX} value={form.firstName} onChangeText={setField('firstName')} error={errors.firstName} />
                   <AppTextField label="Ngày sinh" type="date" min="1900-01-01" max={new Date().toISOString().slice(0, 10)} value={form.dateOfBirth} onChangeText={setField('dateOfBirth')} error={errors.dateOfBirth} />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <span style={{ color: AppColors.textPrimary, fontSize: 13, fontWeight: 600 }}>Giới tính</span>
@@ -301,7 +302,7 @@ export default function ProfilePage() {
               ) : matched.map((p) => (
                 <div key={p.productId} className="mini-prod" onClick={() => navigate(`/product/${p.productId}`)}>
                   <div style={{ width: 52, height: 52, borderRadius: 12, overflow: 'hidden', background: AppColors.background, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    {p.imageUrl ? <img src={p.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <ImageOff size={18} color={AppColors.textSecondary} />}
+                    <ProductThumb src={p.imageUrl} alt={p.productName} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14.5, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.productName}</div>
@@ -440,6 +441,13 @@ export default function ProfilePage() {
       </div>
     </div>
   );
+}
+
+/** Ảnh thumbnail sản phẩm: dùng resolveImageUrl như ProductCard và có fallback khi ảnh lỗi. */
+function ProductThumb({ src, alt }: { src?: string | null; alt: string }) {
+  const [error, setError] = useState(false);
+  if (!src || error) return <ImageOff size={18} color={AppColors.textSecondary} />;
+  return <img src={resolveImageUrl(src)} alt={alt} onError={() => setError(true)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />;
 }
 
 function StatRow({ label, value }: { label: string; value: number | string }) {

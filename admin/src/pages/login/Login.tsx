@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../../services/auth';
+import { ACCOUNT_BLOCKED_MESSAGE, isAccountBlockedError } from '../../utils/accountStatus';
 import './Login.css';
 
 const Login: React.FC = () => {
@@ -20,6 +21,11 @@ const Login: React.FC = () => {
       // Đăng nhập thành công, chuyển hướng về Dashboard
       navigate('/');
     } catch (err: any) {
+      if (isAccountBlockedError(err)) {
+        window.alert(ACCOUNT_BLOCKED_MESSAGE);
+        setError(ACCOUNT_BLOCKED_MESSAGE);
+        return;
+      }
       setError(
         err.response?.data?.message || err.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.'
       );

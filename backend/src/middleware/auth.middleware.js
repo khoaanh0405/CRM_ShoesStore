@@ -8,11 +8,10 @@ import prisma from '../config/database.js';
 import { verifyToken } from '../utils/index.js';
 import { AppError, UnauthorizedError, ForbiddenError } from '../errors/AppError.js';
 import { ROLE_NAMES } from '../constants/index.js';
+import { ACCOUNT_LOCKED_CODE, ACCOUNT_DELETED_CODE, ROLE_CHANGED_CODE } from '../constants/auth.constant.js';
 
-/** Mã lỗi để frontend nhận biết "tài khoản vừa bị khóa" và tự đăng xuất người dùng. */
-export const ACCOUNT_LOCKED_CODE = 'ACCOUNT_LOCKED';
-/** Mã lỗi: tài khoản đã bị xóa/không còn tồn tại -> frontend hiện hộp thoại "Tài khoản của bạn không tồn tại". */
-export const ACCOUNT_DELETED_CODE = 'ACCOUNT_DELETED';
+// Giữ export cũ để các file khác đang import từ middleware vẫn chạy.
+export { ACCOUNT_LOCKED_CODE, ACCOUNT_DELETED_CODE, ROLE_CHANGED_CODE };
 
 /**
  * Bắt buộc phải đăng nhập. Gắn req.user = payload trong token.
@@ -35,17 +34,27 @@ export async function authenticate(req, res, next) {
   try {
     const account = await prisma.account.findUnique({
       where: { accountId: payload.accountId },
-      select: { isLocked: true, customer: { select: { isDeleted: true } } },
+      select: {
+        isLocked: true,
+        role: { select: { roleName: true } },
+        customer: { select: { isDeleted: true } },
+        employee: { select: { isDeleted: true } },
+      },
     });
 
     if (!account) {
       return next(new AppError('Tài khoản của bạn không tồn tại.', 401, ACCOUNT_DELETED_CODE));
     }
+    // Kiểm tra "đã xóa" trước "bị khóa" (xóa nhân sự = soft-delete + khóa account).
+    if (account.customer?.isDeleted || account.employee?.isDeleted) {
+      return next(new AppError('Tài khoản của bạn không tồn tại.', 401, ACCOUNT_DELETED_CODE));
+    }
     if (account.isLocked) {
       return next(new AppError('Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.', 401, ACCOUNT_LOCKED_CODE));
     }
-    if (account.customer?.isDeleted) {
-      return next(new AppError('Tài khoản của bạn không tồn tại.', 401, ACCOUNT_DELETED_CODE));
+    // Admin vừa đổi vai trò: token cũ còn mang roleName cũ -> bắt đăng nhập lại để lấy token mới.
+    if (account.role?.roleName && payload.roleName && account.role.roleName !== payload.roleName) {
+      return next(new AppError('Vai trò của bạn đã bị thay đổi. Vui lòng đăng nhập lại.', 401, ROLE_CHANGED_CODE));
     }
 
     req.user = payload;

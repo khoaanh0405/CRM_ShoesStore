@@ -6,11 +6,13 @@ import {
   employeeRepository,
 } from '../repositories/index.js';
 import {
+  AppError,
   NotFoundError,
   ValidationError,
   ConflictError,
   UnauthorizedError,
 } from '../errors/AppError.js';
+import { ACCOUNT_LOCKED_CODE, ACCOUNT_DELETED_CODE } from '../constants/auth.constant.js';
 import { ROLE_NAMES, MESSAGES } from '../constants/index.js';
 import { employeeService } from './employee.service.js';
 import {
@@ -184,15 +186,68 @@ export const accountService = {
     const isMatch = await comparePassword(password, account.passwordHash);
     if (!isMatch) throw new UnauthorizedError();
 
-    if (account.isLocked) {
-      throw new UnauthorizedError('Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.');
-    }
-
+    // Trả đúng `code` để frontend hiện alert "Tài khoản của bạn đã bị xóa hoặc khóa".
     if (account.customer?.isDeleted) {
-      throw new UnauthorizedError('Tài khoản khách hàng không còn tồn tại.');
+      throw new AppError('Tài khoản khách hàng không còn tồn tại.', 401, ACCOUNT_DELETED_CODE);
+    }
+    if (account.employee?.isDeleted) {
+      throw new AppError('Tài khoản nhân sự không còn tồn tại.', 401, ACCOUNT_DELETED_CODE);
+    }
+    if (account.isLocked) {
+      throw new AppError('Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.', 401, ACCOUNT_LOCKED_CODE);
     }
 
     return sanitize(account);
+  },
+
+  /**
+   * Admin xóa tài khoản nhân sự (Manager) — DELETE /api/admin/staff/:id. Luôn là SOFT DELETE:
+   * đánh dấu Employee.isDeleted và khóa Account trong 1 transaction (không hard-delete Account).
+   * Chỉ xóa Manager; muốn xóa Admin thì phải hạ quyền xuống Manager trước.
+   */
+  async removeStaff(accountId, requesterId) {
+    if (accountId === requesterId) throw new ConflictError('Bạn không thể xóa chính tài khoản của mình.');
+
+    const account = await accountRepository.findById(accountId);
+    if (!account) throw new NotFoundError(MESSAGES.NOT_FOUND.ACCOUNT);
+    if (!account.employee || account.employee.isDeleted) throw new NotFoundError(MESSAGES.NOT_FOUND.EMPLOYEE);
+    if (account.role?.roleName !== ROLE_NAMES.MANAGER) {
+      throw new ConflictError('Chỉ có thể xóa tài khoản Manager. Tài khoản Admin cần được hạ quyền trước khi xóa.');
+    }
+
+    await prisma.$transaction([
+      prisma.employee.update({ where: { employeeId: accountId }, data: { isDeleted: true, deletedAt: new Date() } }),
+      prisma.account.update({ where: { accountId }, data: { isLocked: true } }),
+    ]);
+    return { accountId, username: account.username, ...account.employee };
+  },
+
+  /**
+   * Admin khôi phục tài khoản đã xóa mềm — PATCH /api/accounts/:id/restore.
+   * Dùng chung cho khách hàng và nhân sự: bỏ cờ isDeleted ở hồ sơ tương ứng.
+   * Nhân sự bị xóa thì Account đã bị khóa (xem removeStaff) nên khôi phục phải mở khóa lại.
+   */
+  async restore(accountId) {
+    const account = await accountRepository.findById(accountId);
+    if (!account) throw new NotFoundError(MESSAGES.NOT_FOUND.ACCOUNT);
+
+    const customerDeleted = account.customer?.isDeleted === true;
+    const employeeDeleted = account.employee?.isDeleted === true;
+    if (!customerDeleted && !employeeDeleted) {
+      throw new ConflictError('Tài khoản này chưa bị xóa nên không cần khôi phục.');
+    }
+
+    const ops = [];
+    if (customerDeleted) {
+      ops.push(prisma.customer.update({ where: { customerId: accountId }, data: { isDeleted: false, deletedAt: null } }));
+    }
+    if (employeeDeleted) {
+      ops.push(prisma.employee.update({ where: { employeeId: accountId }, data: { isDeleted: false, deletedAt: null } }));
+      ops.push(prisma.account.update({ where: { accountId }, data: { isLocked: false } }));
+    }
+    await prisma.$transaction(ops);
+
+    return sanitize(await accountRepository.findById(accountId));
   },
 
   /** Khách hàng/Admin tự đổi mật khẩu — luôn yêu cầu đúng mật khẩu cũ. */

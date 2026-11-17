@@ -7,8 +7,11 @@ import type { Feedback } from '../../types/feedback';
 import Pagination from '../../components/Pagination';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { showConfirm } from '../../lib/dialog';
-import { normalizeEmail, validateEmail, validateNewPassword, PASSWORD_HINT } from '../../utils/validation';
-import { compareByName, fullNameOf } from '../../utils/name';
+import {
+  normalizeEmail, normalizePhone, normalizeSpaces, validateDateOfBirth, validateEmail,
+  validateNewPassword, validateNewUsername, validatePhone, PASSWORD_HINT,
+} from '../../utils/validation';
+import { compareByName, fullNameOf, NAME_PART_MAX, validateNamePart } from '../../utils/name';
 import { getAge } from '../../utils/customerStats';
 import { PROVINCES, EMPTY_ADDRESS, composeAddress, validateAddressParts, type AddressParts } from '../../constants/vnAddress';
 import './CustomersPage.css';
@@ -37,11 +40,20 @@ type StatusFilter = 'ALL' | 'ACTIVE' | 'LOCKED';
 type GenderFilter = 'ALL' | 'Nam' | 'Nữ' | 'Khác';
 type SortBy = 'NEWEST' | 'OLDEST' | 'NAME_ASC' | 'NAME_DESC';
 
-const EMPTY_FORM = { username: '', email: '', password: '', lastName: '', firstName: '', dateOfBirth: '', gender: '', phone: '', address: '' };
+const EMPTY_FORM = { username: '', email: '', password: '', confirmPassword: '', lastName: '', firstName: '', dateOfBirth: '', gender: '', phone: '', address: '' };
 
 /** Ngày hôm nay (yyyy-mm-dd) — ngày sinh không được vượt quá mốc này. */
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const MIN_DOB = '1900-01-01';
+
+type FormKey = 'username' | 'email' | 'password' | 'confirmPassword' | 'lastName' | 'firstName' | 'dateOfBirth' | 'phone' | 'street' | 'province' | 'ward';
+type FormErrors = Partial<Record<FormKey, string | null>>;
+const FORM_KEYS: FormKey[] = ['username', 'email', 'password', 'confirmPassword', 'lastName', 'firstName', 'dateOfBirth', 'phone', 'street', 'province', 'ward'];
+
+const ERROR_COLOR = '#DC2626';
+const FieldError = ({ msg }: { msg?: string | null }) =>
+  msg ? <span role="alert" style={{ color: ERROR_COLOR, fontSize: 12 }}>{msg}</span> : null;
+const invalid = (msg?: string | null): React.CSSProperties | undefined => (msg ? { borderColor: ERROR_COLOR } : undefined);
 
 const NotUpdated = () => <span className="text-muted not-updated">Chưa cập nhật</span>;
 const fmtDate = (iso?: string | null) =>
@@ -59,7 +71,9 @@ const CustomersPage = () => {
   const [form, setForm] = useState(EMPTY_FORM);
   const [addr, setAddr] = useState<AddressParts>({ ...EMPTY_ADDRESS });
   const wardOptions = useMemo(() => PROVINCES.find((p) => p.name === addr.province)?.wards ?? [], [addr.province]);
-  const closeAdd = () => { setShowAdd(false); setAddr({ ...EMPTY_ADDRESS }); };
+  const [errors, setErrors] = useState<FormErrors>({});
+  const closeAdd = () => { setShowAdd(false); setForm(EMPTY_FORM); setAddr({ ...EMPTY_ADDRESS }); setErrors({}); };
+  const openAdd = () => { setForm(EMPTY_FORM); setAddr({ ...EMPTY_ADDRESS }); setErrors({}); setShowAdd(true); };
 
   const [searchDraft, setSearchDraft] = useState('');
   const [filters, setFilters] = useState({ search: '', status: 'ALL' as StatusFilter, gender: 'ALL' as GenderFilter, pref: 'ALL' });
@@ -162,37 +176,67 @@ const CustomersPage = () => {
     ? selectedFeedbacks.reduce((s, f) => s + f.rating, 0) / selectedFeedbacks.length
     : 0;
 
-  const handleAdd = async () => {
-    if (!form.username.trim() || !form.lastName.trim() || !form.firstName.trim() || !form.dateOfBirth) {
-      toast.error('Vui lòng nhập đầy đủ Username, họ, tên và ngày sinh.');
-      return;
+  /** Kiểm tra 1 ô — dùng chung bộ validator với trang Đăng ký / Hồ sơ, cộng thêm kiểm tra trùng với danh sách đã tải. */
+  const validateField = (k: FormKey): string | null => {
+    switch (k) {
+      case 'lastName': return validateNamePart('Họ', form.lastName);
+      case 'firstName': return validateNamePart('Tên', form.firstName);
+      case 'dateOfBirth': return form.dateOfBirth ? validateDateOfBirth(form.dateOfBirth) : 'Vui lòng nhập ngày sinh.';
+      case 'username': {
+        const err = validateNewUsername(form.username);
+        if (err) return err;
+        const u = form.username.trim().toLowerCase();
+        return all.some((c) => (c.username ?? '').toLowerCase() === u) ? 'Tên đăng nhập đã tồn tại.' : null;
+      }
+      case 'email': {
+        const err = validateEmail(form.email);
+        if (err) return err;
+        const e = normalizeEmail(form.email);
+        return all.some((c) => normalizeEmail(c.email ?? '') === e) ? 'Email này đã được sử dụng.' : null;
+      }
+      case 'password': return validateNewPassword(form.password, form.username);
+      case 'confirmPassword':
+        if (!form.confirmPassword) return 'Vui lòng nhập lại mật khẩu.';
+        return form.confirmPassword !== form.password ? 'Mật khẩu nhập lại không khớp.' : null;
+      case 'phone': {
+        const err = validatePhone(form.phone);
+        if (err) return err;
+        const p = normalizePhone(form.phone);
+        return p && all.some((c) => normalizePhone(c.phone ?? '') === p) ? 'Số điện thoại này đã được sử dụng.' : null;
+      }
+      case 'street': case 'province': case 'ward':
+        return validateAddressParts(addr)[k] ?? null;
+      default: return null;
     }
-    if (form.dateOfBirth < MIN_DOB || form.dateOfBirth > todayISO()) {
-      toast.error('Ngày sinh không hợp lệ (chỉ được chọn đến hết ngày hôm nay).');
-      return;
-    }
-    const emailErr = validateEmail(form.email);
-    if (emailErr) return void toast.error(emailErr);
-    const pwErr = validateNewPassword(form.password, form.username);
-    if (pwErr) return void toast.error(pwErr);
+  };
 
-    const hasAnyAddr = !!(addr.street.trim() || addr.province || addr.ward);
-    if (hasAnyAddr) {
-      const errs = validateAddressParts(addr);
-      const firstErr = errs.street || errs.province || errs.ward;
-      if (firstErr) return void toast.error(firstErr);
+  const blurField = (k: FormKey) => () => setErrors((prev) => ({ ...prev, [k]: validateField(k) }));
+  const setAddrPart = (patch: Partial<AddressParts>) => {
+    setAddr((prev) => ({ ...prev, ...patch }));
+    setErrors((prev) => ({ ...prev, street: null, province: null, ward: null }));
+  };
+
+  const handleAdd = async () => {
+    if (saving) return;
+    const nextErrors = FORM_KEYS.reduce<FormErrors>((acc, k) => { acc[k] = validateField(k); return acc; }, {});
+    setErrors(nextErrors);
+    if (FORM_KEYS.some((k) => nextErrors[k])) {
+      toast.error('Vui lòng kiểm tra lại các trường được đánh dấu.');
+      return;
     }
 
     setSaving(true);
     try {
       await api.post('/admin/customers', {
-        ...form,
         username: form.username.trim(),
-        lastName: form.lastName.trim().replace(/\s+/g, ' '),
-        firstName: form.firstName.trim().replace(/\s+/g, ' '),
         email: normalizeEmail(form.email),
-        phone: form.phone.trim(),
-        address: hasAnyAddr ? composeAddress(addr) : '',
+        password: form.password,
+        lastName: normalizeSpaces(form.lastName),
+        firstName: normalizeSpaces(form.firstName),
+        dateOfBirth: form.dateOfBirth.trim(),
+        gender: form.gender,
+        phone: normalizePhone(form.phone),
+        address: composeAddress(addr),
       });
       toast.success('✅ Đã thêm khách hàng');
       closeAdd();
@@ -234,8 +278,12 @@ const CustomersPage = () => {
     }
   };
 
-  const setF = (field: keyof typeof EMPTY_FORM) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setForm({ ...form, [field]: e.target.value });
+  const setF = (field: keyof typeof EMPTY_FORM) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    // SĐT: chỉ cho nhập số và + . - khoảng trắng
+    const value = field === 'phone' ? e.target.value.replace(/[^\d+\s.-]/g, '') : e.target.value;
+    setForm((prev) => ({ ...prev, [field]: value }));
+    setErrors((prev) => ({ ...prev, [field]: null, ...(field === 'password' ? { confirmPassword: null } : {}) }));
+  };
 
   /** ===== Form phụ: chi tiết khách hàng ===== */
   const renderDetail = () => {
@@ -323,7 +371,7 @@ const CustomersPage = () => {
           <h1 className="page-title">Quản lý khách hàng</h1>
           <p className="page-subtitle">Chọn khách hàng ở danh sách để xem chi tiết, khóa/mở khóa hoặc xóa</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
+        <button className="btn btn-primary" onClick={openAdd}>
           <Plus size={16} /> Thêm khách hàng
         </button>
       </div>
@@ -447,29 +495,46 @@ const CustomersPage = () => {
 
             <div className="modal-body modal-grid-2">
               <div className="form-group">
-                <label className="form-label">Username *</label>
-                <input className="form-input" value={form.username} onChange={setF('username')} />
+                <label className="form-label">Tên đăng nhập *</label>
+                <input className="form-input" maxLength={50} autoComplete="off" style={invalid(errors.username)}
+                  value={form.username} onChange={setF('username')} onBlur={blurField('username')} />
+                <FieldError msg={errors.username} />
               </div>
               <div className="form-group">
                 <label className="form-label">Email *</label>
-                <input type="email" className="form-input" maxLength={100} placeholder="ten@gmail.com" value={form.email} onChange={setF('email')} />
+                <input type="email" className="form-input" maxLength={100} autoComplete="off" placeholder="ten@gmail.com" style={invalid(errors.email)}
+                  value={form.email} onChange={setF('email')} onBlur={blurField('email')} />
+                <FieldError msg={errors.email} />
               </div>
               <div className="form-group full-width">
                 <label className="form-label">Mật khẩu khởi tạo *</label>
-                <input type="password" className="form-input" maxLength={50} value={form.password} onChange={setF('password')} />
-                <span className="text-muted" style={{ fontSize: 12 }}>{PASSWORD_HINT}</span>
+                <input type="password" className="form-input" maxLength={50} autoComplete="new-password" style={invalid(errors.password)}
+                  value={form.password} onChange={setF('password')} onBlur={blurField('password')} />
+                {errors.password ? <FieldError msg={errors.password} /> : <span className="text-muted" style={{ fontSize: 12 }}>{PASSWORD_HINT}</span>}
+              </div>
+              <div className="form-group full-width">
+                <label className="form-label">Nhập lại mật khẩu *</label>
+                <input type="password" className="form-input" maxLength={50} autoComplete="new-password" style={invalid(errors.confirmPassword)}
+                  value={form.confirmPassword} onChange={setF('confirmPassword')} onBlur={blurField('confirmPassword')} />
+                <FieldError msg={errors.confirmPassword} />
               </div>
               <div className="form-group">
                 <label className="form-label">Họ *</label>
-                <input className="form-input" maxLength={50} placeholder="VD: Nguyễn Văn" value={form.lastName} onChange={setF('lastName')} />
+                <input className="form-input" maxLength={NAME_PART_MAX} style={invalid(errors.lastName)}
+                  value={form.lastName} onChange={setF('lastName')} onBlur={blurField('lastName')} />
+                <FieldError msg={errors.lastName} />
               </div>
               <div className="form-group">
                 <label className="form-label">Tên *</label>
-                <input className="form-input" maxLength={50} placeholder="VD: An" value={form.firstName} onChange={setF('firstName')} />
+                <input className="form-input" maxLength={NAME_PART_MAX} style={invalid(errors.firstName)}
+                  value={form.firstName} onChange={setF('firstName')} onBlur={blurField('firstName')} />
+                <FieldError msg={errors.firstName} />
               </div>
               <div className="form-group">
                 <label className="form-label">Ngày sinh *</label>
-                <input type="date" className="form-input" min={MIN_DOB} max={todayISO()} value={form.dateOfBirth} onChange={setF('dateOfBirth')} />
+                <input type="date" className="form-input" min={MIN_DOB} max={todayISO()} style={invalid(errors.dateOfBirth)}
+                  value={form.dateOfBirth} onChange={setF('dateOfBirth')} onBlur={blurField('dateOfBirth')} />
+                <FieldError msg={errors.dateOfBirth} />
               </div>
               <div className="form-group">
                 <label className="form-label">Giới tính</label>
@@ -481,29 +546,34 @@ const CustomersPage = () => {
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">SĐT</label>
-                <input className="form-input" value={form.phone} onChange={setF('phone')} />
+                <label className="form-label">Số điện thoại</label>
+                <input className="form-input" inputMode="tel" maxLength={15} placeholder="Không bắt buộc" style={invalid(errors.phone)}
+                  value={form.phone} onChange={setF('phone')} onBlur={blurField('phone')} />
+                <FieldError msg={errors.phone} />
               </div>
               <div className="form-group">
-                <label className="form-label">Tỉnh/Thành phố</label>
-                <select className="form-input" value={addr.province}
-                  onChange={(e) => setAddr({ ...addr, province: e.target.value, ward: '' })}>
+                <label className="form-label">Tỉnh/Thành phố *</label>
+                <select className="form-input" value={addr.province} style={invalid(errors.province)}
+                  onChange={(e) => setAddrPart({ province: e.target.value, ward: '' })}>
                   <option value="">-- Chọn Tỉnh/Thành --</option>
                   {PROVINCES.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
                 </select>
+                <FieldError msg={errors.province} />
               </div>
               <div className="form-group">
-                <label className="form-label">Phường/Xã</label>
-                <select className="form-input" value={addr.ward} disabled={!addr.province}
-                  onChange={(e) => setAddr({ ...addr, ward: e.target.value })}>
+                <label className="form-label">Phường/Xã *</label>
+                <select className="form-input" value={addr.ward} disabled={!addr.province} style={invalid(errors.ward)}
+                  onChange={(e) => setAddrPart({ ward: e.target.value })}>
                   <option value="">-- Chọn Phường/Xã --</option>
                   {wardOptions.map((w) => <option key={w} value={w}>{w}</option>)}
                 </select>
+                <FieldError msg={errors.ward} />
               </div>
               <div className="form-group full-width">
-                <label className="form-label">Số nhà, tên đường</label>
-                <input className="form-input" maxLength={150} placeholder="VD: 12 Lê Lợi" value={addr.street}
-                  onChange={(e) => setAddr({ ...addr, street: e.target.value })} />
+                <label className="form-label">Số nhà, tên đường *</label>
+                <input className="form-input" maxLength={150} placeholder="VD: 12 Lê Lợi" style={invalid(errors.street)}
+                  value={addr.street} onChange={(e) => setAddrPart({ street: e.target.value })} onBlur={blurField('street')} />
+                <FieldError msg={errors.street} />
               </div>
             </div>
 
